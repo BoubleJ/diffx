@@ -61,13 +61,13 @@ const resolvedClientDir = existsSync(clientDir)
   : resolve(process.cwd(), 'dist/client')
 
 const { port: actualPort } = await startServer({ port, clientDir: resolvedClientDir, customDiffArgs })
+const localUrl = `http://127.0.0.1:${actualPort}`
 
-console.log(`diffx server running at http://localhost:${actualPort}`)
+console.log(`diffx server running at ${localUrl}`)
 
 if (!values['no-open']) {
   const openModule = await import('open')
-  const url = `http://localhost:${actualPort}`
-  openModule.default(url)
+  openModule.default(localUrl)
 }
 
 process.on('SIGINT', () => {

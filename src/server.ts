@@ -213,6 +213,7 @@ export function startServer(options: {
     const server = serve({
       fetch: app.fetch,
       port: options.port,
+      hostname: '127.0.0.1',
     }, (info) => {
       resolve({ port: info.port })
     })
