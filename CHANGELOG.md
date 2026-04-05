@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0
+
+### Minor Changes
+
+- 5849f1b: Fix path traversal vulnerability and use random port by default
+
 ## 0.7.0 (2026-04-04)
 
 - Persist "Viewed" file state in server memory across page refreshes
