@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { basename, join, resolve } from 'node:path'
 import { readFileSync } from 'node:fs'
 import { isSafePath } from './path.js'
@@ -41,7 +41,7 @@ export function getFileContent(filePath: string, version: 'old' | 'new'): Buffer
   }
   // old version: try staged first, then HEAD
   try {
-    return execSync(`git show HEAD:${filePath}`, { maxBuffer: 50 * 1024 * 1024 })
+    return execFileSync('git', ['show', `HEAD:${filePath}`], { maxBuffer: 50 * 1024 * 1024 })
   } catch {
     return null
   }
@@ -49,7 +49,7 @@ export function getFileContent(filePath: string, version: 'old' | 'new'): Buffer
 
 export function isGitRepo(): boolean {
   try {
-    execSync('git rev-parse --is-inside-work-tree', { stdio: 'pipe' })
+    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { stdio: 'pipe' })
     return true
   } catch {
     return false
@@ -57,7 +57,7 @@ export function isGitRepo(): boolean {
 }
 
 export function getRepoRoot(): string {
-  return execSync('git rev-parse --show-toplevel', {
+  return execFileSync('git', ['rev-parse', '--show-toplevel'], {
     encoding: 'utf-8',
   }).trim()
 }
@@ -68,27 +68,26 @@ export function getRepoName(): string {
 
 export function getBranchName(): string {
   try {
-    return execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim()
+    return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf-8' }).trim()
   } catch {
     return ''
   }
 }
 
 export function getCustomGitDiff(args: string[]): string {
-  const cmd = ['git', 'diff', ...args].join(' ')
-  return execSync(cmd, { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 })
+  return execFileSync('git', ['diff', ...args], { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 })
 }
 
 export function getGitDiff(options: { staged?: boolean; untracked?: boolean } = {}): string {
   const parts: string[] = []
 
   // unstaged changes (always included as the base)
-  const unstaged = execSync('git diff', { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 })
+  const unstaged = execFileSync('git', ['diff'], { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 })
   if (unstaged) parts.push(unstaged)
 
   // staged changes
   if (options.staged) {
-    const staged = execSync('git diff --staged', { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 })
+    const staged = execFileSync('git', ['diff', '--staged'], { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 })
     if (staged) parts.push(staged)
   }
 
@@ -122,7 +121,7 @@ export function getTabSizeForFiles(filePaths: string[]): Record<string, number> 
 
 function getUntrackedFilesDiff(): string {
   const root = getRepoRoot()
-  const output = execSync('git ls-files --others --exclude-standard', {
+  const output = execFileSync('git', ['ls-files', '--others', '--exclude-standard'], {
     encoding: 'utf-8',
     maxBuffer: 50 * 1024 * 1024,
   }).trim()
