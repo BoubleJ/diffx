@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import type { FileDiffMetadata, DiffLineAnnotation, AnnotationSide } from '@pierre/diffs'
 import type { ReviewComment } from '../../types'
 import type { BinaryFileInfo } from '../hooks/useDiff'
@@ -32,7 +32,23 @@ export const DiffViewer = memo(function DiffViewer({
   onAddComment,
   onDeleteComment,
 }: DiffViewerProps) {
-  if (files.length === 0) {
+  const sortedFiles = useMemo(() => {
+    return [...files].sort((a, b) => {
+      const partsA = a.name.split('/')
+      const partsB = b.name.split('/')
+      const len = Math.min(partsA.length, partsB.length)
+      for (let i = 0; i < len; i++) {
+        const aIsDir = i < partsA.length - 1
+        const bIsDir = i < partsB.length - 1
+        if (aIsDir !== bIsDir) return aIsDir ? -1 : 1
+        const cmp = partsA[i].localeCompare(partsB[i])
+        if (cmp !== 0) return cmp
+      }
+      return partsA.length - partsB.length
+    })
+  }, [files])
+
+  if (sortedFiles.length === 0) {
     return (
       <div className="empty-state">
         <p>No changes found.</p>
@@ -42,7 +58,7 @@ export const DiffViewer = memo(function DiffViewer({
 
   return (
     <div className="diff-viewer">
-      {files.map((file, index) => {
+      {sortedFiles.map((file, index) => {
         const filePath = file.name
         const binaryInfo = binaryFiles.get(filePath)
         if (binaryInfo) {
