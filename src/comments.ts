@@ -1,10 +1,11 @@
-import type { ReviewComment } from './types.js'
+import type { ReviewComment, CommentReply } from './types.js'
 
 export interface CommentStore {
   getAll(): Promise<ReviewComment[]>
   add(comment: ReviewComment): Promise<ReviewComment>
   update(id: string, fields: { body?: string; status?: ReviewComment['status'] }): Promise<ReviewComment | null>
   remove(id: string): Promise<boolean>
+  addReply(commentId: string, reply: CommentReply): Promise<ReviewComment | null>
 }
 
 export class InMemoryCommentStore implements CommentStore {
@@ -32,5 +33,12 @@ export class InMemoryCommentStore implements CommentStore {
     if (index === -1) return false
     this.comments.splice(index, 1)
     return true
+  }
+
+  async addReply(commentId: string, reply: CommentReply): Promise<ReviewComment | null> {
+    const comment = this.comments.find((c) => c.id === commentId)
+    if (!comment) return null
+    comment.replies.push(reply)
+    return comment
   }
 }

@@ -155,6 +155,7 @@ export function createApp(clientDir: string, customDiffArgs?: string[], commentS
       body: body.body,
       status: 'open' as const,
       createdAt: Date.now(),
+      replies: [],
     }
     const created = await store.add(comment)
     return c.json(created, 201)
@@ -164,6 +165,19 @@ export function createApp(clientDir: string, customDiffArgs?: string[], commentS
     const id = c.req.param('id')
     const { body, status } = await c.req.json()
     const updated = await store.update(id, { body, status })
+    if (!updated) return c.json({ error: 'Comment not found' }, 404)
+    return c.json(updated)
+  })
+
+  app.post('/api/comments/:id/replies', async (c) => {
+    const commentId = c.req.param('id')
+    const { body } = await c.req.json()
+    const reply = {
+      id: crypto.randomUUID(),
+      body,
+      createdAt: Date.now(),
+    }
+    const updated = await store.addReply(commentId, reply)
     if (!updated) return c.json({ error: 'Comment not found' }, 404)
     return c.json(updated)
   })

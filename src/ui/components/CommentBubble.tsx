@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { UserCircle, CheckCircle2 } from 'lucide-react'
+import { UserCircle, CheckCircle2, Bot } from 'lucide-react'
 import type { ReviewComment } from '../../types'
 
 function timeAgo(timestamp: number): string {
@@ -50,6 +50,19 @@ export function CommentBubble({ comment, onDelete }: CommentBubbleProps) {
         )}
       </div>
       <div className="comment-bubble-body">{comment.body}</div>
+      {comment.replies?.length > 0 && (
+        <div className="comment-replies">
+          {comment.replies.map((reply) => (
+            <div key={reply.id} className="comment-reply">
+              <div className="comment-reply-header">
+                <Bot size={16} className="comment-reply-avatar" />
+                <span className="comment-bubble-time">{timeAgo(reply.createdAt)}</span>
+              </div>
+              <div className="comment-reply-body">{reply.body}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

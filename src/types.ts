@@ -1,3 +1,9 @@
+export interface CommentReply {
+  id: string
+  body: string
+  createdAt: number
+}
+
 export interface ReviewComment {
   id: string
   filePath: string
@@ -7,4 +13,5 @@ export interface ReviewComment {
   body: string
   status: 'open' | 'resolved'
   createdAt: number
+  replies: CommentReply[]
 }

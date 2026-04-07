@@ -509,6 +509,48 @@ body {
   font-weight: 500;
 }
 
+/* Comment replies */
+.comment-replies {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comment-reply {
+  padding: 8px 10px;
+  background: var(--bg-secondary, rgba(0, 0, 0, 0.03));
+  border-radius: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .comment-reply {
+    background: rgba(255, 255, 255, 0.04);
+  }
+}
+
+.comment-reply-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.comment-reply-avatar {
+  flex-shrink: 0;
+  color: var(--accent, #6f42c1);
+}
+
+.comment-reply-body {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
 /* Binary file diff */
 .binary-diff-header {
   display: flex;
