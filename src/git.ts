@@ -41,7 +41,7 @@ export function getFileContent(filePath: string, version: 'old' | 'new'): Buffer
   }
   // old version: try staged first, then HEAD
   try {
-    return execFileSync('git', ['show', `HEAD:${filePath}`], { maxBuffer: 50 * 1024 * 1024 })
+    return execFileSync('git', ['show', `HEAD:${filePath}`], { stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 })
   } catch {
     return null
   }
@@ -68,7 +68,7 @@ export function getRepoName(): string {
 
 export function getBranchName(): string {
   try {
-    return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf-8' }).trim()
+    return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { stdio: 'pipe', encoding: 'utf-8' }).trim()
   } catch {
     return ''
   }
