@@ -12,6 +12,8 @@ import {
   FileQuestion,
   MessageSquare,
   Search,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react'
 import type { FileDiffMetadata } from '@pierre/diffs'
 
@@ -22,6 +24,8 @@ interface FileTreeProps {
   viewedFiles: Set<string>
   untrackedFiles: Set<string>
   onFileClick: (filePath: string) => void
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
 interface TreeNode {
@@ -214,7 +218,7 @@ function TreeFile({
   )
 }
 
-export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrackedFiles, onFileClick }: FileTreeProps) {
+export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrackedFiles, onFileClick, collapsed, onToggleCollapse }: FileTreeProps) {
   const [filter, setFilter] = useState('')
 
   const filteredFiles = useMemo(() => {
@@ -225,9 +229,38 @@ export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrac
 
   const tree = useMemo(() => buildTree(filteredFiles), [filteredFiles])
 
+  if (collapsed) {
+    return (
+      <div className="ft">
+        <div className="ft-search">
+          {onToggleCollapse && (
+            <button
+              className="sidebar-toggle"
+              onClick={onToggleCollapse}
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
+            >
+              <PanelLeftOpen size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="ft">
       <div className="ft-search">
+        {onToggleCollapse && (
+          <button
+            className="sidebar-toggle"
+            onClick={onToggleCollapse}
+            title="Collapse sidebar"
+            aria-label="Collapse sidebar"
+          >
+            <PanelLeftClose size={16} />
+          </button>
+        )}
         <div className="ft-search-wrapper">
           <Search size={14} className="ft-search-icon" />
           <input

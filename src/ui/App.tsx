@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { parsePatchFiles } from '@pierre/diffs'
 import type { FileDiffMetadata } from '@pierre/diffs'
 import type { ReviewComment } from '../types'
@@ -20,8 +20,21 @@ export function App() {
   const { comments, addComment, removeComment, copyAllComments } =
     useComments()
   const [activeFile, setActiveFile] = useState<string | null>(null)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('diffx-sidebar-collapsed') === 'true'
+    } catch {
+      return false
+    }
+  })
   const { viewedFiles, setViewed } = useViewed()
   const diffViewerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('diffx-sidebar-collapsed', String(sidebarCollapsed))
+    } catch {}
+  }, [sidebarCollapsed])
 
   const untrackedSet = useMemo(() => new Set(untrackedFiles), [untrackedFiles])
 
@@ -146,7 +159,7 @@ export function App() {
         onCopyComments={copyAllComments}
       />
       <div className="app-body">
-        <aside className="sidebar">
+        <aside className={`sidebar ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
           <FileTree
             files={files}
             activeFile={activeFile}
@@ -154,8 +167,10 @@ export function App() {
             viewedFiles={viewedFiles}
             untrackedFiles={untrackedSet}
             onFileClick={handleFileClick}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
           />
-          <CommentTracker comments={comments} />
+          {!sidebarCollapsed && <CommentTracker comments={comments} />}
         </aside>
         <main className="main" ref={diffViewerRef}>
           <DiffViewer
