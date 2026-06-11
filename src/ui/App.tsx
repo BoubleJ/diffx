@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { parsePatchFiles } from '@pierre/diffs'
+import { Virtualizer } from '@pierre/diffs/react'
 import type { FileDiffMetadata } from '@pierre/diffs'
 import type { ReviewComment } from '../types'
 import { useDiff } from './hooks/useDiff'
@@ -28,8 +29,6 @@ export function App() {
       return false
     }
   })
-  const diffViewerRef = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
     try {
       localStorage.setItem('diffx-sidebar-collapsed', String(sidebarCollapsed))
@@ -182,19 +181,21 @@ export function App() {
           />
           {!sidebarCollapsed && <CommentTracker comments={comments} />}
         </aside>
-        <main className="main" ref={diffViewerRef}>
-          <DiffViewer
-            files={displayFiles}
-            diffStyle={settings.diffStyle}
-            tabSizeMap={tabSizeMap}
-            defaultTabSize={settings.defaultTabSize}
-            viewedFiles={viewedFiles}
-            binaryFiles={binaryFileMap}
-            onViewedChange={handleViewedChange}
-            fileAnnotationsMap={fileAnnotationsMap}
-            onAddComment={addComment}
-            onDeleteComment={removeComment}
-          />
+        <main className="main">
+          <Virtualizer className="main-scroll" contentClassName="main-content">
+            <DiffViewer
+              files={displayFiles}
+              diffStyle={settings.diffStyle}
+              tabSizeMap={tabSizeMap}
+              defaultTabSize={settings.defaultTabSize}
+              viewedFiles={viewedFiles}
+              binaryFiles={binaryFileMap}
+              onViewedChange={handleViewedChange}
+              fileAnnotationsMap={fileAnnotationsMap}
+              onAddComment={addComment}
+              onDeleteComment={removeComment}
+            />
+          </Virtualizer>
         </main>
       </div>
     </div>

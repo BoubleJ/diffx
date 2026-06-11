@@ -46,13 +46,15 @@ body {
 }
 
 .app {
-    min-height: 100vh;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 /* Toolbar */
 .toolbar {
-    position: sticky;
-    top: 0;
+    flex-shrink: 0;
     z-index: 100;
     display: flex;
     align-items: center;
@@ -293,14 +295,14 @@ body {
 /* Layout */
 .app-body {
     display: flex;
+    flex: 1;
+    min-height: 0;
 }
 
 .sidebar {
-    position: sticky;
-    top: 41px;
     width: 300px;
     min-width: 300px;
-    height: calc(100vh - 41px);
+    height: 100%;
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--border);
@@ -337,6 +339,19 @@ body {
 .main {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Virtualizer scroll container and its content wrapper */
+.main-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.main-content {
     padding: 24px;
 }
 
@@ -351,7 +366,7 @@ body {
     border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
-    scroll-margin-top: 60px;
+    scroll-margin-top: 16px;
 }
 
 .file-diff-viewed {
@@ -471,7 +486,7 @@ body {
     margin: 8px 16px;
     background: var(--bg);
     border: 1px solid var(--border);
-    scroll-margin-top: 80px;
+    scroll-margin-top: 56px;
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
