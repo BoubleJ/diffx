@@ -5,6 +5,7 @@ export interface Settings {
   untracked: boolean
   diffStyle: 'split' | 'unified'
   defaultTabSize: number
+  softWrap: boolean
   browser?: string
 }
 
@@ -13,6 +14,7 @@ const DEFAULTS: Settings = {
   untracked: true,
   diffStyle: 'split',
   defaultTabSize: 4,
+  softWrap: false,
 }
 
 export function useSettings() {

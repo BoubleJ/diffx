@@ -17,6 +17,7 @@ interface FileDiffCardProps {
   annotations: DiffLineAnnotation<ReviewComment>[]
   diffStyle: 'split' | 'unified'
   tabSize: number
+  softWrap: boolean
   viewed: boolean
   onViewedChange: (filePath: string, viewed: boolean) => void
   onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => void
@@ -30,6 +31,7 @@ export const FileDiffCard = memo(function FileDiffCard({
   annotations,
   diffStyle,
   tabSize,
+  softWrap,
   viewed,
   onViewedChange,
   onAddComment,
@@ -95,6 +97,7 @@ export const FileDiffCard = memo(function FileDiffCard({
               enableGutterUtility: true,
               theme: { dark: 'github-dark', light: 'github-light' },
               themeType: 'system',
+              overflow: softWrap ? 'wrap' : 'scroll',
               unsafeCSS: `:host { --diffs-tab-size: ${tabSize}; }`,
             }}
             lineAnnotations={allAnnotations}

@@ -159,11 +159,13 @@ export function App() {
         diffStyle={settings.diffStyle}
         diffOptions={{ staged: settings.staged, untracked: settings.untracked }}
         defaultTabSize={settings.defaultTabSize}
+        softWrap={settings.softWrap}
         browser={settings.browser}
         customMode={customMode}
         onDiffStyleChange={(style) => updateSettings({ diffStyle: style })}
         onDiffOptionsChange={(options) => updateSettings(options)}
         onDefaultTabSizeChange={(size) => updateSettings({ defaultTabSize: size })}
+        onSoftWrapChange={(softWrap) => updateSettings({ softWrap })}
         onBrowserChange={(browser) => updateSettings({ browser })}
         onCopyComments={copyAllComments}
       />
@@ -188,6 +190,7 @@ export function App() {
               diffStyle={settings.diffStyle}
               tabSizeMap={tabSizeMap}
               defaultTabSize={settings.defaultTabSize}
+              softWrap={settings.softWrap}
               viewedFiles={viewedFiles}
               binaryFiles={binaryFileMap}
               onViewedChange={handleViewedChange}

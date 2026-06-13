@@ -12,11 +12,13 @@ interface ToolbarProps {
   diffStyle: 'split' | 'unified'
   diffOptions: DiffOptions
   defaultTabSize: number
+  softWrap: boolean
   browser?: string
   customMode: boolean
   onDiffStyleChange: (style: 'split' | 'unified') => void
   onDiffOptionsChange: (options: DiffOptions) => void
   onDefaultTabSizeChange: (size: number) => void
+  onSoftWrapChange: (softWrap: boolean) => void
   onBrowserChange: (browser: string) => void
   onCopyComments: () => Promise<void>
 }
@@ -31,11 +33,13 @@ export function Toolbar({
   diffStyle,
   diffOptions,
   defaultTabSize,
+  softWrap,
   browser,
   customMode,
   onDiffStyleChange,
   onDiffOptionsChange,
   onDefaultTabSizeChange,
+  onSoftWrapChange,
   onBrowserChange,
   onCopyComments,
 }: ToolbarProps) {
@@ -126,6 +130,14 @@ export function Toolbar({
                   </label>
                 </>
               )}
+              <label className="settings-item">
+                <input
+                  type="checkbox"
+                  checked={softWrap}
+                  onChange={(e) => onSoftWrapChange(e.target.checked)}
+                />
+                Soft wrap
+              </label>
               <div className="settings-item settings-item-spaced">
                 <span>Default tab size</span>
                 <select

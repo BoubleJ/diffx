@@ -10,6 +10,7 @@ interface DiffViewerProps {
   diffStyle: 'split' | 'unified'
   tabSizeMap: Record<string, number>
   defaultTabSize: number
+  softWrap: boolean
   viewedFiles: Set<string>
   binaryFiles: Map<string, BinaryFileInfo>
   onViewedChange: (filePath: string, viewed: boolean) => void
@@ -25,6 +26,7 @@ export const DiffViewer = memo(function DiffViewer({
   diffStyle,
   tabSizeMap,
   defaultTabSize,
+  softWrap,
   viewedFiles,
   binaryFiles,
   onViewedChange,
@@ -81,6 +83,7 @@ export const DiffViewer = memo(function DiffViewer({
             annotations={fileAnnotationsMap.get(filePath) ?? emptyAnnotations}
             diffStyle={diffStyle}
             tabSize={tabSizeMap[filePath] ?? defaultTabSize}
+            softWrap={softWrap}
             viewed={viewedFiles.has(filePath)}
             onViewedChange={onViewedChange}
             onAddComment={onAddComment}
