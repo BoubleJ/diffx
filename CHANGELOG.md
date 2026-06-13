@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.0
+
+### Minor Changes
+
+- Add soft wrap toggle for long lines in settings dropdown
+
 ## 0.13.0
 
 ### Minor Changes
