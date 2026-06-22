@@ -365,7 +365,9 @@ body {
 .file-diff-card {
     border: 1px solid var(--border);
     border-radius: 6px;
-    overflow: hidden;
+    /* `clip` keeps the rounded-corner clipping without becoming a scroll
+       container, so the diff's sticky header can stick to `.main-scroll`. */
+    overflow: clip;
     scroll-margin-top: 16px;
 }
 

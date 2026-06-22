@@ -93,6 +93,7 @@ export const FileDiffCard = memo(function FileDiffCard({
             fileDiff={fileDiff}
             options={{
               diffStyle,
+              stickyHeader: true,
               expansionLineCount: 20,
               enableGutterUtility: true,
               theme: { dark: 'github-dark', light: 'github-light' },
