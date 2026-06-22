@@ -76,7 +76,12 @@ export const DiffViewer = memo(function DiffViewer({
         }
         return (
           <FileDiffCard
-            key={`${filePath}-${index}`}
+            // Include isPartial in the key so the card remounts when a file is
+            // upgraded from a partial (patch-only) to a full diff. The
+            // @pierre/diffs <FileDiff> under the Virtualizer does not re-process
+            // an in-place fileDiff change, so without a remount the upgraded
+            // diff never renders and hunk-context expansion controls never appear.
+            key={`${filePath}-${index}-${file.isPartial ? 'p' : 'f'}`}
             id={`file-${filePath}`}
             fileDiff={file}
             filePath={filePath}
