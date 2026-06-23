@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   root: '.',
   define: {
-    'process.env': '{}',
+    'process.env.NODE_ENV': JSON.stringify('production'),
   },
   build: {
     outDir: 'dist/client',

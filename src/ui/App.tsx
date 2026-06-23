@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Resizable } from 'react-resizable'
-import 'react-resizable/css/styles.css'
 import { parsePatchFiles } from '@pierre/diffs'
 import { Virtualizer } from '@pierre/diffs/react'
 import type { FileDiffMetadata } from '@pierre/diffs'
@@ -40,7 +39,7 @@ export function App() {
     useComments()
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [sidebar, setSidebar] = useState(() => SidebarStorage.load())
-  const maxSidebarWidth = useWindowSize({ factor: 0.5 })
+  const maxSidebarWidth = Math.max(SidebarStorage.minSize, useWindowSize({ factor: 0.5 }))
 
   const handleResize = useCallback((_e: React.SyntheticEvent, data: { size: { width: number } }) => {
     setSidebar((prev) => prev.withSize(data.size.width))
