@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { basename, join, resolve } from 'node:path'
 import { readFileSync, lstatSync, readlinkSync } from 'node:fs'
 import { isSafePath } from './path.js'
@@ -207,4 +207,90 @@ function getUntrackedFilesDiff(repo: string): string {
   }
 
   return patches.length > 0 ? '\n' + patches.join('\n') : ''
+}
+
+export interface BranchList {
+  local: string[]
+  remote: string[]
+  current: string
+  defaultTarget: string | null
+}
+
+export function listBranches(repo: string): BranchList {
+  const output = run(repo, ['for-each-ref', '--format=%(refname)%00%(symref)', 'refs/heads', 'refs/remotes'])
+  const local: string[] = []
+  const remote: string[] = []
+  for (const line of output.split('\n')) {
+    if (!line) continue
+    const [ref, symref] = line.split('\0')
+    if (symref) continue
+    if (ref.startsWith('refs/heads/')) local.push(ref.slice('refs/heads/'.length))
+    else if (ref.startsWith('refs/remotes/')) remote.push(ref.slice('refs/remotes/'.length))
+  }
+  local.sort()
+  remote.sort()
+  return { local, remote, current: getBranchName(repo), defaultTarget: findDefaultTarget(repo, local, remote) }
+}
+
+function findDefaultTarget(repo: string, local: string[], remote: string[]): string | null {
+  try {
+    const head = run(repo, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']).trim()
+    if (head) return head
+  } catch {
+    // origin/HEAD is not set
+  }
+  const all = new Set([...local, ...remote])
+  for (const candidate of ['origin/main', 'origin/master', 'main', 'master']) {
+    if (all.has(candidate)) return candidate
+  }
+  return null
+}
+
+export function resolveCommit(repo: string, ref: string): string | null {
+  if (!ref || ref.startsWith('-')) return null
+  try {
+    return run(repo, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]).trim() || null
+  } catch {
+    return null
+  }
+}
+
+export function getMergeBase(repo: string, a: string, b: string): string | null {
+  try {
+    return run(repo, ['merge-base', a, b]).trim() || null
+  } catch {
+    return null
+  }
+}
+
+export function getRangeDiff(repo: string, fromSha: string, toSha: string): string {
+  return run(repo, ['diff', ...DIFF_FLAGS, fromSha, toSha])
+}
+
+export function getFileAtCommit(repo: string, sha: string, filePath: string): Buffer | null {
+  if (!isSafePath(filePath, repo)) return null
+  try {
+    return runBuffer(repo, ['show', `${sha}:${filePath}`])
+  } catch {
+    return null
+  }
+}
+
+export function getHeadSha(repo: string): string | null {
+  return resolveCommit(repo, 'HEAD')
+}
+
+export function fetchAll(repo: string, timeoutMs = 60_000): Promise<{ ok: true } | { ok: false; error: string }> {
+  return new Promise((done) => {
+    execFile(
+      'git',
+      ['fetch', '--all', '--prune'],
+      { cwd: repo, timeout: timeoutMs, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
+      (err, _stdout, stderr) => {
+        if (!err) return done({ ok: true })
+        const message = stderr?.toString().trim() || err.message
+        done({ ok: false, error: err.killed ? `git fetch가 ${timeoutMs / 1000}초 안에 끝나지 않았습니다` : message })
+      },
+    )
+  })
 }
