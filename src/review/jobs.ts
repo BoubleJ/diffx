@@ -13,6 +13,7 @@ export interface StartInput {
   ctx: ReviewContext
   key: string
   fingerprint: string
+  excluded?: string[]
 }
 
 export type RunFn = (provider: ReviewProvider, ctx: ReviewContext, options: RunOptions) => Promise<ReviewResult>
@@ -35,7 +36,7 @@ export class ReviewJobs {
 
   constructor(private store: ReviewStore, private run: RunFn = runReview) {}
 
-  start({ provider, ctx, key, fingerprint }: StartInput): string {
+  start({ provider, ctx, key, fingerprint, excluded }: StartInput): string {
     const existing = [...this.jobs.values()].find((j) => this.isActive(j) && j.repoPath === ctx.repoPath && j.key === key && j.provider === provider.id)
     if (existing) return existing.id
 
@@ -75,7 +76,7 @@ export class ReviewJobs {
 
     this.run(provider, ctx, { signal: job.controller.signal, onProgress: (text) => emit({ type: 'progress', text }) })
       .then((result) => {
-        const record: ReviewRecord = { provider: provider.id, providerLabel: provider.label, createdAt: Date.now(), key, fingerprint, result }
+        const record: ReviewRecord = { provider: provider.id, providerLabel: provider.label, createdAt: Date.now(), key, fingerprint, result, ...(excluded && excluded.length > 0 ? { excluded } : {}) }
         try {
           this.store.save(ctx.repoPath, record)
         } catch (err) {

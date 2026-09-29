@@ -15,6 +15,7 @@ import { ReviewStore } from './review/store.js'
 import { PROVIDERS } from './review/providers/index.js'
 import { detectProvider } from './review/runner.js'
 import { fingerprint } from './review/fingerprint.js'
+import { excludeFilesFromPatch } from './review/filterPatch.js'
 import type { ReviewProvider } from './review/types.js'
 
 export interface AppOptions {
@@ -303,7 +304,7 @@ export function createApp(options: AppOptions) {
   })
 
   app.post('/api/review', async (c) => {
-    let body: { provider: string; mode?: string; source?: string; target?: string; staged?: boolean; untracked?: boolean }
+    let body: { provider: string; mode?: string; source?: string; target?: string; staged?: boolean; untracked?: boolean; exclude?: unknown }
     try {
       body = await c.req.json()
     } catch {
@@ -317,9 +318,12 @@ export function createApp(options: AppOptions) {
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
+    const exclude = Array.isArray(body.exclude) && body.exclude.every((p) => typeof p === 'string') ? (body.exclude as string[]) : []
+    const patch = excludeFilesFromPatch(resolved.patch, exclude)
     const id = reviewJobs.start({
       provider,
       key: resolved.key,
+      excluded: exclude,
       fingerprint: fingerprint(resolved),
       ctx: {
         repoPath: repo,
@@ -330,8 +334,8 @@ export function createApp(options: AppOptions) {
         customArgs: customDiffArgs,
         staged: resolved.mode === 'worktree' && body.staged === true,
         sourceCheckedOut: resolved.mode !== 'branch' || getHeadSha(repo) === resolved.sourceSha,
-        files: parseFilePaths(resolved.patch),
-        patch: resolved.patch,
+        files: parseFilePaths(patch),
+        patch,
       },
     })
     return c.json({ id })

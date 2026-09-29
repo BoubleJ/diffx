@@ -153,6 +153,36 @@ describe('review API', () => {
     expect(signal!.reason).toBe(STOP_IMMEDIATELY)
   })
 
+  it('removes excluded files from the review context and stores them on the record', async () => {
+    let receivedCtx: { files: string[]; patch: string } | undefined
+    const { app, repo, store } = setup(async (_p, ctx) => {
+      receivedCtx = ctx
+      return { summary: 's', findings: [] }
+    })
+    git(repo, 'switch', '-q', 'feature/x')
+    commit(repo, { 'b.txt': 'b\n' }, 'add b')
+    const { id } = await (await postReview(app, { exclude: ['a.txt'] })).json()
+    await readSse(await app.request(`/api/review/${id}/events`))
+    expect(receivedCtx!.files).toEqual(['b.txt'])
+    expect(receivedCtx!.patch).not.toContain('a.txt')
+    expect(receivedCtx!.patch).toContain('b.txt')
+    const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
+    expect(saved.stale).toBe(false)
+    expect(saved.record.excluded).toEqual(['a.txt'])
+    expect(store.load(repo, saved.key)?.excluded).toEqual(['a.txt'])
+  })
+
+  it('ignores an exclude value that is not a string array', async () => {
+    let receivedCtx: { files: string[] } | undefined
+    const { app } = setup(async (_p, ctx) => {
+      receivedCtx = ctx
+      return { summary: 's', findings: [] }
+    })
+    const { id } = await (await postReview(app, { exclude: 'a.txt' })).json()
+    await readSse(await app.request(`/api/review/${id}/events`))
+    expect(receivedCtx!.files).toEqual(['a.txt'])
+  })
+
   it('marks sourceCheckedOut false when HEAD is not the source branch', async () => {
     let receivedCtx: unknown
     const { app, repo } = setup(async (_p, ctx) => {
