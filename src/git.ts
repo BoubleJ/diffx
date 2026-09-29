@@ -255,7 +255,10 @@ export function resolveCommit(repo: string, ref: string): string | null {
   }
 }
 
+const SHA_REGEX = /^[0-9a-f]{40,64}$/
+
 export function getMergeBase(repo: string, a: string, b: string): string | null {
+  if (!SHA_REGEX.test(a) || !SHA_REGEX.test(b)) return null
   try {
     return run(repo, ['merge-base', a, b]).trim() || null
   } catch {
@@ -264,11 +267,12 @@ export function getMergeBase(repo: string, a: string, b: string): string | null 
 }
 
 export function getRangeDiff(repo: string, fromSha: string, toSha: string): string {
+  if (!SHA_REGEX.test(fromSha) || !SHA_REGEX.test(toSha)) throw new Error('invalid commit sha')
   return run(repo, ['diff', ...DIFF_FLAGS, fromSha, toSha])
 }
 
 export function getFileAtCommit(repo: string, sha: string, filePath: string): Buffer | null {
-  if (!isSafePath(filePath, repo)) return null
+  if (!SHA_REGEX.test(sha) || !filePath || !isSafePath(filePath, repo)) return null
   try {
     return runBuffer(repo, ['show', `${sha}:${filePath}`])
   } catch {
