@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, memo } from 'react'
 import { FileDiff } from '@pierre/diffs/react'
 import type { DiffLineAnnotation, FileDiffMetadata, AnnotationSide } from '@pierre/diffs'
 import type { ReviewComment } from '../../types'
+import { ExcludeButton } from './ExcludeButton'
 import { CommentForm } from './CommentForm'
 import { CommentBubble } from './CommentBubble'
 import { findLineElement } from '../findLine'
@@ -21,6 +22,7 @@ interface FileDiffCardProps {
   softWrap: boolean
   viewed: boolean
   onViewedChange: (filePath: string, viewed: boolean) => void
+  onExclude: (filePath: string) => void
   onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => void
   onDeleteComment: (id: string) => void
   highlightLine: { side: 'additions' | 'deletions'; line: number } | null
@@ -36,6 +38,7 @@ export const FileDiffCard = memo(function FileDiffCard({
   softWrap,
   viewed,
   onViewedChange,
+  onExclude,
   onAddComment,
   onDeleteComment,
   highlightLine,
@@ -98,14 +101,17 @@ export const FileDiffCard = memo(function FileDiffCard({
       {viewed ? (
         <div className="file-diff-viewed-header">
           <span className="file-diff-viewed-name">{filePath}</span>
-          <label className="viewed-label viewed-checked" onClick={(e) => e.stopPropagation()}>
-            <input
-              type="checkbox"
-              checked={viewed}
-              onChange={(e) => onViewedChange(filePath, e.target.checked)}
-            />
-            Viewed
-          </label>
+          <span className="file-header-actions">
+            <ExcludeButton onClick={() => onExclude(filePath)} />
+            <label className="viewed-label viewed-checked" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={viewed}
+                onChange={(e) => onViewedChange(filePath, e.target.checked)}
+              />
+              Viewed
+            </label>
+          </span>
         </div>
       ) : (
         <>
@@ -124,14 +130,17 @@ export const FileDiffCard = memo(function FileDiffCard({
             lineAnnotations={allAnnotations}
             selectedLines={highlightLine ? { start: highlightLine.line, end: highlightLine.line, side: highlightLine.side } : null}
             renderHeaderMetadata={() => (
-              <label className="viewed-label" onClick={(e) => e.stopPropagation()}>
-                <input
-                  type="checkbox"
-                  checked={viewed}
-                  onChange={(e) => onViewedChange(filePath, e.target.checked)}
-                />
-                Viewed
-              </label>
+              <span className="file-header-actions">
+                <ExcludeButton onClick={() => onExclude(filePath)} />
+                <label className="viewed-label" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={viewed}
+                    onChange={(e) => onViewedChange(filePath, e.target.checked)}
+                  />
+                  Viewed
+                </label>
+              </span>
             )}
             renderAnnotation={(annotation) => {
               if ('_pending' in annotation.metadata) {

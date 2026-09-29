@@ -17,8 +17,11 @@ import { BranchPicker } from './components/BranchPicker'
 import { DiffViewer } from './components/DiffViewer'
 import { FileTree } from './components/FileTree'
 import { CommentTracker } from './components/CommentTracker'
+import { ExcludedFiles } from './components/ExcludedFiles'
 import { ReviewPanel } from './components/ReviewPanel'
 import { SidebarStorage } from './sidebarStorage'
+import { loadExcluded, saveExcluded } from './excludedStorage'
+import { excludeFilesFromPatch } from '../review/filterPatch'
 import { loadReviewPanel, saveReviewPanel, REVIEW_PANEL_MIN } from './reviewPanelStorage'
 import { comparisonParams, loadComparison, saveComparison, reconcileComparison, type Comparison } from './comparison'
 
@@ -81,6 +84,21 @@ export function App() {
     setDiffReloadToken((t) => t + 1)
   }, [fetchRemote])
   const { patch, repoName, branch, binaryFiles, tabSizeMap, untrackedFiles, key, identical, loading, error } = useDiff(params, diffReloadToken)
+  const repoRoot = repo?.root ?? null
+  const [excluded, setExcluded] = useState<string[]>([])
+  useEffect(() => {
+    setExcluded(repoRoot && key ? loadExcluded(repoRoot, key) : [])
+  }, [repoRoot, key])
+  const updateExcluded = useCallback((next: string[]) => {
+    setExcluded(next)
+    if (repoRoot && key) saveExcluded(repoRoot, key, next)
+  }, [repoRoot, key])
+  const handleExclude = useCallback((filePath: string) => {
+    updateExcluded([...new Set([...excluded, filePath])])
+  }, [excluded, updateExcluded])
+  const handleInclude = useCallback((filePath: string) => {
+    updateExcluded(excluded.filter((p) => p !== filePath))
+  }, [excluded, updateExcluded])
   const review = useReview(params, key)
   const [reviewPanel, setReviewPanel] = useState(() => loadReviewPanel())
   const updateReviewPanel = useCallback((next: typeof reviewPanel) => {
@@ -145,16 +163,21 @@ export function App() {
 
   const { viewedFiles, setViewed } = useViewed(files, key)
 
+  const excludedSet = useMemo(() => new Set(excluded), [excluded])
+  const visibleFiles = useMemo(() => files.filter((f) => !excludedSet.has(f.name)), [files, excludedSet])
+  const visibleDisplayFiles = useMemo(() => displayFiles.filter((f) => !excludedSet.has(f.name)), [displayFiles, excludedSet])
+  const excludedInDiff = useMemo(() => files.filter((f) => excludedSet.has(f.name)).map((f) => f.name).sort(), [files, excludedSet])
+
   const diffStats = useMemo(() => {
     if (!patch) return { additions: 0, deletions: 0 }
     let additions = 0
     let deletions = 0
-    for (const line of patch.split('\n')) {
+    for (const line of excludeFilesFromPatch(patch, excludedInDiff).split('\n')) {
       if (line.startsWith('+') && !line.startsWith('+++')) additions++
       else if (line.startsWith('-') && !line.startsWith('---')) deletions++
     }
     return { additions, deletions }
-  }, [patch])
+  }, [patch, excludedInDiff])
 
   const binaryFileMap = useMemo(() => {
     const map = new Map<string, (typeof binaryFiles)[number]>()
@@ -219,15 +242,17 @@ export function App() {
   const sidebarContent = (
     <div className="sidebar-content">
       <FileTree
-        files={files}
+        files={visibleFiles}
         activeFile={activeFile}
         commentCounts={commentCounts}
         viewedFiles={viewedFiles}
         untrackedFiles={untrackedSet}
         onFileClick={handleFileClick}
+        onExclude={handleExclude}
         collapsed={sidebar.collapsed}
         onToggleCollapse={handleToggleCollapse}
       />
+      {!sidebar.collapsed && <ExcludedFiles paths={excludedInDiff} onInclude={handleInclude} />}
       {!sidebar.collapsed && <CommentTracker comments={comments} />}
     </div>
   )
@@ -265,7 +290,8 @@ export function App() {
           />
         )}
         branch={branch}
-        fileCount={files.length}
+        fileCount={visibleFiles.length}
+        excludedCount={excludedInDiff.length}
         additions={diffStats.additions}
         deletions={diffStats.deletions}
         commentCount={comments.length}
@@ -315,7 +341,7 @@ export function App() {
           ) : (
           <Virtualizer className="main-scroll" contentClassName="main-content">
             <DiffViewer
-              files={displayFiles}
+              files={visibleDisplayFiles}
               diffStyle={settings.diffStyle}
               tabSizeMap={tabSizeMap}
               defaultTabSize={settings.defaultTabSize}
@@ -323,6 +349,7 @@ export function App() {
               viewedFiles={viewedFiles}
               binaryFiles={binaryFileMap}
               onViewedChange={handleViewedChange}
+              onExclude={handleExclude}
               fileAnnotationsMap={fileAnnotationsMap}
               onAddComment={addComment}
               onDeleteComment={removeComment}
@@ -351,7 +378,7 @@ export function App() {
                 record={review.record}
                 stale={review.stale}
                 state={review.state}
-                onStart={() => review.start('claude')}
+                onStart={() => review.start('claude', excludedInDiff)}
                 onCancel={review.cancel}
                 onFindingClick={handleFindingClick}
                 onClose={() => updateReviewPanel({ ...reviewPanel, open: false })}

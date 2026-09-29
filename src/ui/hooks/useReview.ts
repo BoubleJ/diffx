@@ -30,6 +30,7 @@ export interface ReviewRecord {
   key: string
   fingerprint: string
   result: { summary: string; findings: Finding[] }
+  excluded?: string[]
 }
 
 export type ReviewState =
@@ -124,7 +125,7 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
 
   useEffect(() => detach, [])
 
-  const start = useCallback(async (provider: ProviderId) => {
+  const start = useCallback(async (provider: ProviderId, exclude: string[] = []) => {
     if (!params || startingRef.current) return
     startingRef.current = true
     const startKey = keyRef.current
@@ -132,7 +133,7 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
       const res = await fetch('/api/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, ...Object.fromEntries(params), staged: params.get('staged') === 'true', untracked: params.get('untracked') === 'true' }),
+        body: JSON.stringify({ provider, ...Object.fromEntries(params), staged: params.get('staged') === 'true', untracked: params.get('untracked') === 'true', exclude }),
       })
       const body = await res.json()
       if (keyRef.current !== startKey) return
