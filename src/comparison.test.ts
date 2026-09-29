@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { makeRepo, commit, git } from './test/gitRepo'
-import { resolveComparison, comparisonKey, ComparisonError } from './comparison'
+import { resolveComparison, resolveBranchRefs, createRangeDiffCache, comparisonKey, ComparisonError } from './comparison'
 
 function setup() {
   const repo = makeRepo()
@@ -64,5 +64,36 @@ describe('resolveComparison', () => {
     commit(repo, { 'b.txt': 'b\n' }, 'orphan')
     expect(() => resolveComparison(repo, undefined, { mode: 'branch', source: 'orphan', target: 'main' }))
       .toThrowError(expect.objectContaining({ code: 'no_merge_base' }))
+  })
+})
+
+describe('resolveBranchRefs', () => {
+  it('resolves shas and merge-base without building a diff', () => {
+    const { repo, base, feature } = setup()
+    expect(resolveBranchRefs(repo, { source: 'feature/x', target: 'main' })).toEqual({ source: 'feature/x', target: 'main', sourceSha: feature, targetSha: base, mergeBase: base })
+    expect(() => resolveBranchRefs(repo, { source: 'nope', target: 'main' })).toThrowError(expect.objectContaining({ code: 'unknown_ref' }))
+  })
+})
+
+describe('createRangeDiffCache', () => {
+  it('reuses the patch for the same repo and shas and evicts the oldest entry', () => {
+    const calls: string[] = []
+    const cached = createRangeDiffCache((repo, from, to) => {
+      calls.push(`${repo}:${from}..${to}`)
+      return `patch ${from}..${to}`
+    }, 2)
+    expect(cached('/r', 'a', 'b')).toBe('patch a..b')
+    expect(cached('/r', 'a', 'b')).toBe('patch a..b')
+    expect(calls).toEqual(['/r:a..b'])
+    cached('/r', 'a', 'c')
+    cached('/other', 'a', 'b')
+    cached('/r', 'a', 'b')
+    expect(calls).toEqual(['/r:a..b', '/r:a..c', '/other:a..b', '/r:a..b'])
+  })
+
+  it('is used by resolveComparison for branch mode', () => {
+    const { repo, base, feature } = setup()
+    const r = resolveComparison(repo, undefined, { mode: 'branch', source: 'feature/x', target: 'main' }, { rangeDiff: (_repo, from, to) => `${from}..${to}` })
+    expect(r.patch).toBe(`${base}..${feature}`)
   })
 })
