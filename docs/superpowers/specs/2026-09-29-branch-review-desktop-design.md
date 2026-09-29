@@ -5,7 +5,7 @@
 diffx 포크에 세 기능을 추가한다.
 
 1. UI에서 소스 브랜치와 타겟 브랜치를 골라 GitLab MR처럼 두 브랜치 사이의 변경사항을 본다. 로컬 브랜치와 원격 브랜치 모두 고를 수 있다.
-2. 사용자가 고른 AI 코딩 CLI(Claude Code, Codex CLI, Cursor Agent, Gemini CLI)로 현재 diff를 리뷰하고 결과를 우측 사이드탭에 보여준다. 사이드탭은 열고 닫을 수 있다.
+2. Claude Code CLI로 현재 diff를 리뷰하고 결과를 우측 사이드탭에 보여준다. 사이드탭은 열고 닫을 수 있다.
 3. 터미널 없이 macOS 데스크톱 앱으로 실행한다. 이 맥북에서 쓰고 동료에게 zip으로 나눠줄 수 있어야 한다.
 
 기존 CLI(`diffx`) 사용 방식은 그대로 동작한다.
@@ -21,7 +21,7 @@ diffx 포크에 세 기능을 추가한다.
 | 리뷰 결과 형식 | 요약과 파일/라인별 지적 목록. 지적 클릭 시 해당 라인으로 스크롤한다 |
 | 리뷰 중 파일 접근 | 저장소 파일 읽기와 git 조회 명령만 허용한다. 수정과 기타 명령은 허용하지 않는다 |
 | 리뷰 언어와 모델 | 한국어로 작성한다. 모델은 각 CLI의 기본 설정을 쓴다 |
-| 지원 AI 도구 | Claude Code, Codex CLI, Cursor Agent, Gemini CLI |
+| 지원 AI 도구 | Claude Code만 지원한다(2026-09-29 사용자 요청으로 Codex CLI, Cursor Agent, Gemini CLI 제외). 어댑터 구조(`ReviewProvider`)는 유지해서 나중에 도구를 추가할 수 있게 둔다 |
 | 데스크톱 방식 | Electron |
 | 창 구성 | 저장소마다 창 하나. 창마다 서버를 따로 띄운다 |
 | 배포 | arm64 `.app`을 ad-hoc 서명하고 zip으로 나눠준다. Apple 공증은 하지 않는다 |
@@ -103,7 +103,7 @@ diffx
 
 - `types.ts`
   ```ts
-  type ProviderId = 'claude' | 'codex' | 'cursor' | 'gemini'
+  type ProviderId = 'claude'
 
   interface ReviewContext {
     repoPath: string
@@ -143,20 +143,16 @@ diffx
   - `sourceCheckedOut`이 false이면 작업 트리 파일 대신 `git show <source>:<path>`로 파일을 읽도록 지시한다.
 - `schema.ts`: `ReviewResult` JSON 스키마와 검사 함수. 응답 텍스트에서 JSON 블록을 찾는 함수도 여기에 둔다.
 - `runner.ts`: 프로세스 실행, stdout 줄 단위 해석, 취소, 10분 시간 제한, 결과 검사, 결과 저장을 맡는다.
-- `providers/claude.ts`, `providers/codex.ts`, `providers/cursor.ts`, `providers/gemini.ts`
+- `providers/claude.ts`, `providers/index.ts`(목록에는 Claude만 둔다)
 
 ### 도구별 실행 방식
 
 | 도구 | 실행 명령 | 수정 차단 방법 | 결과 형식 강제 |
 |---|---|---|---|
-| Claude Code | `claude -p --output-format stream-json --verbose --no-session-persistence` | `--allowedTools Read Grep Glob "Bash(git show:*)" "Bash(git log:*)" "Bash(git diff:*)"`, `--disallowedTools Edit Write NotebookEdit WebFetch WebSearch` | `--json-schema` |
-| Codex CLI | `codex exec --json` | `--sandbox read-only` | `--output-schema <스키마 파일>` |
-| Cursor Agent | `cursor-agent -p --output-format stream-json --workspace <repoPath>` | `--mode ask` | 프롬프트 지시 후 결과 검사 |
-| Gemini CLI | `gemini -p --output-format json` | 읽기 도구만 허용하는 옵션. 설치 후 `--help`로 확인해 정한다 | 프롬프트 지시 후 결과 검사 |
+| Claude Code | `claude -p --output-format stream-json --verbose --no-session-persistence --restricted --strict-mcp-config --permission-mode dontAsk --tools Read Grep Glob Bash` | `--restricted`로 사용자/프로젝트 설정 파일과 명령 실행 도구를 제외하고 `--tools`로 쓸 수 있는 도구를 정한다. `--allowedTools Read Grep Glob "Bash(git show:*)" "Bash(git log:*)" "Bash(git diff:*)"`, `--disallowedTools Edit Write NotebookEdit WebFetch WebSearch "Bash(git * --output*)"` | `--json-schema` |
 
 - 모든 도구는 `cwd`를 `repoPath`로 두고 실행한다.
-- 결과 형식을 강제하지 못하는 도구는 최종 응답에서 JSON 블록을 찾아 스키마 검사를 한다.
-- 이 맥북에서 실제 실행으로 확인하지 못한 도구는 드롭다운에 `실행 미검증` 표시를 붙인다. 이 표시는 어댑터 코드의 `verified` 값으로 관리한다.
+- 구조화 결과(`structured_output`)가 없으면 최종 응답 텍스트에서 JSON 블록을 찾아 스키마 검사를 한다.
 
 ### 서버 API
 
@@ -178,7 +174,7 @@ diffx
 ### 우측 사이드탭 (`ReviewPanel`)
 
 - Toolbar 오른쪽 `AI 리뷰` 버튼 클릭 시 열리고 다시 클릭하면 닫힌다. 왼쪽 파일 트리 사이드바와 같은 방식(`react-resizable`)으로 폭을 조절한다. 열림 상태와 폭은 localStorage에 저장한다.
-- 위쪽에 AI 도구 드롭다운을 둔다. 설치되지 않은 도구는 비활성으로 표시하고 옆에 설치 안내 링크를 둔다. 선택한 도구는 `settings.json`의 `reviewProvider`에 저장한다.
+- 도구 선택 드롭다운은 두지 않는다. `claude` CLI가 설치돼 있지 않으면 `리뷰 요청` 버튼을 비활성으로 두고 설치 안내 링크를 보여준다.
 - 상태별 화면
   - 리뷰 없음: `리뷰 요청` 버튼
   - 실행 중: 진행 상태 한 줄, 경과 시간, `취소` 버튼
@@ -191,7 +187,7 @@ diffx
 
 - `not_installed`: "<도구 이름>이 설치돼 있지 않습니다" 와 설치 안내 링크
 - `auth`: "<도구 이름> 로그인이 필요합니다. 터미널에서 `<로그인 명령>`을 실행해 주세요"
-  - 로그인 명령: `claude`, `codex login`, `cursor-agent login`, `gemini`
+  - 로그인 명령: `claude`
 - `timeout`: "10분 안에 리뷰가 끝나지 않아 중단했습니다"
 - `invalid_output`: "리뷰 결과를 읽지 못했습니다" 와 도구가 돌려준 텍스트
 - `process`: 종료 코드와 stderr 마지막 20줄
