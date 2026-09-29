@@ -129,6 +129,18 @@ export function createApp(options: AppOptions) {
       await next()
     })
   }
+  // 토큰이 없는 CLI 서버에 다른 웹페이지가 form이나 text/plain 요청으로 리뷰 실행, 코멘트 변경을 보내지 못하게 한다.
+  app.on(['POST', 'PUT', 'DELETE'], '/api/*', async (c, next) => {
+    const origin = c.req.header('Origin')
+    if (origin !== undefined && origin !== new URL(c.req.url).origin) {
+      return c.json({ error: 'forbidden' }, 403)
+    }
+    const contentType = c.req.header('Content-Type')
+    if (contentType !== undefined && contentType.split(';')[0].trim().toLowerCase() !== 'application/json') {
+      return c.json({ error: 'unsupported_media_type' }, 415)
+    }
+    await next()
+  })
   const isCustomMode = !!customDiffArgs
   const store = commentStore ?? new InMemoryCommentStore()
   const viewedByKey = new Map<string, Map<string, string>>()

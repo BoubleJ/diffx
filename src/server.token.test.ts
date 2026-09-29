@@ -39,3 +39,35 @@ describe('startServer', () => {
     await first.close()
   })
 })
+
+describe('mutation request check', () => {
+  const json = { 'Content-Type': 'application/json' }
+  const comment = JSON.stringify({ filePath: 'a.txt', side: 'additions', lineNumber: 1, lineContent: 'a', body: 'c' })
+
+  it('rejects non-JSON bodies so other pages cannot send simple requests', async () => {
+    const { repo, clientDir } = setup()
+    const app = createApp({ repoPath: repo, clientDir })
+    const res = await app.request('/api/comments', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: comment })
+    expect(res.status).toBe(415)
+    expect((await app.request('/api/comments', { method: 'POST', body: comment })).status).toBe(415)
+  })
+
+  it('rejects requests whose Origin is not the server itself, including body-less ones', async () => {
+    const { repo, clientDir } = setup()
+    const app = createApp({ repoPath: repo, clientDir })
+    const evil = { Origin: 'http://evil.example' }
+    expect((await app.request('/api/comments', { method: 'POST', headers: { ...json, ...evil }, body: comment })).status).toBe(403)
+    expect((await app.request('/api/fetch', { method: 'POST', headers: evil })).status).toBe(403)
+    expect((await app.request('/api/review/x', { method: 'DELETE', headers: evil })).status).toBe(403)
+    expect((await app.request('/api/review/x', { method: 'DELETE', headers: { Origin: 'http://localhost' } })).status).toBe(200)
+  })
+
+  it('keeps accepting JSON requests without Origin (curl from the finish-review skill)', async () => {
+    const { repo, clientDir } = setup()
+    const app = createApp({ repoPath: repo, clientDir })
+    const res = await app.request('/api/comments', { method: 'POST', headers: json, body: comment })
+    expect(res.status).toBe(201)
+    const { id } = await res.json()
+    expect((await app.request(`/api/comments/${id}`, { method: 'PUT', headers: json, body: JSON.stringify({ status: 'resolved' }) })).status).toBe(200)
+  })
+})
