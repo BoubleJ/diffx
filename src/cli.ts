@@ -67,7 +67,7 @@ const resolvedClientDir = existsSync(clientDir)
   ? clientDir
   : resolve(process.cwd(), 'dist/client')
 
-const { port: actualPort } = await startServer({ port, host, clientDir: resolvedClientDir, customDiffArgs, repoPath })
+const { port: actualPort, close } = await startServer({ port, host, clientDir: resolvedClientDir, customDiffArgs, repoPath })
 
 const localUrl = `http://${host}:${actualPort}`
 
@@ -87,7 +87,8 @@ if (!values['no-open']) {
   openModule.default(openUrl, options)
 }
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('\nShutting down...')
+  await Promise.race([close(), new Promise((r) => setTimeout(r, 1000))])
   process.exit(0)
 })

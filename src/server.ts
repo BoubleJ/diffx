@@ -1,20 +1,30 @@
 import { readFile } from 'node:fs/promises'
 import { join, extname, resolve } from 'node:path'
 import { Hono } from 'hono'
+import { streamSSE } from 'hono/streaming'
 import { serve } from '@hono/node-server'
-import { getRepoName, getBranchName, getFileContent, getBlobContent, getWorktreeFileContent, getTabSizeForFiles, getUntrackedFilePaths, listBranches, fetchAll, getFileAtCommit } from './git.js'
+import { getRepoName, getBranchName, getFileContent, getBlobContent, getWorktreeFileContent, getTabSizeForFiles, getUntrackedFilePaths, listBranches, fetchAll, getFileAtCommit, getHeadSha } from './git.js'
 import { resolveComparison, comparisonKey, queryFromSearch, ComparisonError, type ResolvedComparison } from './comparison.js'
 import type { Context } from 'hono'
 import { loadSettings, saveSettings } from './settings.js'
 import { InMemoryCommentStore } from './comments.js'
 import type { CommentStore } from './comments.js'
 import { isSafePath } from './path.js'
+import { ReviewJobs } from './review/jobs.js'
+import { ReviewStore } from './review/store.js'
+import { PROVIDERS } from './review/providers/index.js'
+import { detectProvider } from './review/runner.js'
+import { fingerprint } from './review/fingerprint.js'
+import type { ReviewProvider } from './review/types.js'
 
 export interface AppOptions {
   repoPath: string
   clientDir: string
   customDiffArgs?: string[]
   commentStore?: CommentStore
+  reviewJobs?: ReviewJobs
+  reviewStore?: ReviewStore
+  providers?: ReviewProvider[]
 }
 
 export interface StartOptions extends AppOptions {
@@ -133,6 +143,10 @@ export function createApp(options: AppOptions) {
     throw err
   }
 
+  const reviewStore = options.reviewStore ?? new ReviewStore()
+  const reviewJobs = options.reviewJobs ?? new ReviewJobs(reviewStore)
+  const providers = options.providers ?? PROVIDERS
+
   app.get('/api/diff', (c) => {
     let resolved: ResolvedComparison
     try {
@@ -237,6 +251,87 @@ export function createApp(options: AppOptions) {
   app.post('/api/fetch', async (c) => {
     const result = await fetchAll(repo)
     return c.json(result, result.ok ? 200 : 500)
+  })
+
+  app.get('/api/review/providers', async (c) => {
+    const list = await Promise.all(providers.map(async (p) => {
+      const status = await detectProvider(p)
+      return { id: p.id, label: p.label, ...status, verified: p.verified, installHint: p.installHint, loginHint: p.loginHint }
+    }))
+    return c.json(list)
+  })
+
+  app.get('/api/review', (c) => {
+    let resolved: ResolvedComparison
+    try {
+      resolved = resolveFromRequest(c)
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+    const record = reviewStore.load(repo, resolved.key)
+    return c.json({
+      key: resolved.key,
+      record,
+      stale: record ? record.fingerprint !== fingerprint(resolved) : false,
+      running: reviewJobs.runningFor(repo, resolved.key),
+    })
+  })
+
+  app.post('/api/review', async (c) => {
+    const body = await c.req.json<{ provider: string; mode?: string; source?: string; target?: string; staged?: boolean; untracked?: boolean }>()
+    const provider = providers.find((p) => p.id === body.provider)
+    if (!provider) return c.json({ error: 'unknown_provider' }, 400)
+    let resolved: ResolvedComparison
+    try {
+      resolved = resolveComparison(repo, customDiffArgs, { mode: body.mode, source: body.source, target: body.target, staged: body.staged, untracked: body.untracked })
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+    const id = reviewJobs.start({
+      provider,
+      key: resolved.key,
+      fingerprint: fingerprint(resolved),
+      ctx: {
+        repoPath: repo,
+        mode: resolved.mode,
+        source: resolved.source,
+        target: resolved.target,
+        mergeBase: resolved.mergeBase,
+        sourceCheckedOut: resolved.mode !== 'branch' || getHeadSha(repo) === resolved.sourceSha,
+        files: parseFilePaths(resolved.patch),
+        patch: resolved.patch,
+      },
+    })
+    return c.json({ id })
+  })
+
+  app.get('/api/review/:id/events', (c) => {
+    const id = c.req.param('id')
+    return streamSSE(c, async (stream) => {
+      await new Promise<void>((done) => {
+        const unsubscribe = reviewJobs.subscribe(id, (e) => {
+          if (e.type === 'progress') {
+            stream.writeSSE({ event: 'progress', data: e.text })
+          } else if (e.type === 'done') {
+            stream.writeSSE({ event: 'done', data: JSON.stringify(e.record) }).then(done)
+          } else {
+            stream.writeSSE({ event: 'error', data: JSON.stringify({ kind: e.kind, message: e.message, rawOutput: e.rawOutput }) }).then(done)
+          }
+        })
+        if (!unsubscribe) {
+          stream.writeSSE({ event: 'error', data: JSON.stringify({ kind: 'process', message: '리뷰 작업을 찾지 못했습니다' }) }).then(done)
+          return
+        }
+        stream.onAbort(() => {
+          unsubscribe()
+          done()
+        })
+      })
+    })
+  })
+
+  app.delete('/api/review/:id', (c) => {
+    return c.json({ ok: reviewJobs.cancel(c.req.param('id')) })
   })
 
   app.get('/api/settings', (c) => {
@@ -346,7 +441,9 @@ export function createApp(options: AppOptions) {
 }
 
 export function startServer(options: StartOptions): Promise<{ port: number; close: () => Promise<void> }> {
-  const app = createApp(options)
+  const reviewStore = options.reviewStore ?? new ReviewStore()
+  const reviewJobs = options.reviewJobs ?? new ReviewJobs(reviewStore)
+  const app = createApp({ ...options, reviewStore, reviewJobs })
 
   return new Promise((resolve) => {
     const server = serve({
@@ -356,7 +453,10 @@ export function startServer(options: StartOptions): Promise<{ port: number; clos
     }, (info) => {
       resolve({
         port: info.port,
-        close: () => new Promise<void>((done) => server.close(() => done())),
+        close: () => {
+          reviewJobs.cancelAll()
+          return new Promise<void>((done) => server.close(() => done()))
+        },
       })
     })
   })
