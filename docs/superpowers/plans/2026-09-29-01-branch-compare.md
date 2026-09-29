@@ -444,7 +444,7 @@ Expected: 테스트 PASS, tsc 출력 없음
 
 - [ ] **Step 10: CLI 동작 확인**
 
-Run: `pnpm run build && cd /tmp && node /Users/byeonjaejeong/Desktop/diffx/dist/cli.mjs --help | head -3`
+Run: `pnpm run build && cd /tmp && node <저장소 경로>/dist/cli.mjs --help | head -3`
 Expected: `diffx - Local code review tool for git diffs` 출력
 
 - [ ] **Step 11: Commit**
