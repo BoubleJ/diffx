@@ -36,7 +36,7 @@ describe('ReviewJobs', () => {
     expect(events[0]).toEqual({ type: 'progress', text: 'a.ts 읽는 중' })
     expect(events[1]).toMatchObject({ type: 'done', record: { provider: 'claude', fingerprint: 'fp', result: { summary: 's' } } })
     expect(store.load('/repo', 'worktree')?.result.summary).toBe('s')
-    expect(jobs.runningFor('worktree')).toBeNull()
+    expect(jobs.runningFor('/repo', 'worktree')).toBeNull()
   })
 
   it('returns the same job for a duplicate start while running', () => {
@@ -46,7 +46,7 @@ describe('ReviewJobs', () => {
     const b = jobs.start(input)
     expect(a).toBe(b)
     expect(calls).toHaveLength(1)
-    expect(jobs.runningFor('worktree')).toMatchObject({ id: a, provider: 'claude' })
+    expect(jobs.runningFor('/repo', 'worktree')).toMatchObject({ id: a, provider: 'claude' })
   })
 
   it('cancels one job or all jobs', async () => {
@@ -62,5 +62,64 @@ describe('ReviewJobs', () => {
     jobs.cancelAll()
     expect(calls.every((c) => c.signal?.aborted)).toBe(true)
     expect(jobs.cancel('unknown')).toBe(false)
+  })
+
+  it('starts separate jobs for the same key in different repos', () => {
+    const { run, calls } = deferredRun()
+    const jobs = new ReviewJobs(newStore(), run)
+    const a = jobs.start(input)
+    const b = jobs.start({ ...input, ctx: { ...ctx, repoPath: '/other' } })
+    expect(a).not.toBe(b)
+    expect(calls).toHaveLength(2)
+    expect(jobs.runningFor('/other', 'worktree')?.id).toBe(b)
+  })
+
+  it('emits exactly one terminal event even when a listener throws', async () => {
+    const unhandled: unknown[] = []
+    const onUnhandled = (e: unknown) => unhandled.push(e)
+    process.on('unhandledRejection', onUnhandled)
+    const { run, calls } = deferredRun()
+    const jobs = new ReviewJobs(newStore(), run)
+    const id = jobs.start(input)
+    jobs.subscribe(id, () => {
+      throw new Error('listener')
+    })
+    calls[0].resolve({ summary: 's', findings: [] })
+    await new Promise((r) => setTimeout(r, 10))
+    process.off('unhandledRejection', onUnhandled)
+
+    const events: JobEvent[] = []
+    jobs.subscribe(id, (e) => events.push(e))
+    expect(events.map((e) => e.type)).toEqual(['done'])
+    expect(unhandled).toEqual([])
+  })
+
+  it('reports a save failure as a single process error', async () => {
+    const store = newStore()
+    store.save = () => {
+      throw new Error('disk full')
+    }
+    const { run, calls } = deferredRun()
+    const jobs = new ReviewJobs(store, run)
+    const id = jobs.start(input)
+    calls[0].resolve({ summary: 's', findings: [] })
+    await new Promise((r) => setTimeout(r, 0))
+
+    const events: JobEvent[] = []
+    jobs.subscribe(id, (e) => events.push(e))
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({ type: 'error', kind: 'process', message: 'disk full' })
+    expect(jobs.runningFor('/repo', 'worktree')).toBeNull()
+  })
+
+  it('starts a new job when the same key is started right after cancel', () => {
+    const { run, calls } = deferredRun()
+    const jobs = new ReviewJobs(newStore(), run)
+    const a = jobs.start(input)
+    jobs.cancel(a)
+    expect(jobs.runningFor('/repo', 'worktree')).toBeNull()
+    const b = jobs.start(input)
+    expect(b).not.toBe(a)
+    expect(calls).toHaveLength(2)
   })
 })
