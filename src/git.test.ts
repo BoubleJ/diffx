@@ -76,6 +76,12 @@ describe('getMergeBase and getRangeDiff', () => {
     expect(diff).toBe(git(repo, 'diff', '--no-ext-diff', '--no-color', 'main...feature/x'))
   })
 
+  it('rejects option-looking shas', () => {
+    const { repo, feature } = repoWithBranches()
+    expect(getMergeBase(repo, '--foo', feature)).toBeNull()
+    expect(() => getRangeDiff(repo, '--output=/tmp/x', feature)).toThrow('invalid commit sha')
+  })
+
   it('returns null when histories are unrelated', () => {
     const { repo, feature } = repoWithBranches()
     git(repo, 'switch', '-q', '--orphan', 'orphan')
@@ -90,6 +96,8 @@ describe('getFileAtCommit', () => {
     expect(getFileAtCommit(repo, feature, 'img.png')?.toString()).toBe('PNGDATA')
     expect(getFileAtCommit(repo, feature, '../etc/passwd')).toBeNull()
     expect(getFileAtCommit(repo, feature, 'missing.txt')).toBeNull()
+    expect(getFileAtCommit(repo, '--output=/tmp/x', 'img.png')).toBeNull()
+    expect(getFileAtCommit(repo, feature, '')).toBeNull()
   })
 })
 
