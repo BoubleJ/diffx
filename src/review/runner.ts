@@ -3,7 +3,7 @@ import { readFileSync, existsSync, rmSync } from 'node:fs'
 import { createInterface } from 'node:readline'
 import { buildPrompt } from './prompt.js'
 import { extractJson, validateResult } from './schema.js'
-import { ReviewFailure, type FinalOutput, type ReviewContext, type ReviewProvider, type ReviewResult } from './types.js'
+import { ReviewFailure, type Command, type FinalOutput, type ReviewContext, type ReviewProvider, type ReviewResult } from './types.js'
 
 export interface RunOptions {
   signal?: AbortSignal
@@ -45,7 +45,12 @@ function tail(text: string, lines: number): string {
 }
 
 export function runReview(provider: ReviewProvider, ctx: ReviewContext, options: RunOptions = {}): Promise<ReviewResult> {
-  const command = provider.buildCommand(ctx, buildPrompt(ctx))
+  let command: Command
+  try {
+    command = provider.buildCommand(ctx, buildPrompt(ctx))
+  } catch (err) {
+    return Promise.reject(new ReviewFailure('process', err instanceof Error ? err.message : String(err)))
+  }
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT
 
   return new Promise<ReviewResult>((resolve, reject) => {
@@ -60,24 +65,55 @@ export function runReview(provider: ReviewProvider, ctx: ReviewContext, options:
       cwd: ctx.repoPath,
       env: options.env ?? process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
+      detached: true,
     })
+    let killTimer: NodeJS.Timeout | undefined
+    let giveUpTimer: NodeJS.Timeout | undefined
 
     // cleanup이 outputFile을 지우므로 결과를 읽는 fn 실행 뒤에 호출한다.
     const finish = (fn: () => void) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      clearTimeout(killTimer)
+      clearTimeout(giveUpTimer)
       options.signal?.removeEventListener('abort', onAbort)
       try {
         fn()
+      } catch (err) {
+        reject(err instanceof ReviewFailure ? err : new ReviewFailure('process', err instanceof Error ? err.message : String(err)))
       } finally {
         command.cleanup?.()
       }
     }
 
-    const kill = () => {
-      if (child.exitCode === null) child.kill('SIGTERM')
+    const signalGroup = (signal: NodeJS.Signals) => {
+      try {
+        if (child.pid === undefined) throw new Error('no pid')
+        process.kill(-child.pid, signal)
+      } catch {
+        try {
+          child.kill(signal)
+        } catch {
+          // 이미 종료된 프로세스
+        }
+      }
     }
+
+    const kill = () => {
+      if (child.exitCode !== null || settled) return
+      signalGroup('SIGTERM')
+      killTimer = setTimeout(() => {
+        signalGroup('SIGKILL')
+        giveUpTimer = setTimeout(() => {
+          finish(() => reject(failureForStop()))
+        }, 2000)
+      }, 3000)
+    }
+
+    const failureForStop = () => cancelled
+      ? new ReviewFailure('cancelled', '리뷰를 취소했습니다')
+      : new ReviewFailure('timeout', '10분 안에 리뷰가 끝나지 않아 중단했습니다')
 
     const timer = setTimeout(() => {
       timedOut = true
@@ -117,7 +153,13 @@ export function runReview(provider: ReviewProvider, ctx: ReviewContext, options:
       } catch {
         return
       }
-      if (parsed?.progress) options.onProgress?.(parsed.progress.replaceAll(`${ctx.repoPath}/`, ''))
+      if (parsed?.progress) {
+        try {
+          options.onProgress?.(parsed.progress.replaceAll(`${ctx.repoPath}/`, ''))
+        } catch {
+          // 리스너 예외가 실행을 중단시키지 않게 한다
+        }
+      }
       if (parsed?.final) final = parsed.final
     })
 
