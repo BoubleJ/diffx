@@ -6,6 +6,7 @@ export interface CommentReply {
 
 export interface ReviewComment {
   id: string
+  key: string
   filePath: string
   side: 'deletions' | 'additions'
   lineNumber: number

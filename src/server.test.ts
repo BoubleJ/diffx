@@ -92,3 +92,40 @@ describe('GET /api/file-versions in branch mode', () => {
     expect(await res.json()).toEqual({ old: 'base\n', new: 'base\nfeature\n' })
   })
 })
+
+describe('comments and viewed are scoped by comparison key', () => {
+  it('separates comments per key and defaults to the last diffed key', async () => {
+    const { app } = setupApp()
+    const post = (body: object) => app.request('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filePath: 'a.txt', side: 'additions', lineNumber: 1, lineContent: 'x', body: 'c', ...body }),
+    })
+    await post({ key: 'worktree', body: 'on worktree' })
+    await post({ key: 'branch:origin/main...feature/x', body: 'on branch' })
+
+    const wt = await (await app.request('/api/comments?key=worktree')).json()
+    expect(wt.map((c: { body: string }) => c.body)).toEqual(['on worktree'])
+
+    // key 없는 요청은 마지막 /api/diff 조합을 따른다 (skills/diffx-finish-review 호환)
+    await app.request('/api/diff?mode=branch&source=feature/x&target=origin/main')
+    const active = await (await app.request('/api/comments')).json()
+    expect(active.map((c: { body: string }) => c.body)).toEqual(['on branch'])
+
+    // key 없는 POST도 active key로 저장된다
+    await post({ body: 'no key' })
+    const branch = await (await app.request('/api/comments?key=branch:origin/main...feature/x')).json()
+    expect(branch.map((c: { body: string }) => c.body)).toEqual(['on branch', 'no key'])
+  })
+
+  it('separates viewed state per key', async () => {
+    const { app } = setupApp()
+    await app.request('/api/viewed', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'worktree', filePath: 'a.txt', viewed: true, contentHash: 'abc' }),
+    })
+    expect(await (await app.request('/api/viewed?key=worktree')).json()).toEqual({ 'a.txt': 'abc' })
+    expect(await (await app.request('/api/viewed?key=branch:origin/main...feature/x')).json()).toEqual({})
+  })
+})

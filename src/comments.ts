@@ -1,7 +1,7 @@
 import type { ReviewComment, CommentReply } from './types.js'
 
 export interface CommentStore {
-  getAll(): Promise<ReviewComment[]>
+  getAll(key?: string): Promise<ReviewComment[]>
   add(comment: ReviewComment): Promise<ReviewComment>
   update(id: string, fields: { body?: string; status?: ReviewComment['status'] }): Promise<ReviewComment | null>
   remove(id: string): Promise<boolean>
@@ -11,8 +11,8 @@ export interface CommentStore {
 export class InMemoryCommentStore implements CommentStore {
   private comments: ReviewComment[] = []
 
-  async getAll(): Promise<ReviewComment[]> {
-    return this.comments
+  async getAll(key?: string): Promise<ReviewComment[]> {
+    return key === undefined ? this.comments : this.comments.filter((c) => c.key === key)
   }
 
   async add(comment: ReviewComment): Promise<ReviewComment> {
