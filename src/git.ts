@@ -239,7 +239,6 @@ function findDefaultTarget(repo: string, local: string[], remote: string[]): str
     const head = run(repo, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']).trim()
     if (head) return head
   } catch {
-    // origin/HEAD is not set
   }
   const all = new Set([...local, ...remote])
   for (const candidate of ['origin/main', 'origin/master', 'main', 'master']) {
