@@ -1,9 +1,10 @@
-import { useState, memo } from 'react'
+import { useState, useEffect, useRef, memo } from 'react'
 import { FileDiff } from '@pierre/diffs/react'
 import type { DiffLineAnnotation, FileDiffMetadata, AnnotationSide } from '@pierre/diffs'
 import type { ReviewComment } from '../../types'
 import { CommentForm } from './CommentForm'
 import { CommentBubble } from './CommentBubble'
+import { findLineElement } from '../findLine'
 
 interface PendingComment {
   side: AnnotationSide
@@ -22,6 +23,7 @@ interface FileDiffCardProps {
   onViewedChange: (filePath: string, viewed: boolean) => void
   onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => void
   onDeleteComment: (id: string) => void
+  highlightLine: { side: 'additions' | 'deletions'; line: number } | null
 }
 
 export const FileDiffCard = memo(function FileDiffCard({
@@ -36,8 +38,26 @@ export const FileDiffCard = memo(function FileDiffCard({
   onViewedChange,
   onAddComment,
   onDeleteComment,
+  highlightLine,
 }: FileDiffCardProps) {
   const [pending, setPending] = useState<PendingComment | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!highlightLine) return
+    let frames = 0
+    let handle = 0
+    const tryScroll = () => {
+      const target = cardRef.current && findLineElement(cardRef.current, highlightLine.line, highlightLine.side)
+      if (target) {
+        target.scrollIntoView({ block: 'center' })
+        return
+      }
+      if (frames++ < 30) handle = requestAnimationFrame(tryScroll)
+    }
+    handle = requestAnimationFrame(tryScroll)
+    return () => cancelAnimationFrame(handle)
+  }, [highlightLine])
 
   const getLineContent = (side: AnnotationSide, lineNumber: number): string => {
     const lines = side === 'additions' ? fileDiff.additionLines : fileDiff.deletionLines
@@ -74,7 +94,7 @@ export const FileDiffCard = memo(function FileDiffCard({
   ]
 
   return (
-    <div className={`file-diff-card ${viewed ? 'file-diff-viewed' : ''}`} id={id}>
+    <div className={`file-diff-card ${viewed ? 'file-diff-viewed' : ''}`} id={id} ref={cardRef}>
       {viewed ? (
         <div className="file-diff-viewed-header">
           <span className="file-diff-viewed-name">{filePath}</span>
@@ -102,6 +122,7 @@ export const FileDiffCard = memo(function FileDiffCard({
               unsafeCSS: `:host { --diffs-tab-size: ${tabSize}; }`,
             }}
             lineAnnotations={allAnnotations}
+            selectedLines={highlightLine ? { start: highlightLine.line, end: highlightLine.line, side: highlightLine.side } : null}
             renderHeaderMetadata={() => (
               <label className="viewed-label" onClick={(e) => e.stopPropagation()}>
                 <input

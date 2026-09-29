@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Resizable } from 'react-resizable'
 import { parsePatchFiles } from '@pierre/diffs'
 import { Virtualizer } from '@pierre/diffs/react'
@@ -192,11 +192,14 @@ export function App() {
     }
   }, [])
 
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const handleFindingClick = useCallback((f: Finding) => {
     handleFileClick(f.file)
     if (f.line !== null) {
       setHighlight({ file: f.file, side: f.side === 'old' ? 'deletions' : 'additions', line: f.line })
-      setTimeout(() => setHighlight(null), 2000)
+      if (highlightTimer.current) clearTimeout(highlightTimer.current)
+      highlightTimer.current = setTimeout(() => setHighlight(null), 2000)
     }
   }, [handleFileClick])
 
@@ -315,6 +318,7 @@ export function App() {
               onAddComment={addComment}
               onDeleteComment={removeComment}
               contentQuery={params?.toString() ?? ''}
+              highlight={highlight}
             />
           </Virtualizer>
           )}
