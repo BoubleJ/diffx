@@ -7,9 +7,6 @@ import { RecentStore } from './recent.js'
 import { RepoWindows, type OpenResult } from './repoWindows.js'
 import { buildMenu } from './menu.js'
 
-// 앱 이름을 review-helper로 바꾸기 전부터 쓰던 데이터 폴더(최근 저장소, 브랜치 선택, 제외 목록)를 그대로 쓴다.
-app.setPath('userData', join(app.getPath('appData'), 'diffx-cli'))
-
 const pendingOpen: string[] = []
 let initialized = false
 app.on('open-file', (event, path) => {
