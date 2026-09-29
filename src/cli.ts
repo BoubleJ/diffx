@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { readFileSync } from 'node:fs'
 import getPort from 'get-port'
-import { isGitRepo } from './git.js'
+import { isGitRepo, getRepoRoot } from './git.js'
 import { startServer } from './server.js'
 import { loadSettings } from './settings.js'
 
@@ -51,10 +51,11 @@ if (values.version) {
 // Everything after -- becomes custom git diff args
 const customDiffArgs = positionals.length > 0 ? positionals : undefined
 
-if (!isGitRepo()) {
+if (!isGitRepo(process.cwd())) {
   console.error('Error: not inside a git repository')
   process.exit(1)
 }
+const repoPath = getRepoRoot(process.cwd())
 
 const port = await getPort(values.port ? { port: parseInt(values.port, 10) } : undefined)
 const host = values.host ?? '127.0.0.1'
@@ -66,7 +67,7 @@ const resolvedClientDir = existsSync(clientDir)
   ? clientDir
   : resolve(process.cwd(), 'dist/client')
 
-const { port: actualPort } = await startServer({ port, host, clientDir: resolvedClientDir, customDiffArgs })
+const { port: actualPort } = await startServer({ port, host, clientDir: resolvedClientDir, customDiffArgs, repoPath })
 
 const localUrl = `http://${host}:${actualPort}`
 

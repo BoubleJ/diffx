@@ -32,6 +32,8 @@
     "dev:server": "tsx src/cli.ts --no-open -p 3433",
     "prepublishOnly": "pnpm run build",
     "release": "pnpm run build && changeset publish",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "version-packages": "changeset version"
   },
   "dependencies": {
@@ -57,6 +59,7 @@
     "tsdown": "^0.21.7",
     "tsx": "^4.19.4",
     "typescript": "^6.0.2",
-    "vite": "^8.0.3"
+    "vite": "^8.0.3",
+    "vitest": "^3.2.7"
   }
 }
