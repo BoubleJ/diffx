@@ -37,7 +37,7 @@ export function App() {
   const { settings, loaded, updateSettings } = useSettings()
   const { repo, error: repoError } = useRepo()
   const branchMode = !!repo && !repo.customMode
-  const { branches, fetchRemote, fetching, fetchError } = useBranches(branchMode)
+  const { branches, branchesError, fetchRemote, fetching, fetchError } = useBranches(branchMode)
   const [comparison, setComparison] = useState<Comparison | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -47,14 +47,20 @@ export function App() {
       setComparison({ mode: 'worktree' })
       return
     }
-    if (!branches) return
+    if (!branches) {
+      if (branchesError) {
+        setNotice(`브랜치 목록을 불러오지 못했습니다: ${branchesError}`)
+        if (comparison?.mode !== 'worktree') setComparison({ mode: 'worktree' })
+      }
+      return
+    }
     const base = comparison ?? loadComparison(repo.root)
     const { comparison: next, missing } = reconcileComparison(base, branches)
     if (missing.length > 0) {
       setNotice(`저장된 브랜치 ${missing.join(', ')}을 찾지 못해 기본값으로 바꿨습니다`)
     }
     if (JSON.stringify(next) !== JSON.stringify(comparison)) setComparison(next)
-  }, [repo, branches])
+  }, [repo, branches, branchesError])
 
   const handleComparisonChange = useCallback((next: Comparison) => {
     setNotice(null)
