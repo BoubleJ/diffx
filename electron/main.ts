@@ -36,7 +36,7 @@ function showLauncher() {
     width: 560,
     height: 520,
     resizable: false,
-    title: 'review-helper',
+    title: 'reviewHelper',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
