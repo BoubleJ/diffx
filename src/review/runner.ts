@@ -98,7 +98,6 @@ export function runReview(provider: ReviewProvider, ctx: ReviewContext, options:
         try {
           child.kill(signal)
         } catch {
-          // 이미 종료된 프로세스
         }
       }
     }
@@ -164,7 +163,6 @@ export function runReview(provider: ReviewProvider, ctx: ReviewContext, options:
         try {
           options.onProgress?.(parsed.progress.replaceAll(`${ctx.repoPath}/`, ''))
         } catch {
-          // 리스너 예외가 실행을 중단시키지 않게 한다
         }
       }
       if (parsed?.final) final = parsed.final

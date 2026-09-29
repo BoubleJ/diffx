@@ -60,7 +60,6 @@ export class ReviewJobs {
         try {
           l(e)
         } catch {
-          // 구독자 오류가 작업 상태에 영향을 주지 않도록 무시한다
         }
       }
     }
