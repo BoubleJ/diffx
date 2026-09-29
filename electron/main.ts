@@ -1,16 +1,17 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron'
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { fixPath } from './shellPath.js'
 import { RecentStore } from './recent.js'
 import { RepoWindows, type OpenResult } from './repoWindows.js'
 import { buildMenu } from './menu.js'
 
 const pendingOpen: string[] = []
+let initialized = false
 app.on('open-file', (event, path) => {
   event.preventDefault()
-  if (app.isReady()) void openRepo(path)
+  if (initialized) void openRepo(path)
   else pendingOpen.push(path)
 })
 
@@ -20,7 +21,7 @@ let recent: RecentStore
 
 function refreshMenu() {
   Menu.setApplicationMenu(buildMenu({
-    openFolder: () => void selectFolder(),
+    openFolder: () => void selectFolder({ fromMenu: true }),
     openRecent: (path) => void openRepo(path),
     recent: recent.list(),
   }))
@@ -60,11 +61,11 @@ async function openRepo(path: string): Promise<OpenResult> {
   }
 }
 
-async function selectFolder(): Promise<OpenResult | { ok: false; error: 'cancelled' }> {
+async function selectFolder({ fromMenu = false } = {}): Promise<OpenResult | { ok: false; error: 'cancelled' }> {
   const result = await dialog.showOpenDialog({ properties: ['openDirectory'], title: '저장소 폴더 선택' })
   if (result.canceled || result.filePaths.length === 0) return { ok: false, error: 'cancelled' }
   const opened = await openRepo(result.filePaths[0])
-  if (!opened.ok) {
+  if (!opened.ok && fromMenu) {
     showLauncher()
     void dialog.showMessageBox({ type: 'warning', message: opened.error })
   }
@@ -97,14 +98,19 @@ app.whenReady().then(async () => {
   refreshMenu()
 
   ipcMain.handle('diffx:select-folder', () => selectFolder())
-  ipcMain.handle('diffx:open-repo', (_e, path: string) => openRepo(path))
+  ipcMain.handle('diffx:open-repo', (_e, path: unknown) => {
+    if (typeof path !== 'string' || !isAbsolute(path)) return { ok: false, error: '폴더 경로가 올바르지 않습니다' }
+    return openRepo(path)
+  })
   ipcMain.handle('diffx:get-recent', () => recent.list())
-  ipcMain.handle('diffx:remove-recent', (_e, path: string) => {
+  ipcMain.handle('diffx:remove-recent', (_e, path: unknown) => {
+    if (typeof path !== 'string' || !isAbsolute(path)) return recent.list()
     const list = recent.remove(path)
     refreshMenu()
     return list
   })
 
+  initialized = true
   if (pendingOpen.length > 0) {
     for (const path of pendingOpen.splice(0)) await openRepo(path)
   } else {
@@ -125,5 +131,5 @@ app.on('before-quit', (event) => {
   if (quitting || !repoWindows) return
   event.preventDefault()
   quitting = true
-  void Promise.race([repoWindows.closeAll(), new Promise((r) => setTimeout(r, 2000))]).then(() => app.quit())
+  void Promise.race([repoWindows.closeAll(), new Promise((r) => setTimeout(r, 2000))]).catch(() => {}).then(() => app.quit())
 })
