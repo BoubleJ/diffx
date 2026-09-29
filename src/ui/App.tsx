@@ -332,6 +332,7 @@ export function App() {
             handle={<div className="review-resize-handle" />}
           >
             <aside className="review-aside" style={{ width: Math.min(reviewPanel.size, maxSidebarWidth) }}>
+              <div className="review-aside-scroll">
               <ReviewPanel
                 provider={claude}
                 record={review.record}
@@ -342,6 +343,7 @@ export function App() {
                 onFindingClick={handleFindingClick}
                 onClose={() => updateReviewPanel({ ...reviewPanel, open: false })}
               />
+              </div>
             </aside>
           </Resizable>
         )}

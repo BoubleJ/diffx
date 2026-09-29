@@ -49,6 +49,9 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
   const query = params?.toString() ?? ''
   const [state, setState] = useState<ReviewState>({ status: 'idle' })
   const jobRef = useRef<{ id: string; source: EventSource } | null>(null)
+  const startingRef = useRef(false)
+  const keyRef = useRef(key)
+  keyRef.current = key
 
   const { data: providers = [] } = useQuery({
     queryKey: ['review-providers'],
@@ -57,7 +60,7 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
   })
 
   const savedKey = ['review', key]
-  const { data: saved } = useQuery({
+  const { data: saved, isFetching } = useQuery({
     queryKey: savedKey,
     queryFn: async (): Promise<SavedReview> => (await fetch(`/api/review?${query}`)).json(),
     enabled: key !== null && params !== null,
@@ -68,7 +71,7 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
     jobRef.current = null
   }
 
-  const attach = useCallback((id: string, startedAt: number) => {
+  const attach = useCallback((id: string, startedAt: number, fromSaved = false) => {
     detach()
     setState({ status: 'running', progress: null, startedAt })
     const source = new EventSource(`/api/review/${id}/events`)
@@ -89,6 +92,11 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
         return
       }
       const err = JSON.parse(data)
+      if (fromSaved && err.message === '리뷰 작업을 찾지 못했습니다') {
+        setState({ status: 'idle' })
+        queryClient.invalidateQueries({ queryKey: ['review'] })
+        return
+      }
       setState(err.kind === 'cancelled' ? { status: 'idle' } : { status: 'error', ...err })
     })
   }, [queryClient])
@@ -99,32 +107,45 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
   }, [key])
 
   useEffect(() => {
-    if (saved?.running && saved.key === key && jobRef.current?.id !== saved.running.id) {
-      attach(saved.running.id, saved.running.startedAt)
+    if (!isFetching && saved?.running && saved.key === key && jobRef.current?.id !== saved.running.id) {
+      attach(saved.running.id, saved.running.startedAt, true)
     }
-  }, [saved, key, attach])
+  }, [saved, key, isFetching, attach])
 
   useEffect(() => detach, [])
 
   const start = useCallback(async (provider: ProviderId) => {
-    if (!params) return
-    const res = await fetch('/api/review', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, ...Object.fromEntries(params), staged: params.get('staged') === 'true', untracked: params.get('untracked') === 'true' }),
-    })
-    const body = await res.json()
-    if (!res.ok) {
-      setState({ status: 'error', kind: 'process', message: body.message ?? body.error ?? `HTTP ${res.status}` })
-      return
+    if (!params || startingRef.current) return
+    startingRef.current = true
+    const startKey = keyRef.current
+    try {
+      const res = await fetch('/api/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, ...Object.fromEntries(params), staged: params.get('staged') === 'true', untracked: params.get('untracked') === 'true' }),
+      })
+      const body = await res.json()
+      if (keyRef.current !== startKey) return
+      if (!res.ok) {
+        setState({ status: 'error', kind: 'process', message: body.message ?? body.error ?? `HTTP ${res.status}` })
+        return
+      }
+      attach(body.id, Date.now())
+    } catch {
+      if (keyRef.current === startKey) {
+        setState({ status: 'error', kind: 'process', message: '리뷰 요청을 보내지 못했습니다' })
+      }
+    } finally {
+      startingRef.current = false
     }
-    attach(body.id, Date.now())
   }, [params, attach])
 
   const cancel = useCallback(async () => {
     const id = jobRef.current?.id
     if (!id) return
-    await fetch(`/api/review/${id}`, { method: 'DELETE' })
+    try {
+      await fetch(`/api/review/${id}`, { method: 'DELETE' })
+    } catch {}
   }, [])
 
   return {
