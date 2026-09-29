@@ -1,0 +1,98 @@
+import { randomUUID } from 'node:crypto'
+import { runReview, type RunOptions } from './runner.js'
+import type { ReviewStore, ReviewRecord } from './store.js'
+import { ReviewFailure, type FailureKind, type ProviderId, type ReviewContext, type ReviewProvider, type ReviewResult } from './types.js'
+
+export type JobEvent =
+  | { type: 'progress'; text: string }
+  | { type: 'done'; record: ReviewRecord }
+  | { type: 'error'; kind: FailureKind; message: string; rawOutput?: string }
+
+export interface StartInput {
+  provider: ReviewProvider
+  ctx: ReviewContext
+  key: string
+  fingerprint: string
+}
+
+export type RunFn = (provider: ReviewProvider, ctx: ReviewContext, options: RunOptions) => Promise<ReviewResult>
+
+interface Job {
+  id: string
+  key: string
+  provider: ProviderId
+  startedAt: number
+  events: JobEvent[]
+  listeners: Set<(e: JobEvent) => void>
+  controller: AbortController
+  finished: boolean
+}
+
+export class ReviewJobs {
+  private jobs = new Map<string, Job>()
+
+  constructor(private store: ReviewStore, private run: RunFn = runReview) {}
+
+  start({ provider, ctx, key, fingerprint }: StartInput): string {
+    const existing = [...this.jobs.values()].find((j) => !j.finished && j.key === key && j.provider === provider.id)
+    if (existing) return existing.id
+
+    const job: Job = {
+      id: randomUUID(),
+      key,
+      provider: provider.id,
+      startedAt: Date.now(),
+      events: [],
+      listeners: new Set(),
+      controller: new AbortController(),
+      finished: false,
+    }
+    this.jobs.set(job.id, job)
+
+    const emit = (e: JobEvent) => {
+      job.events.push(e)
+      for (const l of job.listeners) l(e)
+    }
+
+    this.run(provider, ctx, { signal: job.controller.signal, onProgress: (text) => emit({ type: 'progress', text }) })
+      .then((result) => {
+        const record: ReviewRecord = { provider: provider.id, providerLabel: provider.label, createdAt: Date.now(), key, fingerprint, result }
+        this.store.save(ctx.repoPath, record)
+        job.finished = true
+        emit({ type: 'done', record })
+      })
+      .catch((err) => {
+        job.finished = true
+        if (err instanceof ReviewFailure) emit({ type: 'error', kind: err.kind, message: err.message, rawOutput: err.rawOutput })
+        else emit({ type: 'error', kind: 'process', message: String(err?.message ?? err) })
+      })
+
+    return job.id
+  }
+
+  runningFor(key: string): { id: string; provider: ProviderId; startedAt: number } | null {
+    const job = [...this.jobs.values()].find((j) => !j.finished && j.key === key)
+    return job ? { id: job.id, provider: job.provider, startedAt: job.startedAt } : null
+  }
+
+  subscribe(id: string, listener: (e: JobEvent) => void): (() => void) | null {
+    const job = this.jobs.get(id)
+    if (!job) return null
+    for (const e of job.events) listener(e)
+    job.listeners.add(listener)
+    return () => job.listeners.delete(listener)
+  }
+
+  cancel(id: string): boolean {
+    const job = this.jobs.get(id)
+    if (!job || job.finished) return false
+    job.controller.abort()
+    return true
+  }
+
+  cancelAll(): void {
+    for (const job of this.jobs.values()) {
+      if (!job.finished) job.controller.abort()
+    }
+  }
+}
