@@ -11,7 +11,7 @@ const pendingOpen: string[] = []
 let initialized = false
 app.on('open-file', (event, path) => {
   event.preventDefault()
-  if (initialized) void openRepo(path)
+  if (initialized) void openAndReport(path)
   else pendingOpen.push(path)
 })
 
@@ -22,7 +22,7 @@ let recent: RecentStore
 function refreshMenu() {
   Menu.setApplicationMenu(buildMenu({
     openFolder: () => void selectFolder({ fromMenu: true }),
-    openRecent: (path) => void openRepo(path),
+    openRecent: (path) => void openAndReport(path),
     recent: recent.list(),
   }))
 }
@@ -44,6 +44,11 @@ function showLauncher() {
       preload: join(__dirname, 'preload.cjs'),
     },
   })
+  // 파일을 끌어다 놓으면 file:// 페이지로 이동해 그 페이지에 window.diffx가 노출되므로 이동과 새 창을 막는다.
+  const blockNavigation = (event: { preventDefault: () => void }) => event.preventDefault()
+  launcher.webContents.on('will-navigate', blockNavigation)
+  launcher.webContents.on('will-redirect', blockNavigation)
+  launcher.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   launcher.on('closed', () => {
     launcher = null
   })
@@ -61,14 +66,22 @@ async function openRepo(path: string): Promise<OpenResult> {
   }
 }
 
+function reportOpenFailure(error: string) {
+  showLauncher()
+  void dialog.showMessageBox({ type: 'warning', message: error })
+}
+
+async function openAndReport(path: string): Promise<OpenResult> {
+  const result = await openRepo(path)
+  if (!result.ok) reportOpenFailure(result.error)
+  return result
+}
+
 async function selectFolder({ fromMenu = false } = {}): Promise<OpenResult | { ok: false; error: 'cancelled' }> {
   const result = await dialog.showOpenDialog({ properties: ['openDirectory'], title: '저장소 폴더 선택' })
   if (result.canceled || result.filePaths.length === 0) return { ok: false, error: 'cancelled' }
   const opened = await openRepo(result.filePaths[0])
-  if (!opened.ok && fromMenu) {
-    showLauncher()
-    void dialog.showMessageBox({ type: 'warning', message: opened.error })
-  }
+  if (!opened.ok && fromMenu) reportOpenFailure(opened.error)
   return opened
 }
 
@@ -111,11 +124,9 @@ app.whenReady().then(async () => {
   })
 
   initialized = true
-  if (pendingOpen.length > 0) {
-    for (const path of pendingOpen.splice(0)) await openRepo(path)
-  } else {
-    showLauncher()
-  }
+  const initialPaths = pendingOpen.splice(0)
+  if (initialPaths.length === 0) showLauncher()
+  for (const path of initialPaths) await openAndReport(path)
 })
 
 app.on('activate', () => {
