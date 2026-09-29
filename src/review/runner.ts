@@ -12,6 +12,9 @@ export interface RunOptions {
   env?: NodeJS.ProcessEnv
 }
 
+// 서버 종료처럼 기다릴 수 없는 중단은 signal.reason에 이 값을 넣어 SIGTERM 직후 SIGKILL을 보낸다.
+export const STOP_IMMEDIATELY = 'diffx:stop-immediately'
+
 const DEFAULT_TIMEOUT = 600_000
 const MAX_STDOUT = 20 * 1024 * 1024
 
@@ -100,15 +103,19 @@ export function runReview(provider: ReviewProvider, ctx: ReviewContext, options:
       }
     }
 
-    const kill = () => {
+    const kill = (graceMs = 3000) => {
       if (child.exitCode !== null || settled) return
+      clearTimeout(killTimer)
+      clearTimeout(giveUpTimer)
       signalGroup('SIGTERM')
-      killTimer = setTimeout(() => {
+      const forceKill = () => {
         signalGroup('SIGKILL')
         giveUpTimer = setTimeout(() => {
           finish(() => reject(failureForStop()))
         }, 2000)
-      }, 3000)
+      }
+      if (graceMs === 0) forceKill()
+      else killTimer = setTimeout(forceKill, graceMs)
     }
 
     const failureForStop = () => cancelled
@@ -122,7 +129,7 @@ export function runReview(provider: ReviewProvider, ctx: ReviewContext, options:
 
     const onAbort = () => {
       cancelled = true
-      kill()
+      kill(options.signal?.reason === STOP_IMMEDIATELY ? 0 : 3000)
     }
     if (options.signal?.aborted) onAbort()
     options.signal?.addEventListener('abort', onAbort)

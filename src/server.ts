@@ -477,7 +477,7 @@ export function startServer(options: StartOptions): Promise<{ port: number; clos
       resolve({
         port: info.port,
         close: () => {
-          reviewJobs.cancelAll()
+          reviewJobs.cancelAll({ immediate: true })
           return new Promise<void>((done) => server.close(() => done()))
         },
       })
