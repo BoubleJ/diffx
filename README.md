@@ -12,20 +12,20 @@ npm install -g diffx-cli
 
 ## macOS 데스크톱 앱
 
-터미널 없이 diffx를 실행하는 앱(review-helper)이다. Apple Silicon(arm64) 맥에서 동작한다.
+터미널 없이 diffx를 실행하는 앱(reviewHelper)이다. Apple Silicon(arm64) 맥에서 동작한다.
 
 ### 설치
 
-1. `review-helper-<버전>.zip`을 풀고 `review-helper.app`을 `/Applications`로 옮긴다.
+1. `reviewHelper-<버전>.zip`을 풀고 `reviewHelper.app`을 `/Applications`로 옮긴다.
 2. Apple 공증을 받지 않은 앱이라 처음 실행 시 Gatekeeper가 막는다. 아래 중 하나를 한 번만 하면 된다.
-   - Finder에서 `review-helper.app`을 우클릭하고 `열기`를 누른 뒤 경고 창에서 다시 `열기`를 누른다.
-   - 터미널에서 `xattr -dr com.apple.quarantine /Applications/review-helper.app`을 실행한다.
+   - Finder에서 `reviewHelper.app`을 우클릭하고 `열기`를 누른 뒤 경고 창에서 다시 `열기`를 누른다.
+   - 터미널에서 `xattr -dr com.apple.quarantine /Applications/reviewHelper.app`을 실행한다.
 
 ### 사용
 
 - 앱 실행 시 저장소 선택 창이 열린다. `폴더 열기`로 git 저장소를 고르거나 최근 저장소를 누른다.
 - 저장소마다 창이 따로 열린다. `파일 > 저장소 열기`(`Cmd+O`)로 다른 저장소를 연다.
-- Finder에서 저장소 폴더를 Dock의 review-helper 아이콘으로 끌어다 놓아도 열린다.
+- Finder에서 저장소 폴더를 Dock의 reviewHelper 아이콘으로 끌어다 놓아도 열린다.
 - AI 리뷰는 Claude Code(`claude`)로 실행된다. `claude`가 설치돼 있고 로그인돼 있어야 한다.
 
 ### 직접 빌드
@@ -35,7 +35,7 @@ pnpm install
 pnpm run build:app
 ```
 
-`release/review-helper-<버전>.zip`이 만들어진다. 버전은 `package.json`의 `version` 값이다.
+`release/reviewHelper-<버전>.zip`이 만들어진다. 버전은 `package.json`의 `version` 값이다.
 
 ## Usage
 
