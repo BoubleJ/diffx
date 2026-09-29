@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-export type ProviderId = 'claude' | 'codex' | 'cursor' | 'gemini'
+export type ProviderId = 'claude'
 export type Severity = 'critical' | 'major' | 'minor' | 'info'
 
 export interface Finding {
@@ -44,6 +44,17 @@ interface SavedReview {
   running: { id: string; provider: ProviderId; startedAt: number } | null
 }
 
+export async function fetchProviders(fetchFn: typeof fetch = fetch): Promise<ProviderInfo[]> {
+  const res = await fetchFn('/api/review/providers')
+  if (!res.ok) return []
+  return res.json()
+}
+
+// 작업 트리 모드는 staged, untracked 설정을 바꿔도 key가 같으므로 요청 파라미터까지 키에 넣어 stale을 다시 계산한다.
+export function savedReviewKey(key: string | null, query: string): [string, string | null, string] {
+  return ['review', key, query]
+}
+
 export function useReview(params: URLSearchParams | null, key: string | null) {
   const queryClient = useQueryClient()
   const query = params?.toString() ?? ''
@@ -55,13 +66,12 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
 
   const { data: providers = [] } = useQuery({
     queryKey: ['review-providers'],
-    queryFn: async (): Promise<ProviderInfo[]> => (await fetch('/api/review/providers')).json(),
+    queryFn: () => fetchProviders(),
     staleTime: 60_000,
   })
 
-  const savedKey = ['review', key]
   const { data: saved, isFetching } = useQuery({
-    queryKey: savedKey,
+    queryKey: savedReviewKey(key, query),
     queryFn: async (): Promise<SavedReview> => (await fetch(`/api/review?${query}`)).json(),
     enabled: key !== null && params !== null,
   })
