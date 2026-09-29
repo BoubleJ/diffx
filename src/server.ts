@@ -3,7 +3,7 @@ import { join, extname, resolve } from 'node:path'
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { getRepoName, getBranchName, getFileContent, getBlobContent, getWorktreeFileContent, getTabSizeForFiles, getUntrackedFilePaths, listBranches, fetchAll, getFileAtCommit } from './git.js'
-import { resolveComparison, queryFromSearch, ComparisonError, type ResolvedComparison } from './comparison.js'
+import { resolveComparison, comparisonKey, queryFromSearch, ComparisonError, type ResolvedComparison } from './comparison.js'
 import type { Context } from 'hono'
 import { loadSettings, saveSettings } from './settings.js'
 import { InMemoryCommentStore } from './comments.js'
@@ -109,7 +109,17 @@ export function createApp(options: AppOptions) {
   const app = new Hono()
   const isCustomMode = !!customDiffArgs
   const store = commentStore ?? new InMemoryCommentStore()
-  const viewedFiles = new Map<string, string>()
+  const viewedByKey = new Map<string, Map<string, string>>()
+  let activeKey = isCustomMode ? comparisonKey({ mode: 'custom', customArgs: customDiffArgs }) : 'worktree'
+  const keyFrom = (value: string | undefined) => value || activeKey
+  const viewedFor = (key: string) => {
+    let map = viewedByKey.get(key)
+    if (!map) {
+      map = new Map()
+      viewedByKey.set(key, map)
+    }
+    return map
+  }
 
   const resolveFromRequest = (c: Context): ResolvedComparison => {
     const q = queryFromSearch((name) => c.req.query(name))
@@ -130,6 +140,7 @@ export function createApp(options: AppOptions) {
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
+    activeKey = resolved.key
     const { patch } = resolved
     const untracked = resolved.mode === 'worktree' && c.req.query('untracked') === 'true'
     const untrackedFiles = untracked ? getUntrackedFilePaths(repo) : []
@@ -239,24 +250,25 @@ export function createApp(options: AppOptions) {
   })
 
   app.get('/api/viewed', (c) => {
-    return c.json(Object.fromEntries(viewedFiles))
+    return c.json(Object.fromEntries(viewedFor(keyFrom(c.req.query('key')))))
   })
 
   app.put('/api/viewed', async (c) => {
-    const { filePath, viewed, contentHash } = await c.req.json<{ filePath: string; viewed: boolean; contentHash?: string }>()
+    const { key, filePath, viewed, contentHash } = await c.req.json<{ key?: string; filePath: string; viewed: boolean; contentHash?: string }>()
+    const map = viewedFor(keyFrom(key))
     if (viewed) {
       if (typeof contentHash !== 'string' || contentHash.length === 0) {
         return c.json({ error: 'non-empty contentHash required when marking viewed' }, 400)
       }
-      viewedFiles.set(filePath, contentHash)
+      map.set(filePath, contentHash)
     } else {
-      viewedFiles.delete(filePath)
+      map.delete(filePath)
     }
     return c.json({ ok: true })
   })
 
   app.get('/api/comments', async (c) => {
-    const comments = await store.getAll()
+    const comments = await store.getAll(keyFrom(c.req.query('key')))
     return c.json(comments)
   })
 
@@ -264,6 +276,7 @@ export function createApp(options: AppOptions) {
     const body = await c.req.json()
     const comment = {
       id: crypto.randomUUID(),
+      key: keyFrom(body.key),
       filePath: body.filePath,
       side: body.side,
       lineNumber: body.lineNumber,
