@@ -19,6 +19,7 @@
     "code-review",
     "cli"
   ],
+  "main": "dist/electron/main.cjs",
   "bin": {
     "diffx": "./dist/cli.mjs"
   },
@@ -27,6 +28,9 @@
   ],
   "scripts": {
     "build": "vite build && tsdown",
+    "build:electron": "vite build && tsdown",
+    "dev:app": "pnpm run build:electron && electron .",
+    "build:app": "pnpm run build:electron && electron-builder --mac zip --arm64",
     "changeset": "changeset",
     "dev:client": "vite",
     "dev:server": "tsx src/cli.ts --no-open -p 3433",

@@ -1,0 +1,135 @@
+:root {
+  --bg: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --text: #1f2328;
+  --text-secondary: #656d76;
+  --border: #d0d7de;
+  --primary: #0969da;
+  --primary-hover: #0550ae;
+  --danger: #cf222e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --bg-secondary: #161b22;
+    --text: #e6edf3;
+    --text-secondary: #8b949e;
+    --border: #30363d;
+    --primary: #58a6ff;
+    --primary-hover: #79c0ff;
+    --danger: #f85149;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  font-size: 14px;
+}
+
+.launcher {
+  padding: 32px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+}
+
+h2 {
+  margin: 28px 0 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.launcher-desc {
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+}
+
+button.primary {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+button.primary:hover {
+  background: var(--primary-hover);
+}
+
+.error {
+  color: var(--danger);
+}
+
+.recent {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.recent li {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.recent li:last-child {
+  border-bottom: none;
+}
+
+.recent-open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.recent-open:hover {
+  background: var(--bg-secondary);
+}
+
+.recent-name {
+  font-weight: 600;
+}
+
+.recent-path {
+  color: var(--text-secondary);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-remove {
+  width: 36px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.recent-remove:hover {
+  color: var(--danger);
+}
+
+.empty {
+  color: var(--text-secondary);
+}

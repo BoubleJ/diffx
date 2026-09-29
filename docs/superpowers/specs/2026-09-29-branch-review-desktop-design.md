@@ -222,7 +222,7 @@ diffx
 - 앱에서 띄운 서버는 창마다 무작위 토큰을 만든다. `/api/*` 요청은 `X-Diffx-Token` 헤더를 검사하고 맞지 않으면 403을 돌려준다. 같은 맥의 브라우저에서 다른 웹페이지가 서버로 요청을 보내 리뷰를 실행하는 경우를 막기 위해서다.
 - 헤더는 main 프로세스가 `session.webRequest.onBeforeSendHeaders`로 해당 창의 서버 주소 요청에 붙인다. `<img src>`와 `EventSource`는 요청 헤더를 직접 넣을 수 없어서 UI 코드에서 토큰을 다루지 않는다.
 - CLI 실행 시에는 토큰 검사를 하지 않는다. 지금처럼 동작한다.
-- 창 설정: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. 저장소 선택 창의 preload는 `selectFolder()`, `openRepo(path)`, `getRecent()`만 노출한다. diff 창에는 preload를 두지 않는다.
+- 창 설정: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. 저장소 선택 창의 preload는 `selectFolder()`, `openRepo(path)`, `getRecent()`, `removeRecent(path)`만 노출한다. diff 창에는 preload를 두지 않는다.
 
 ### 빌드와 배포
 
