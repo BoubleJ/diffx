@@ -6,6 +6,7 @@ interface ToolbarProps {
   repoName: string
   branch: string
   fileCount: number
+  excludedCount?: number
   additions: number
   deletions: number
   commentCount: number
@@ -30,6 +31,7 @@ export function Toolbar({
   repoName,
   branch,
   fileCount,
+  excludedCount = 0,
   additions,
   deletions,
   commentCount,
@@ -83,6 +85,7 @@ export function Toolbar({
         ))}
         <span className="toolbar-stat">
           {fileCount} file{fileCount !== 1 ? 's' : ''} changed
+          {excludedCount > 0 && ` (제외 ${excludedCount}개)`}
           {additions > 0 && <span className="stat-additions"> +{additions}</span>}
           {deletions > 0 && <span className="stat-deletions"> -{deletions}</span>}
         </span>

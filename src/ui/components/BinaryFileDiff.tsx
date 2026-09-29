@@ -1,3 +1,4 @@
+import { ExcludeButton } from './ExcludeButton'
 import type { BinaryFileInfo } from '../hooks/useDiff'
 
 const IMAGE_EXTENSIONS = new Set([
@@ -14,24 +15,28 @@ interface BinaryFileDiffProps {
   info: BinaryFileInfo
   viewed: boolean
   onViewedChange: (filePath: string, viewed: boolean) => void
+  onExclude: (filePath: string) => void
   contentQuery: string
 }
 
-export function BinaryFileDiff({ filePath, info, viewed, onViewedChange, contentQuery }: BinaryFileDiffProps) {
+export function BinaryFileDiff({ filePath, info, viewed, onViewedChange, onExclude, contentQuery }: BinaryFileDiffProps) {
   const image = isImage(filePath)
 
   return (
     <div className={`file-diff-card ${viewed ? 'file-diff-viewed' : ''}`} id={`file-${filePath}`}>
       <div className="binary-diff-header">
         <span className="binary-diff-name">{filePath}</span>
-        <label className="viewed-label" onClick={(e) => e.stopPropagation()}>
-          <input
-            type="checkbox"
-            checked={viewed}
-            onChange={(e) => onViewedChange(filePath, e.target.checked)}
-          />
-          Viewed
-        </label>
+        <span className="file-header-actions">
+          <ExcludeButton onClick={() => onExclude(filePath)} />
+          <label className="viewed-label" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              checked={viewed}
+              onChange={(e) => onViewedChange(filePath, e.target.checked)}
+            />
+            Viewed
+          </label>
+        </span>
       </div>
       {!viewed && (
         <div className="binary-diff-body">

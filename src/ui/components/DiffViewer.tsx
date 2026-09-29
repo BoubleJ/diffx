@@ -14,6 +14,7 @@ interface DiffViewerProps {
   viewedFiles: Set<string>
   binaryFiles: Map<string, BinaryFileInfo>
   onViewedChange: (filePath: string, viewed: boolean) => void
+  onExclude: (filePath: string) => void
   fileAnnotationsMap: Map<string, DiffLineAnnotation<ReviewComment>[]>
   onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => void
   onDeleteComment: (id: string) => void
@@ -32,6 +33,7 @@ export const DiffViewer = memo(function DiffViewer({
   viewedFiles,
   binaryFiles,
   onViewedChange,
+  onExclude,
   fileAnnotationsMap,
   onAddComment,
   onDeleteComment,
@@ -75,6 +77,7 @@ export const DiffViewer = memo(function DiffViewer({
               info={binaryInfo}
               viewed={viewedFiles.has(filePath)}
               onViewedChange={onViewedChange}
+              onExclude={onExclude}
               contentQuery={contentQuery}
             />
           )
@@ -96,6 +99,7 @@ export const DiffViewer = memo(function DiffViewer({
             softWrap={softWrap}
             viewed={viewedFiles.has(filePath)}
             onViewedChange={onViewedChange}
+            onExclude={onExclude}
             onAddComment={onAddComment}
             onDeleteComment={onDeleteComment}
             highlightLine={highlight && highlight.file === filePath ? highlight : null}

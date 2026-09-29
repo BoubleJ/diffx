@@ -87,6 +87,9 @@ export function ReviewPanel(props: ReviewPanelProps) {
         <div className="review-panel-result">
           <div className="review-panel-meta">{record.providerLabel}로 리뷰</div>
           <div className="review-panel-meta">{new Date(record.createdAt).toLocaleString()}</div>
+          {record.excluded && record.excluded.length > 0 && (
+            <div className="review-panel-meta">제외한 파일 {record.excluded.length}개를 빼고 리뷰</div>
+          )}
           {stale && <div className="review-panel-stale">리뷰 이후 코드가 바뀌었습니다</div>}
           <p className="review-panel-summary">{record.result.summary}</p>
           <div className="review-panel-count">지적 사항 {findings.length}건</div>

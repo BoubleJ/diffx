@@ -11,6 +11,7 @@ import {
   FileCheck,
   FileQuestion,
   MessageSquare,
+  EyeOff,
   Search,
   PanelLeftClose,
   PanelLeftOpen,
@@ -24,6 +25,7 @@ interface FileTreeProps {
   viewedFiles: Set<string>
   untrackedFiles: Set<string>
   onFileClick: (filePath: string) => void
+  onExclude: (filePath: string) => void
   collapsed?: boolean
   onToggleCollapse?: () => void
 }
@@ -111,6 +113,7 @@ function TreeDir({
   viewedFiles,
   untrackedFiles,
   onFileClick,
+  onExclude,
   depth,
   defaultExpanded,
 }: {
@@ -120,6 +123,7 @@ function TreeDir({
   viewedFiles: Set<string>
   untrackedFiles: Set<string>
   onFileClick: (filePath: string) => void
+  onExclude: (filePath: string) => void
   depth: number
   defaultExpanded: boolean
 }) {
@@ -155,6 +159,7 @@ function TreeDir({
                 viewedFiles={viewedFiles}
                 untrackedFiles={untrackedFiles}
                 onFileClick={onFileClick}
+                onExclude={onExclude}
                 depth={depth + 1}
                 defaultExpanded={true}
               />
@@ -167,6 +172,7 @@ function TreeDir({
                 viewed={viewedFiles.has(child.file?.name ?? '')}
                 untrackedFiles={untrackedFiles}
                 onFileClick={onFileClick}
+                onExclude={onExclude}
                 depth={depth + 1}
               />
             ),
@@ -184,6 +190,7 @@ function TreeFile({
   viewed,
   untrackedFiles,
   onFileClick,
+  onExclude,
   depth,
 }: {
   node: TreeNode
@@ -192,6 +199,7 @@ function TreeFile({
   viewed: boolean
   untrackedFiles: Set<string>
   onFileClick: (filePath: string) => void
+  onExclude: (filePath: string) => void
   depth: number
 }) {
   const filePath = node.file?.name ?? node.path
@@ -213,12 +221,23 @@ function TreeFile({
             {commentCount}
           </span>
         )}
+        <button
+          className="ft-exclude-btn"
+          title="제외"
+          aria-label="제외"
+          onClick={(e) => {
+            e.stopPropagation()
+            onExclude(filePath)
+          }}
+        >
+          <EyeOff size={14} />
+        </button>
       </div>
     </li>
   )
 }
 
-export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrackedFiles, onFileClick, collapsed, onToggleCollapse }: FileTreeProps) {
+export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrackedFiles, onFileClick, onExclude, collapsed, onToggleCollapse }: FileTreeProps) {
   const [filter, setFilter] = useState('')
 
   const filteredFiles = useMemo(() => {
@@ -283,6 +302,7 @@ export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrac
               viewedFiles={viewedFiles}
               untrackedFiles={untrackedFiles}
               onFileClick={onFileClick}
+              onExclude={onExclude}
               depth={0}
               defaultExpanded={true}
             />
@@ -295,6 +315,7 @@ export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrac
               viewed={viewedFiles.has(node.file?.name ?? '')}
               untrackedFiles={untrackedFiles}
               onFileClick={onFileClick}
+              onExclude={onExclude}
               depth={0}
             />
           ),
