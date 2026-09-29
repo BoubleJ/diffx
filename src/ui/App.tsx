@@ -75,7 +75,12 @@ export function App() {
     () => (comparison ? comparisonParams(comparison, { staged: settings.staged, untracked: settings.untracked }) : null),
     [comparison, settings.staged, settings.untracked],
   )
-  const { patch, repoName, branch, binaryFiles, tabSizeMap, untrackedFiles, key, identical, loading, error } = useDiff(params)
+  const [diffReloadToken, setDiffReloadToken] = useState(0)
+  const handleFetch = useCallback(async () => {
+    await fetchRemote()
+    setDiffReloadToken((t) => t + 1)
+  }, [fetchRemote])
+  const { patch, repoName, branch, binaryFiles, tabSizeMap, untrackedFiles, key, identical, loading, error } = useDiff(params, diffReloadToken)
   const review = useReview(params, key)
   const [reviewPanel, setReviewPanel] = useState(() => loadReviewPanel())
   const updateReviewPanel = useCallback((next: typeof reviewPanel) => {
@@ -256,7 +261,7 @@ export function App() {
             fetchError={fetchError}
             notice={notice}
             onChange={handleComparisonChange}
-            onFetch={fetchRemote}
+            onFetch={handleFetch}
           />
         )}
         branch={branch}
