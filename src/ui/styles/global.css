@@ -1164,3 +1164,147 @@ body {
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+.review-aside {
+    position: relative;
+    height: 100%;
+    border-left: 1px solid var(--border);
+    background: var(--bg-secondary);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.review-resize-handle {
+    position: absolute;
+    top: 0;
+    left: -3px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 5;
+}
+
+.review-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    font-size: 13px;
+}
+
+.review-panel-header,
+.review-panel-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.review-panel-title {
+    font-weight: 600;
+}
+
+.review-panel-hint {
+    color: var(--primary);
+    font-size: 12px;
+}
+
+.review-panel-status,
+.review-panel-error,
+.review-panel-stale {
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+}
+
+.review-panel-error {
+    color: var(--danger);
+}
+
+.review-panel-stale {
+    border-color: var(--comment-border);
+    background: var(--comment-bg);
+}
+
+.review-panel-elapsed,
+.review-panel-meta,
+.review-panel-count {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.review-panel-raw {
+    max-height: 200px;
+    overflow: auto;
+    white-space: pre-wrap;
+    font-size: 11px;
+    color: var(--text);
+}
+
+.review-panel-summary {
+    margin: 4px 0;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.finding-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 8px 10px;
+    text-align: left;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.finding-item:hover {
+    border-color: var(--primary);
+}
+
+.finding-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.finding-location {
+    color: var(--text-secondary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.finding-severity {
+    padding: 0 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.finding-severity-critical { background: var(--danger); }
+.finding-severity-major { background: #bc4c00; }
+.finding-severity-minor { background: var(--comment-border); }
+.finding-severity-info { background: var(--text-secondary); }
+
+.finding-title {
+    font-weight: 600;
+}
+
+.finding-body {
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+.btn-active {
+    border-color: var(--primary);
+    color: var(--primary);
+}

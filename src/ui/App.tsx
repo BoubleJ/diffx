@@ -11,12 +11,15 @@ import { useComments } from './hooks/useComments'
 import { useSettings } from './hooks/useSettings'
 import { useViewed } from './hooks/useViewed'
 import { useFullDiffs, fileKey } from './hooks/useFullDiffs'
+import { useReview, type Finding } from './hooks/useReview'
 import { Toolbar } from './components/Toolbar'
 import { BranchPicker } from './components/BranchPicker'
 import { DiffViewer } from './components/DiffViewer'
 import { FileTree } from './components/FileTree'
 import { CommentTracker } from './components/CommentTracker'
+import { ReviewPanel } from './components/ReviewPanel'
 import { SidebarStorage } from './sidebarStorage'
+import { loadReviewPanel, saveReviewPanel, REVIEW_PANEL_MIN } from './reviewPanelStorage'
 import { comparisonParams, loadComparison, saveComparison, reconcileComparison, type Comparison } from './comparison'
 
 function useWindowSize({ factor }: { factor: number }) {
@@ -73,6 +76,14 @@ export function App() {
     [comparison, settings.staged, settings.untracked],
   )
   const { patch, repoName, branch, binaryFiles, tabSizeMap, untrackedFiles, key, identical, loading, error } = useDiff(params)
+  const review = useReview(params, key)
+  const [reviewPanel, setReviewPanel] = useState(() => loadReviewPanel())
+  const updateReviewPanel = useCallback((next: typeof reviewPanel) => {
+    setReviewPanel(next)
+    saveReviewPanel(next)
+  }, [])
+  const claude = review.providers.find((p) => p.id === 'claude')
+  const [highlight, setHighlight] = useState<{ file: string; side: 'additions' | 'deletions'; line: number } | null>(null)
   const { comments, addComment, removeComment, copyAllComments } = useComments(key)
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [sidebar, setSidebar] = useState(() => SidebarStorage.load())
@@ -181,6 +192,14 @@ export function App() {
     }
   }, [])
 
+  const handleFindingClick = useCallback((f: Finding) => {
+    handleFileClick(f.file)
+    if (f.line !== null) {
+      setHighlight({ file: f.file, side: f.side === 'old' ? 'deletions' : 'additions', line: f.line })
+      setTimeout(() => setHighlight(null), 2000)
+    }
+  }, [handleFileClick])
+
   const handleViewedChange = useCallback((filePath: string, viewed: boolean) => {
     setViewed(filePath, viewed)
   }, [setViewed])
@@ -248,6 +267,8 @@ export function App() {
         onDefaultTabSizeChange={(size) => updateSettings({ defaultTabSize: size })}
         onSoftWrapChange={(softWrap) => updateSettings({ softWrap })}
         onBrowserChange={(browser) => updateSettings({ browser })}
+        reviewOpen={reviewPanel.open}
+        onToggleReview={() => updateReviewPanel({ ...reviewPanel, open: !reviewPanel.open })}
         onCopyComments={copyAllComments}
       />
       <div className="app-body">
@@ -298,6 +319,32 @@ export function App() {
           </Virtualizer>
           )}
         </main>
+        {reviewPanel.open && (
+          <Resizable
+            width={Math.min(reviewPanel.size, maxSidebarWidth)}
+            height={0}
+            axis="x"
+            resizeHandles={['w']}
+            minConstraints={[REVIEW_PANEL_MIN, 0]}
+            maxConstraints={[maxSidebarWidth, 0]}
+            onResize={(_e, data) => setReviewPanel((prev) => ({ ...prev, size: data.size.width }))}
+            onResizeStop={(_e, data) => updateReviewPanel({ ...reviewPanel, size: data.size.width })}
+            handle={<div className="review-resize-handle" />}
+          >
+            <aside className="review-aside" style={{ width: Math.min(reviewPanel.size, maxSidebarWidth) }}>
+              <ReviewPanel
+                provider={claude}
+                record={review.record}
+                stale={review.stale}
+                state={review.state}
+                onStart={() => review.start('claude')}
+                onCancel={review.cancel}
+                onFindingClick={handleFindingClick}
+                onClose={() => updateReviewPanel({ ...reviewPanel, open: false })}
+              />
+            </aside>
+          </Resizable>
+        )}
       </div>
     </div>
   )

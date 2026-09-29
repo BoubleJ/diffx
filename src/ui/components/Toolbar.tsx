@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react'
-import { GitBranch, Settings } from 'lucide-react'
+import { GitBranch, PanelRight, Settings } from 'lucide-react'
 import type { DiffOptions } from '../hooks/useDiff'
 
 interface ToolbarProps {
@@ -16,6 +16,8 @@ interface ToolbarProps {
   browser?: string
   showWorktreeOptions: boolean
   branchPicker?: ReactNode
+  reviewOpen: boolean
+  onToggleReview: () => void
   onDiffStyleChange: (style: 'split' | 'unified') => void
   onDiffOptionsChange: (options: DiffOptions) => void
   onDefaultTabSizeChange: (size: number) => void
@@ -38,6 +40,8 @@ export function Toolbar({
   browser,
   showWorktreeOptions,
   branchPicker,
+  reviewOpen,
+  onToggleReview,
   onDiffStyleChange,
   onDiffOptionsChange,
   onDefaultTabSizeChange,
@@ -172,6 +176,13 @@ export function Toolbar({
             </div>
           )}
         </div>
+        <button
+          className={`btn btn-sm ${reviewOpen ? 'btn-active' : ''}`}
+          onClick={onToggleReview}
+          title="AI 리뷰 열기/닫기"
+        >
+          <PanelRight size={14} /> AI 리뷰
+        </button>
         <button
           className="btn btn-primary btn-sm"
           onClick={handleCopy}
