@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'" />
+    <title>diffx</title>
+    <link rel="stylesheet" href="launcher.css" />
+  </head>
+  <body>
+    <main class="launcher">
+      <h1>diffx</h1>
+      <p class="launcher-desc">리뷰할 git 저장소 폴더를 선택하세요.</p>
+      <button id="open-folder" class="primary">폴더 열기</button>
+      <p id="error" class="error" hidden></p>
+      <h2>최근 저장소</h2>
+      <ul id="recent" class="recent"></ul>
+      <p id="recent-empty" class="empty" hidden>최근에 연 저장소가 없습니다.</p>
+    </main>
+    <script src="launcher.js"></script>
+  </body>
+</html>
