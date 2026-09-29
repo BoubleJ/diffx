@@ -3,23 +3,27 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { DiffLineAnnotation } from '@pierre/diffs'
 import type { ReviewComment } from '../../types'
 
-const COMMENTS_KEY = ['comments']
-
-async function fetchComments(): Promise<ReviewComment[]> {
-  const res = await fetch('/api/comments')
+async function fetchComments(key: string): Promise<ReviewComment[]> {
+  const res = await fetch(`/api/comments?key=${encodeURIComponent(key)}`)
   return res.json()
 }
 
-export function useComments() {
+export function useComments(key: string | null) {
   const queryClient = useQueryClient()
-  const { data: comments = [] } = useQuery({ queryKey: COMMENTS_KEY, queryFn: fetchComments, refetchInterval: 3000 })
+  const COMMENTS_KEY = ['comments', key]
+  const { data: comments = [] } = useQuery({
+    queryKey: COMMENTS_KEY,
+    queryFn: () => fetchComments(key!),
+    enabled: key !== null,
+    refetchInterval: 3000,
+  })
 
   const addMutation = useMutation({
     mutationFn: async (params: { filePath: string; side: 'deletions' | 'additions'; lineNumber: number; lineContent: string; body: string }) => {
       const res = await fetch('/api/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
+        body: JSON.stringify({ ...params, key }),
       })
       return res.json() as Promise<ReviewComment>
     },
