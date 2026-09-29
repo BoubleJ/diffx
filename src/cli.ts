@@ -87,8 +87,15 @@ if (!values['no-open']) {
   openModule.default(openUrl, options)
 }
 
-process.on('SIGINT', async () => {
+let shuttingDown = false
+async function shutdown() {
+  if (shuttingDown) return
+  shuttingDown = true
   console.log('\nShutting down...')
   await Promise.race([close(), new Promise((r) => setTimeout(r, 1000))])
   process.exit(0)
-})
+}
+
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
+  process.on(signal, shutdown)
+}
