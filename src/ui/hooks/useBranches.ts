@@ -12,7 +12,7 @@ const BRANCHES_KEY = ['branches']
 
 export function useBranches(enabled: boolean) {
   const queryClient = useQueryClient()
-  const { data: branches, refetch } = useQuery({
+  const { data: branches, refetch, isError, error } = useQuery({
     queryKey: BRANCHES_KEY,
     queryFn: async (): Promise<BranchList> => {
       const res = await fetch('/api/branches')
@@ -39,5 +39,7 @@ export function useBranches(enabled: boolean) {
     }
   }, [queryClient])
 
-  return { branches, refetch, fetchRemote, fetching, fetchError }
+  const branchesError = isError ? (error as Error).message : null
+
+  return { branches, refetch, branchesError, fetchRemote, fetching, fetchError }
 }
