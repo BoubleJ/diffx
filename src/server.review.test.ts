@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { makeRepo, commit, git } from './test/gitRepo'
-import { createApp } from './server'
+import { createApp, startServer } from './server'
 import { ReviewJobs, type RunFn } from './review/jobs'
 import { ReviewStore } from './review/store'
 import type { ReviewProvider } from './review/types'
@@ -29,7 +29,7 @@ function setup(run: RunFn) {
   const store = new ReviewStore(mkdtempSync(join(tmpdir(), 'diffx-reviews-')))
   const jobs = new ReviewJobs(store, run)
   const app = createApp({ repoPath: repo, clientDir, reviewJobs: jobs, reviewStore: store, providers: [fakeProvider] })
-  return { app, repo, base }
+  return { app, repo, base, jobs, store, clientDir }
 }
 
 const branchQuery = 'mode=branch&source=feature/x&target=main'
@@ -45,6 +45,14 @@ async function readSse(res: Response): Promise<string> {
   }
   await reader.cancel()
   return text
+}
+
+function postReview(app: ReturnType<typeof createApp>, overrides: Record<string, unknown> = {}) {
+  return app.request('/api/review', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: 'claude', mode: 'branch', source: 'feature/x', target: 'main', ...overrides }),
+  })
 }
 
 describe('review API', () => {
@@ -103,5 +111,69 @@ describe('review API', () => {
       body: JSON.stringify({ provider: 'nope', mode: 'worktree' }),
     })
     expect(res.status).toBe(400)
+  })
+
+  it('releases the listener after a terminal event', async () => {
+    const { app, jobs } = setup(async () => ({ summary: 's', findings: [] }))
+    const { id } = await (await postReview(app)).json()
+    await readSse(await app.request(`/api/review/${id}/events`))
+    await vi.waitFor(() => expect(jobs.listenerCount(id)).toBe(0))
+  })
+
+  it('releases the listener when the SSE request is aborted', async () => {
+    const { app, jobs } = setup(() => new Promise(() => {}))
+    const { id } = await (await postReview(app)).json()
+    const controller = new AbortController()
+    const res = await app.request(`/api/review/${id}/events`, { signal: controller.signal })
+    const reader = res.body!.getReader()
+    await vi.waitFor(() => expect(jobs.listenerCount(id)).toBe(1))
+    controller.abort()
+    await reader.cancel().catch(() => {})
+    await vi.waitFor(() => expect(jobs.listenerCount(id)).toBe(0))
+  })
+
+  it('aborts running jobs when the server closes', async () => {
+    let signal: AbortSignal | undefined
+    const { repo, clientDir, store } = setup(async () => ({ summary: 's', findings: [] }))
+    const jobs = new ReviewJobs(store, (_p, _c, opts) => new Promise((_resolve, reject) => {
+      signal = opts.signal
+      opts.signal?.addEventListener('abort', () => reject(new Error('aborted')))
+    }))
+    const server = await startServer({ repoPath: repo, clientDir, port: 0, host: '127.0.0.1', reviewJobs: jobs, reviewStore: store, providers: [fakeProvider] })
+    const res = await fetch(`http://127.0.0.1:${server.port}/api/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'claude', mode: 'branch', source: 'feature/x', target: 'main' }),
+    })
+    expect(res.status).toBe(200)
+    await vi.waitFor(() => expect(signal).toBeDefined())
+    await server.close()
+    expect(signal!.aborted).toBe(true)
+  })
+
+  it('marks sourceCheckedOut false when HEAD is not the source branch', async () => {
+    let receivedCtx: unknown
+    const { app, repo } = setup(async (_p, ctx) => {
+      receivedCtx = ctx
+      return { summary: 's', findings: [] }
+    })
+    git(repo, 'switch', '-q', 'main')
+    const { id } = await (await postReview(app)).json()
+    await readSse(await app.request(`/api/review/${id}/events`))
+    expect(receivedCtx).toMatchObject({ sourceCheckedOut: false })
+  })
+
+  it('returns 400 unknown_ref for an unknown branch', async () => {
+    const { app } = setup(async () => ({ summary: 's', findings: [] }))
+    const res = await postReview(app, { source: 'nope/none' })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'unknown_ref' })
+  })
+
+  it('returns 400 invalid_body for malformed JSON', async () => {
+    const { app } = setup(async () => ({ summary: 's', findings: [] }))
+    const res = await app.request('/api/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'invalid_body' })
   })
 })

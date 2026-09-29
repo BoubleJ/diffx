@@ -278,7 +278,12 @@ export function createApp(options: AppOptions) {
   })
 
   app.post('/api/review', async (c) => {
-    const body = await c.req.json<{ provider: string; mode?: string; source?: string; target?: string; staged?: boolean; untracked?: boolean }>()
+    let body: { provider: string; mode?: string; source?: string; target?: string; staged?: boolean; untracked?: boolean }
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'invalid_body' }, 400)
+    }
     const provider = providers.find((p) => p.id === body.provider)
     if (!provider) return c.json({ error: 'unknown_provider' }, 400)
     let resolved: ResolvedComparison
@@ -308,25 +313,27 @@ export function createApp(options: AppOptions) {
   app.get('/api/review/:id/events', (c) => {
     const id = c.req.param('id')
     return streamSSE(c, async (stream) => {
-      await new Promise<void>((done) => {
-        const unsubscribe = reviewJobs.subscribe(id, (e) => {
-          if (e.type === 'progress') {
-            stream.writeSSE({ event: 'progress', data: e.text })
-          } else if (e.type === 'done') {
-            stream.writeSSE({ event: 'done', data: JSON.stringify(e.record) }).then(done)
-          } else {
-            stream.writeSSE({ event: 'error', data: JSON.stringify({ kind: e.kind, message: e.message, rawOutput: e.rawOutput }) }).then(done)
+      let unsubscribe: (() => void) | null = null
+      try {
+        await new Promise<void>((done) => {
+          const finish = (event: string, data: string) => {
+            stream.writeSSE({ event, data }).catch(() => {}).finally(done)
           }
+          stream.onAbort(done)
+          unsubscribe = reviewJobs.subscribe(id, (e) => {
+            if (e.type === 'progress') {
+              stream.writeSSE({ event: 'progress', data: e.text }).catch(() => {})
+            } else if (e.type === 'done') {
+              finish('done', JSON.stringify(e.record))
+            } else {
+              finish('error', JSON.stringify({ kind: e.kind, message: e.message, rawOutput: e.rawOutput }))
+            }
+          })
+          if (!unsubscribe) finish('error', JSON.stringify({ kind: 'process', message: '리뷰 작업을 찾지 못했습니다' }))
         })
-        if (!unsubscribe) {
-          stream.writeSSE({ event: 'error', data: JSON.stringify({ kind: 'process', message: '리뷰 작업을 찾지 못했습니다' }) }).then(done)
-          return
-        }
-        stream.onAbort(() => {
-          unsubscribe()
-          done()
-        })
-      })
+      } finally {
+        unsubscribe?.()
+      }
     })
   })
 

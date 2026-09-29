@@ -104,6 +104,10 @@ export class ReviewJobs {
     return () => job.listeners.delete(listener)
   }
 
+  listenerCount(id: string): number {
+    return this.jobs.get(id)?.listeners.size ?? 0
+  }
+
   cancel(id: string): boolean {
     const job = this.jobs.get(id)
     if (!job || job.finished) return false
