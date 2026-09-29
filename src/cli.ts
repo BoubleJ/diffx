@@ -67,7 +67,7 @@ const resolvedClientDir = existsSync(clientDir)
   ? clientDir
   : resolve(process.cwd(), 'dist/client')
 
-const { port: actualPort, close } = await startServer({ port, host, clientDir: resolvedClientDir, customDiffArgs, repoPath })
+const { port: actualPort, close } = await startServer({ port, host, clientDir: resolvedClientDir, customDiffArgs, repoPath, diffCwd: process.cwd() })
 
 const localUrl = `http://${host}:${actualPort}`
 

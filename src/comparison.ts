@@ -41,12 +41,12 @@ export function queryFromSearch(get: (name: string) => string | undefined): Comp
   }
 }
 
-export function resolveComparison(repo: string, customDiffArgs: string[] | undefined, q: ComparisonQuery): ResolvedComparison {
+export function resolveComparison(repo: string, customDiffArgs: string[] | undefined, q: ComparisonQuery, diffCwd = repo): ResolvedComparison {
   if (customDiffArgs) {
     return {
       key: comparisonKey({ mode: 'custom', customArgs: customDiffArgs }),
       mode: 'custom',
-      patch: getCustomGitDiff(repo, customDiffArgs),
+      patch: getCustomGitDiff(diffCwd, customDiffArgs),
     }
   }
 

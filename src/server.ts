@@ -21,6 +21,8 @@ export interface AppOptions {
   repoPath: string
   clientDir: string
   customDiffArgs?: string[]
+  // CLI에서 custom 모드 인자의 pathspec을 사용자가 실행한 디렉터리 기준으로 해석하려고 쓴다.
+  diffCwd?: string
   commentStore?: CommentStore
   reviewJobs?: ReviewJobs
   reviewStore?: ReviewStore
@@ -116,7 +118,7 @@ function diffContainsFileVersion(patch: string, path: string, oldOid: string, ne
 }
 
 export function createApp(options: AppOptions) {
-  const { repoPath: repo, clientDir, customDiffArgs, commentStore } = options
+  const { repoPath: repo, clientDir, customDiffArgs, commentStore, diffCwd = repo } = options
   const app = new Hono()
   if (options.token) {
     const token = options.token
@@ -143,7 +145,7 @@ export function createApp(options: AppOptions) {
 
   const resolveFromRequest = (c: Context): ResolvedComparison => {
     const q = queryFromSearch((name) => c.req.query(name))
-    return resolveComparison(repo, customDiffArgs, q)
+    return resolveComparison(repo, customDiffArgs, q, diffCwd)
   }
 
   const comparisonErrorResponse = (c: Context, err: unknown) => {
@@ -298,7 +300,7 @@ export function createApp(options: AppOptions) {
     if (!provider) return c.json({ error: 'unknown_provider' }, 400)
     let resolved: ResolvedComparison
     try {
-      resolved = resolveComparison(repo, customDiffArgs, { mode: body.mode, source: body.source, target: body.target, staged: body.staged, untracked: body.untracked })
+      resolved = resolveComparison(repo, customDiffArgs, { mode: body.mode, source: body.source, target: body.target, staged: body.staged, untracked: body.untracked }, diffCwd)
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
