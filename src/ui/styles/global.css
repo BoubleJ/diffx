@@ -1051,3 +1051,116 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+.branch-picker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    position: relative;
+}
+
+.branch-picker-refs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.branch-picker-arrow {
+    color: var(--text-secondary);
+}
+
+.branch-picker-message {
+    font-size: 12px;
+    color: var(--danger);
+}
+
+.ref-select {
+    position: relative;
+}
+
+.ref-select-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 280px;
+}
+
+.ref-select-label {
+    color: var(--text-secondary);
+}
+
+.ref-select-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.ref-select-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 20;
+    width: 320px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.ref-select-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+}
+
+.ref-select-list {
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.ref-select-group {
+    padding: 6px 10px 2px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.ref-select-empty {
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.ref-select-item {
+    display: block;
+    width: 100%;
+    padding: 4px 10px;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.ref-select-item:hover,
+.ref-select-item-active {
+    background: var(--bg-secondary);
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
