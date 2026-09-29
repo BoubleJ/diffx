@@ -2,7 +2,9 @@ import { readFile } from 'node:fs/promises'
 import { join, extname, resolve } from 'node:path'
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
-import { getGitDiff, getCustomGitDiff, getRepoName, getBranchName, getFileContent, getBlobContent, getWorktreeFileContent, isImageFile, getTabSizeForFiles, getUntrackedFilePaths } from './git.js'
+import { getRepoName, getBranchName, getFileContent, getBlobContent, getWorktreeFileContent, getTabSizeForFiles, getUntrackedFilePaths, listBranches, fetchAll, getFileAtCommit } from './git.js'
+import { resolveComparison, queryFromSearch, ComparisonError, type ResolvedComparison } from './comparison.js'
+import type { Context } from 'hono'
 import { loadSettings, saveSettings } from './settings.js'
 import { InMemoryCommentStore } from './comments.js'
 import type { CommentStore } from './comments.js'
@@ -109,23 +111,45 @@ export function createApp(options: AppOptions) {
   const store = commentStore ?? new InMemoryCommentStore()
   const viewedFiles = new Map<string, string>()
 
-  app.get('/api/diff', (c) => {
-    let patch: string
-    const staged = c.req.query('staged') === 'true'
-    const untracked = c.req.query('untracked') === 'true'
-    if (isCustomMode) {
-      patch = getCustomGitDiff(repo, customDiffArgs)
-    } else {
-      patch = getGitDiff(repo, { staged, untracked })
+  const resolveFromRequest = (c: Context): ResolvedComparison => {
+    const q = queryFromSearch((name) => c.req.query(name))
+    return resolveComparison(repo, customDiffArgs, q)
+  }
+
+  const comparisonErrorResponse = (c: Context, err: unknown) => {
+    if (err instanceof ComparisonError) {
+      return c.json({ error: err.code, message: err.message }, err.code === 'no_merge_base' ? 422 : 400)
     }
-    const repoName = getRepoName(repo)
-    const branch = getBranchName(repo)
+    throw err
+  }
+
+  app.get('/api/diff', (c) => {
+    let resolved: ResolvedComparison
+    try {
+      resolved = resolveFromRequest(c)
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+    const { patch } = resolved
+    const untracked = resolved.mode === 'worktree' && c.req.query('untracked') === 'true'
     const untrackedFiles = untracked ? getUntrackedFilePaths(repo) : []
-    const untrackedSet = new Set(untrackedFiles)
-    const binaryFiles = parseBinaryFiles(patch, untrackedSet)
-    const filePaths = parseFilePaths(patch)
-    const tabSizeMap = getTabSizeForFiles(repo, filePaths)
-    return c.json({ patch, repoName, branch, customMode: isCustomMode, binaryFiles, tabSizeMap, untrackedFiles })
+    const binaryFiles = parseBinaryFiles(patch, new Set(untrackedFiles))
+    const tabSizeMap = getTabSizeForFiles(repo, parseFilePaths(patch))
+    return c.json({
+      patch,
+      repoName: getRepoName(repo),
+      branch: getBranchName(repo),
+      customMode: isCustomMode,
+      binaryFiles,
+      tabSizeMap,
+      untrackedFiles,
+      key: resolved.key,
+      mode: resolved.mode,
+      sourceSha: resolved.sourceSha,
+      targetSha: resolved.targetSha,
+      mergeBase: resolved.mergeBase,
+      identical: resolved.mode === 'branch' && resolved.sourceSha === resolved.targetSha,
+    })
   })
 
   app.get('/api/file-content', (c) => {
@@ -134,7 +158,18 @@ export function createApp(options: AppOptions) {
     if (!path || !version) {
       return c.json({ error: 'Missing path or version' }, 400)
     }
-    const content = getFileContent(repo, path, version)
+    let content: Buffer | null
+    if (c.req.query('mode') === 'branch' && !isCustomMode) {
+      let resolved: ResolvedComparison
+      try {
+        resolved = resolveFromRequest(c)
+      } catch (err) {
+        return comparisonErrorResponse(c, err)
+      }
+      content = getFileAtCommit(repo, version === 'old' ? resolved.mergeBase! : resolved.sourceSha!, path)
+    } else {
+      content = getFileContent(repo, path, version)
+    }
     if (!content) {
       return c.json({ error: 'File not found' }, 404)
     }
@@ -159,9 +194,12 @@ export function createApp(options: AppOptions) {
     if (!path || !oldOid || !newOid) {
       return c.json({ error: 'Missing path or oids' }, 400)
     }
-    const staged = c.req.query('staged') === 'true'
-    const untracked = c.req.query('untracked') === 'true'
-    const patch = isCustomMode ? getCustomGitDiff(repo, customDiffArgs) : getGitDiff(repo, { staged, untracked })
+    let patch: string
+    try {
+      patch = resolveFromRequest(c).patch
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
     if (!diffContainsFileVersion(patch, path, oldOid, newOid)) {
       return c.json({ error: 'File version not in current diff' }, 404)
     }
@@ -175,6 +213,19 @@ export function createApp(options: AppOptions) {
       return c.json({ error: 'Content unavailable' }, 404)
     }
     return c.json({ old: oldContent, new: newContent })
+  })
+
+  app.get('/api/repo', (c) => {
+    return c.json({ root: repo, name: getRepoName(repo), customMode: isCustomMode })
+  })
+
+  app.get('/api/branches', (c) => {
+    return c.json(listBranches(repo))
+  })
+
+  app.post('/api/fetch', async (c) => {
+    const result = await fetchAll(repo)
+    return c.json(result, result.ok ? 200 : 500)
   })
 
   app.get('/api/settings', (c) => {
