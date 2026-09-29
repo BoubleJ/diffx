@@ -4,7 +4,7 @@ import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { serve } from '@hono/node-server'
 import { getRepoName, getBranchName, getFileContent, getBlobContent, getWorktreeFileContent, getTabSizeForFiles, getUntrackedFilePaths, listBranches, fetchAll, getFileAtCommit, getHeadSha } from './git.js'
-import { resolveComparison, comparisonKey, queryFromSearch, ComparisonError, type ResolvedComparison } from './comparison.js'
+import { resolveComparison, resolveBranchRefs, createRangeDiffCache, comparisonKey, queryFromSearch, ComparisonError, type ResolvedComparison, type BranchRefs } from './comparison.js'
 import type { Context } from 'hono'
 import { loadSettings, saveSettings } from './settings.js'
 import { InMemoryCommentStore } from './comments.js'
@@ -143,9 +143,10 @@ export function createApp(options: AppOptions) {
     return map
   }
 
+  const resolveOptions = { diffCwd, rangeDiff: createRangeDiffCache() }
   const resolveFromRequest = (c: Context): ResolvedComparison => {
     const q = queryFromSearch((name) => c.req.query(name))
-    return resolveComparison(repo, customDiffArgs, q, diffCwd)
+    return resolveComparison(repo, customDiffArgs, q, resolveOptions)
   }
 
   const comparisonErrorResponse = (c: Context, err: unknown) => {
@@ -197,13 +198,13 @@ export function createApp(options: AppOptions) {
     }
     let content: Buffer | null
     if (c.req.query('mode') === 'branch' && !isCustomMode) {
-      let resolved: ResolvedComparison
+      let refs: BranchRefs
       try {
-        resolved = resolveFromRequest(c)
+        refs = resolveBranchRefs(repo, { source: c.req.query('source'), target: c.req.query('target') })
       } catch (err) {
         return comparisonErrorResponse(c, err)
       }
-      content = getFileAtCommit(repo, version === 'old' ? resolved.mergeBase! : resolved.sourceSha!, path)
+      content = getFileAtCommit(repo, version === 'old' ? refs.mergeBase : refs.sourceSha, path)
     } else {
       content = getFileContent(repo, path, version)
     }
@@ -300,7 +301,7 @@ export function createApp(options: AppOptions) {
     if (!provider) return c.json({ error: 'unknown_provider' }, 400)
     let resolved: ResolvedComparison
     try {
-      resolved = resolveComparison(repo, customDiffArgs, { mode: body.mode, source: body.source, target: body.target, staged: body.staged, untracked: body.untracked }, diffCwd)
+      resolved = resolveComparison(repo, customDiffArgs, { mode: body.mode, source: body.source, target: body.target, staged: body.staged, untracked: body.untracked }, resolveOptions)
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }

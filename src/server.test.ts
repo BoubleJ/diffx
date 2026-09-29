@@ -91,6 +91,30 @@ describe('GET /api/file-versions in branch mode', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ old: 'base\n', new: 'base\nfeature\n' })
   })
+
+  it('returns the same result on repeated requests and uses the new patch after a new commit', async () => {
+    const { app, repo } = setupApp()
+    const q = 'mode=branch&source=feature/x&target=origin/main'
+    const oidsFor = async () => {
+      const diff = await (await app.request(`/api/diff?${q}`)).json()
+      const chunk = diff.patch.split(/^(?=diff --git )/m).find((c: string) => c.includes('+++ b/a.txt'))
+      const [, oldOid, newOid] = chunk.match(/^index ([0-9a-f]+)\.\.([0-9a-f]+)/m)
+      return `path=a.txt&oldOid=${oldOid}&newOid=${newOid}`
+    }
+    const first = await oidsFor()
+    for (let i = 0; i < 3; i++) {
+      const res = await app.request(`/api/file-versions?${q}&${first}`)
+      expect(await res.json()).toEqual({ old: 'base\n', new: 'base\nfeature\n' })
+    }
+
+    git(repo, 'stash', '-q')
+    git(repo, 'switch', '-q', 'feature/x')
+    commit(repo, { 'a.txt': 'base\nfeature\nmore\n' }, 'more')
+    git(repo, 'switch', '-q', 'main')
+    expect((await app.request(`/api/file-versions?${q}&${first}`)).status).toBe(404)
+    const second = await oidsFor()
+    expect(await (await app.request(`/api/file-versions?${q}&${second}`)).json()).toEqual({ old: 'base\n', new: 'base\nfeature\nmore\n' })
+  })
 })
 
 describe('comments and viewed are scoped by comparison key', () => {
