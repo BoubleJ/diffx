@@ -1170,8 +1170,13 @@ body {
     height: 100%;
     border-left: 1px solid var(--border);
     background: var(--bg-secondary);
-    overflow-y: auto;
+    overflow: visible;
     flex-shrink: 0;
+}
+
+.review-aside-scroll {
+    height: 100%;
+    overflow-y: auto;
 }
 
 .review-resize-handle {
@@ -1302,9 +1307,4 @@ body {
     color: var(--text-secondary);
     white-space: pre-wrap;
     line-height: 1.5;
-}
-
-.btn-active {
-    border-color: var(--primary);
-    color: var(--primary);
 }
