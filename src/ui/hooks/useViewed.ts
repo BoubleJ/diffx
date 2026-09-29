@@ -2,19 +2,18 @@ import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { FileDiffMetadata } from '@pierre/diffs'
 
-const VIEWED_KEY = ['viewed']
-
 type ViewedMap = Record<string, string>
 
-async function fetchViewed(): Promise<ViewedMap> {
-  const res = await fetch('/api/viewed')
+async function fetchViewed(key: string): Promise<ViewedMap> {
+  const res = await fetch(`/api/viewed?key=${encodeURIComponent(key)}`)
   const data = await res.json()
   return data && typeof data === 'object' && !Array.isArray(data) ? data : {}
 }
 
-export function useViewed(files: FileDiffMetadata[]) {
+export function useViewed(files: FileDiffMetadata[], key: string | null) {
   const queryClient = useQueryClient()
-  const { data: viewedMap = {} } = useQuery({ queryKey: VIEWED_KEY, queryFn: fetchViewed })
+  const VIEWED_KEY = ['viewed', key]
+  const { data: viewedMap = {} } = useQuery({ queryKey: VIEWED_KEY, queryFn: () => fetchViewed(key!), enabled: key !== null })
 
   const fileHashByName = useMemo(() => {
     const map: Record<string, string | undefined> = {}
@@ -54,12 +53,12 @@ export function useViewed(files: FileDiffMetadata[]) {
     const res = await fetch('/api/viewed', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filePath, viewed, contentHash: viewed ? contentHash : undefined }),
+      body: JSON.stringify({ key, filePath, viewed, contentHash: viewed ? contentHash : undefined }),
     })
     if (!res.ok) {
       queryClient.invalidateQueries({ queryKey: VIEWED_KEY })
     }
-  }, [queryClient, fileHashByName])
+  }, [queryClient, fileHashByName, key])
 
   return { viewedFiles, setViewed }
 }

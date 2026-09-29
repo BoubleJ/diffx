@@ -59,7 +59,8 @@ function contentsMatchHunks(partial: FileDiffMetadata, full: FileDiffMetadata): 
  * complete old/new file contents, which enables hunk context expansion.
  * Returns a map from `fileKey(file)` to the upgraded metadata.
  */
-export function useFullDiffs(patch: string | null, files: FileDiffMetadata[], options: { staged: boolean; untracked: boolean }) {
+export function useFullDiffs(patch: string | null, files: FileDiffMetadata[], params: URLSearchParams | null) {
+  const paramString = params?.toString() ?? ''
   const [fullFiles, setFullFiles] = useState<Map<string, FileDiffMetadata>>(() => new Map())
   const requested = useRef(new Set<string>())
   const patchRef = useRef(patch)
@@ -84,14 +85,11 @@ export function useFullDiffs(patch: string | null, files: FileDiffMetadata[], op
       if (!chunk) continue
       requested.current.add(key)
 
-      const params = new URLSearchParams({
-        path: file.name,
-        oldOid: prevOid,
-        newOid: file.newObjectId ?? '',
-        staged: String(options.staged),
-        untracked: String(options.untracked),
-      })
-      fetch(`/api/file-versions?${params}`)
+      const query = new URLSearchParams(paramString)
+      query.set('path', file.name)
+      query.set('oldOid', prevOid)
+      query.set('newOid', file.newObjectId ?? '')
+      fetch(`/api/file-versions?${query}`)
         .then((res) => (res.ok ? res.json() : null))
         .then((data: { old: string; new: string } | null) => {
           if (!data || patchRef.current !== patch) return
@@ -105,7 +103,7 @@ export function useFullDiffs(patch: string | null, files: FileDiffMetadata[], op
         })
         .catch(() => {})
     }
-  }, [patch, files, options.staged, options.untracked])
+  }, [patch, files, paramString])
 
   return fullFiles
 }
