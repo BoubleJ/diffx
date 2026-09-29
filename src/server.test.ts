@@ -129,3 +129,16 @@ describe('comments and viewed are scoped by comparison key', () => {
     expect(await (await app.request('/api/viewed?key=branch:origin/main...feature/x')).json()).toEqual({})
   })
 })
+
+describe('custom mode diff directory', () => {
+  it('runs custom git diff args from diffCwd so pathspecs are relative to it', async () => {
+    const repo = makeRepo()
+    commit(repo, { 'a.txt': 'a\n', 'sub/b.txt': 'b\n' }, 'base')
+    writeFileSync(join(repo, 'a.txt'), 'a changed\n')
+    writeFileSync(join(repo, 'sub/b.txt'), 'b changed\n')
+    const app = createApp({ repoPath: repo, clientDir: clientDir(), customDiffArgs: ['--', '.'], diffCwd: join(repo, 'sub') })
+    const body = await (await app.request('/api/diff')).json()
+    expect(body.patch).toContain('+++ b/sub/b.txt')
+    expect(body.patch).not.toContain('a.txt')
+  })
+})
