@@ -22,4 +22,4 @@ mac:
       - CFBundleTypeName: Folder
         CFBundleTypeRole: Viewer
         LSItemContentTypes: [public.folder]
-artifactName: diffx-${version}-arm64.${ext}
+artifactName: mr리뷰도구-${version}.${ext}
