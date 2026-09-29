@@ -8,6 +8,18 @@ import { InMemoryCommentStore } from './comments.js'
 import type { CommentStore } from './comments.js'
 import { isSafePath } from './path.js'
 
+export interface AppOptions {
+  repoPath: string
+  clientDir: string
+  customDiffArgs?: string[]
+  commentStore?: CommentStore
+}
+
+export interface StartOptions extends AppOptions {
+  port: number
+  host: string
+}
+
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
   '.js': 'application/javascript',
@@ -90,7 +102,8 @@ function diffContainsFileVersion(patch: string, path: string, oldOid: string, ne
   return false
 }
 
-export function createApp(clientDir: string, customDiffArgs?: string[], commentStore?: CommentStore) {
+export function createApp(options: AppOptions) {
+  const { repoPath: repo, clientDir, customDiffArgs, commentStore } = options
   const app = new Hono()
   const isCustomMode = !!customDiffArgs
   const store = commentStore ?? new InMemoryCommentStore()
@@ -101,17 +114,17 @@ export function createApp(clientDir: string, customDiffArgs?: string[], commentS
     const staged = c.req.query('staged') === 'true'
     const untracked = c.req.query('untracked') === 'true'
     if (isCustomMode) {
-      patch = getCustomGitDiff(customDiffArgs)
+      patch = getCustomGitDiff(repo, customDiffArgs)
     } else {
-      patch = getGitDiff({ staged, untracked })
+      patch = getGitDiff(repo, { staged, untracked })
     }
-    const repoName = getRepoName()
-    const branch = getBranchName()
-    const untrackedFiles = untracked ? getUntrackedFilePaths() : []
+    const repoName = getRepoName(repo)
+    const branch = getBranchName(repo)
+    const untrackedFiles = untracked ? getUntrackedFilePaths(repo) : []
     const untrackedSet = new Set(untrackedFiles)
     const binaryFiles = parseBinaryFiles(patch, untrackedSet)
     const filePaths = parseFilePaths(patch)
-    const tabSizeMap = getTabSizeForFiles(filePaths)
+    const tabSizeMap = getTabSizeForFiles(repo, filePaths)
     return c.json({ patch, repoName, branch, customMode: isCustomMode, binaryFiles, tabSizeMap, untrackedFiles })
   })
 
@@ -121,7 +134,7 @@ export function createApp(clientDir: string, customDiffArgs?: string[], commentS
     if (!path || !version) {
       return c.json({ error: 'Missing path or version' }, 400)
     }
-    const content = getFileContent(path, version)
+    const content = getFileContent(repo, path, version)
     if (!content) {
       return c.json({ error: 'File not found' }, 404)
     }
@@ -148,7 +161,7 @@ export function createApp(clientDir: string, customDiffArgs?: string[], commentS
     }
     const staged = c.req.query('staged') === 'true'
     const untracked = c.req.query('untracked') === 'true'
-    const patch = isCustomMode ? getCustomGitDiff(customDiffArgs) : getGitDiff({ staged, untracked })
+    const patch = isCustomMode ? getCustomGitDiff(repo, customDiffArgs) : getGitDiff(repo, { staged, untracked })
     if (!diffContainsFileVersion(patch, path, oldOid, newOid)) {
       return c.json({ error: 'File version not in current diff' }, 404)
     }
@@ -156,8 +169,8 @@ export function createApp(clientDir: string, customDiffArgs?: string[], commentS
     // its content is empty. A non-zero oid that is missing from the object
     // database is the worktree blob of an unstaged change (git computes its
     // hash without storing it), so fall back to reading the worktree.
-    const oldContent = /^0+$/.test(oldOid) ? '' : getBlobContent(oldOid)
-    const newContent = /^0+$/.test(newOid) ? '' : getBlobContent(newOid) ?? getWorktreeFileContent(path)
+    const oldContent = /^0+$/.test(oldOid) ? '' : getBlobContent(repo, oldOid)
+    const newContent = /^0+$/.test(newOid) ? '' : getBlobContent(repo, newOid) ?? getWorktreeFileContent(repo, path)
     if (oldContent == null || newContent == null) {
       return c.json({ error: 'Content unavailable' }, 404)
     }
@@ -268,13 +281,8 @@ export function createApp(clientDir: string, customDiffArgs?: string[], commentS
   return app
 }
 
-export function startServer(options: {
-  port: number
-  host: string
-  clientDir: string
-  customDiffArgs?: string[]
-}): Promise<{ port: number }> {
-  const app = createApp(options.clientDir, options.customDiffArgs)
+export function startServer(options: StartOptions): Promise<{ port: number; close: () => Promise<void> }> {
+  const app = createApp(options)
 
   return new Promise((resolve) => {
     const server = serve({
@@ -282,7 +290,10 @@ export function startServer(options: {
       port: options.port,
       hostname: options.host,
     }, (info) => {
-      resolve({ port: info.port })
+      resolve({
+        port: info.port,
+        close: () => new Promise<void>((done) => server.close(() => done())),
+      })
     })
   })
 }
