@@ -44,7 +44,7 @@ export const claudeProvider: ReviewProvider = {
         '--tools', 'Read', 'Grep', 'Glob', 'Bash',
         '--json-schema', JSON.stringify(REVIEW_JSON_SCHEMA),
         '--allowedTools', 'Read', 'Grep', 'Glob', 'Bash(git show:*)', 'Bash(git log:*)', 'Bash(git diff:*)',
-        '--disallowedTools', 'Edit', 'Write', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Bash(git * --output*)',
+        '--disallowedTools', 'Edit', 'Write', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Bash(git * --output*)', 'Bash(git * --no-index*)',
       ],
       stdin: prompt,
     }
