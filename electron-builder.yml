@@ -1,0 +1,25 @@
+appId: com.github.boublej.diffx
+productName: diffx
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/client/**
+  - dist/electron/**
+  - electron/launcher/**
+  - package.json
+  - "!node_modules/**"
+asar: true
+mac:
+  target:
+    - target: zip
+      arch: [arm64]
+  identity: "-"
+  category: public.app-category.developer-tools
+  icon: build/icon.png
+  extendInfo:
+    CFBundleDocumentTypes:
+      - CFBundleTypeName: Folder
+        CFBundleTypeRole: Viewer
+        LSItemContentTypes: [public.folder]
+artifactName: diffx-${version}-arm64.${ext}
