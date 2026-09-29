@@ -25,6 +25,7 @@ export interface AppOptions {
   reviewJobs?: ReviewJobs
   reviewStore?: ReviewStore
   providers?: ReviewProvider[]
+  token?: string
 }
 
 export interface StartOptions extends AppOptions {
@@ -117,6 +118,15 @@ function diffContainsFileVersion(patch: string, path: string, oldOid: string, ne
 export function createApp(options: AppOptions) {
   const { repoPath: repo, clientDir, customDiffArgs, commentStore } = options
   const app = new Hono()
+  if (options.token) {
+    const token = options.token
+    app.use('/api/*', async (c, next) => {
+      if (c.req.header('X-Diffx-Token') !== token) {
+        return c.json({ error: 'forbidden' }, 403)
+      }
+      await next()
+    })
+  }
   const isCustomMode = !!customDiffArgs
   const store = commentStore ?? new InMemoryCommentStore()
   const viewedByKey = new Map<string, Map<string, string>>()
@@ -452,12 +462,13 @@ export function startServer(options: StartOptions): Promise<{ port: number; clos
   const reviewJobs = options.reviewJobs ?? new ReviewJobs(reviewStore)
   const app = createApp({ ...options, reviewStore, reviewJobs })
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const server = serve({
       fetch: app.fetch,
       port: options.port,
       hostname: options.host,
     }, (info) => {
+      server.off('error', reject)
       resolve({
         port: info.port,
         close: () => {
@@ -466,5 +477,6 @@ export function startServer(options: StartOptions): Promise<{ port: number; clos
         },
       })
     })
+    server.once('error', reject)
   })
 }
