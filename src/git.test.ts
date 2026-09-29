@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { makeRepo, commit, git } from './test/gitRepo'
 import {
   getRepoRoot, getRepoName, getBranchName, getGitDiff, isGitRepo,
-  listBranches, resolveCommit, getMergeBase, getRangeDiff, getFileAtCommit, fetchAll, getHeadSha,
+  listBranches, resolveCommit, getMergeBase, getRangeDiff, getFileAtCommit, fetchAll, getHeadSha, getUntrackedFilePaths,
 } from './git'
 
 describe('git functions take a repo path', () => {
@@ -63,6 +63,20 @@ describe('resolveCommit', () => {
     expect(resolveCommit(repo, 'nope')).toBeNull()
     expect(resolveCommit(repo, '--output=/tmp/pwned')).toBeNull()
     expect(resolveCommit(repo, '')).toBeNull()
+  })
+})
+
+describe('non-ASCII file names', () => {
+  it('prints paths unquoted in diffs and untracked lists', () => {
+    const repo = makeRepo()
+    const base = commit(repo, { '한글 파일.txt': 'one\n' }, 'base')
+    writeFileSync(join(repo, '한글 파일.txt'), 'one\ntwo\n')
+    expect(getGitDiff(repo)).toContain('+++ b/한글 파일.txt')
+    writeFileSync(join(repo, '새 파일.txt'), 'x\n')
+    expect(getUntrackedFilePaths(repo)).toEqual(['새 파일.txt'])
+    git(repo, 'add', '-A')
+    const next = commit(repo, {}, 'next')
+    expect(getRangeDiff(repo, base, next)).toContain('+++ b/한글 파일.txt')
   })
 })
 

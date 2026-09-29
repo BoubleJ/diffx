@@ -77,4 +77,29 @@ describe('excludeFilesFromPatch', () => {
     const patch = modified('a.ts')
     expect(excludeFilesFromPatch(patch, ['zzz.ts'])).toBe(patch)
   })
+
+  it('unquotes C-quoted paths', () => {
+    const quoted = `diff --git "a/\\355\\225\\234.ts" "b/\\355\\225\\234.ts"
+index 1111111..2222222 100644
+--- "a/\\355\\225\\234.ts"
++++ "b/\\355\\225\\234.ts"
+@@ -1 +1 @@
+-old
++new
+`
+    const patch = quoted + modified('a.ts')
+    expect(excludeFilesFromPatch(patch, ['한.ts'])).toBe(modified('a.ts'))
+  })
+
+  it('unquotes escaped quotes and backslashes', () => {
+    const quoted = `diff --git "a/q\\"x\\\\y.ts" "b/q\\"x\\\\y.ts"
+index 1111111..2222222 100644
+--- "a/q\\"x\\\\y.ts"
++++ "b/q\\"x\\\\y.ts"
+@@ -1 +1 @@
+-old
++new
+`
+    expect(excludeFilesFromPatch(quoted, ['q"x\\y.ts'])).toBe('')
+  })
 })

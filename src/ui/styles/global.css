@@ -438,7 +438,6 @@ body {
     border-color: var(--success);
 }
 
-/* Exclude button */
 .file-header-actions {
     display: inline-flex;
     align-items: center;
@@ -936,9 +935,9 @@ body {
     flex-shrink: 0;
 }
 
-/* File tree exclude button */
 .ft-exclude-btn {
-    display: none;
+    display: inline-flex;
+    visibility: hidden;
     align-items: center;
     padding: 2px;
     margin-left: auto;
@@ -951,8 +950,8 @@ body {
 }
 
 .ft-file:hover .ft-exclude-btn,
-.ft-exclude-btn:focus-visible {
-    display: inline-flex;
+.ft-file:focus-within .ft-exclude-btn {
+    visibility: visible;
 }
 
 .ft-comment-count + .ft-exclude-btn {
@@ -964,7 +963,6 @@ body {
     color: var(--text);
 }
 
-/* Excluded files */
 .ex {
     flex: 0 1 auto;
     overflow-y: auto;
