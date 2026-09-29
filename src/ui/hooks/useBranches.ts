@@ -31,7 +31,10 @@ export function useBranches(enabled: boolean) {
       const res = await fetch('/api/fetch', { method: 'POST' })
       const body = await res.json()
       if (!body.ok) setFetchError(body.error)
-      await queryClient.invalidateQueries({ queryKey: BRANCHES_KEY })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: BRANCHES_KEY }),
+        queryClient.invalidateQueries({ queryKey: ['review'] }),
+      ])
     } catch (err) {
       setFetchError((err as Error).message)
     } finally {
