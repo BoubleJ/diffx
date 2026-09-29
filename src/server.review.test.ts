@@ -172,6 +172,19 @@ describe('review API', () => {
     expect(store.load(repo, saved.key)?.excluded).toEqual(['a.txt'])
   })
 
+  it('excludes files with non-ASCII names', async () => {
+    let receivedCtx: { files: string[]; patch: string } | undefined
+    const { app, repo } = setup(async (_p, ctx) => {
+      receivedCtx = ctx
+      return { summary: 's', findings: [] }
+    })
+    commit(repo, { '한글 파일.txt': 'x\n' }, 'add korean')
+    const { id } = await (await postReview(app, { exclude: ['한글 파일.txt'] })).json()
+    await readSse(await app.request(`/api/review/${id}/events`))
+    expect(receivedCtx!.files).toEqual(['a.txt'])
+    expect(receivedCtx!.patch).not.toContain('한글')
+  })
+
   it('ignores an exclude value that is not a string array', async () => {
     let receivedCtx: { files: string[] } | undefined
     const { app } = setup(async (_p, ctx) => {

@@ -64,15 +64,20 @@ export const DiffViewer = memo(function DiffViewer({
     )
   }
 
+  const seen = new Map<string, number>()
+
   return (
     <div className="diff-viewer">
-      {sortedFiles.map((file, index) => {
+      {sortedFiles.map((file) => {
         const filePath = file.name
+        const occurrence = seen.get(filePath) ?? 0
+        seen.set(filePath, occurrence + 1)
+        const cardKey = `${filePath}#${occurrence}`
         const binaryInfo = binaryFiles.get(filePath)
         if (binaryInfo) {
           return (
             <BinaryFileDiff
-              key={`${filePath}-${index}`}
+              key={cardKey}
               filePath={filePath}
               info={binaryInfo}
               viewed={viewedFiles.has(filePath)}
@@ -89,7 +94,7 @@ export const DiffViewer = memo(function DiffViewer({
             // @pierre/diffs <FileDiff> under the Virtualizer does not re-process
             // an in-place fileDiff change, so without a remount the upgraded
             // diff never renders and hunk-context expansion controls never appear.
-            key={`${filePath}-${index}-${file.isPartial ? 'p' : 'f'}`}
+            key={`${cardKey}-${file.isPartial ? 'p' : 'f'}`}
             id={`file-${filePath}`}
             fileDiff={file}
             filePath={filePath}

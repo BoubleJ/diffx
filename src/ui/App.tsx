@@ -85,20 +85,29 @@ export function App() {
   }, [fetchRemote])
   const { patch, repoName, branch, binaryFiles, tabSizeMap, untrackedFiles, key, identical, loading, error } = useDiff(params, diffReloadToken)
   const repoRoot = repo?.root ?? null
-  const [excluded, setExcluded] = useState<string[]>([])
+  const [excludedEdit, setExcludedEdit] = useState<{ repoRoot: string; key: string; paths: string[] } | null>(null)
+  const excluded = useMemo(() => {
+    if (!repoRoot || !key) return []
+    if (excludedEdit && excludedEdit.repoRoot === repoRoot && excludedEdit.key === key) return excludedEdit.paths
+    return loadExcluded(repoRoot, key)
+  }, [repoRoot, key, excludedEdit])
   useEffect(() => {
-    setExcluded(repoRoot && key ? loadExcluded(repoRoot, key) : [])
-  }, [repoRoot, key])
-  const updateExcluded = useCallback((next: string[]) => {
-    setExcluded(next)
-    if (repoRoot && key) saveExcluded(repoRoot, key, next)
-  }, [repoRoot, key])
+    if (excludedEdit) saveExcluded(excludedEdit.repoRoot, excludedEdit.key, excludedEdit.paths)
+  }, [excludedEdit])
   const handleExclude = useCallback((filePath: string) => {
-    updateExcluded([...new Set([...excluded, filePath])])
-  }, [excluded, updateExcluded])
+    if (!repoRoot || !key) return
+    setExcludedEdit((prev) => {
+      const current = prev && prev.repoRoot === repoRoot && prev.key === key ? prev.paths : loadExcluded(repoRoot, key)
+      return { repoRoot, key, paths: [...new Set([...current, filePath])] }
+    })
+  }, [repoRoot, key])
   const handleInclude = useCallback((filePath: string) => {
-    updateExcluded(excluded.filter((p) => p !== filePath))
-  }, [excluded, updateExcluded])
+    if (!repoRoot || !key) return
+    setExcludedEdit((prev) => {
+      const current = prev && prev.repoRoot === repoRoot && prev.key === key ? prev.paths : loadExcluded(repoRoot, key)
+      return { repoRoot, key, paths: current.filter((p) => p !== filePath) }
+    })
+  }, [repoRoot, key])
   const review = useReview(params, key)
   const [reviewPanel, setReviewPanel] = useState(() => loadReviewPanel())
   const updateReviewPanel = useCallback((next: typeof reviewPanel) => {

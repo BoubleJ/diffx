@@ -10,12 +10,14 @@ const IMAGE_EXTENSIONS = new Set([
 
 const MAX_BUFFER = 50 * 1024 * 1024
 
+const QUOTEPATH_OFF = ['-c', 'core.quotepath=false']
+
 function run(repo: string, args: string[]): string {
-  return execFileSync('git', args, { cwd: repo, encoding: 'utf-8', stdio: 'pipe', maxBuffer: MAX_BUFFER })
+  return execFileSync('git', [...QUOTEPATH_OFF, ...args], { cwd: repo, encoding: 'utf-8', stdio: 'pipe', maxBuffer: MAX_BUFFER })
 }
 
 function runBuffer(repo: string, args: string[]): Buffer {
-  return execFileSync('git', args, { cwd: repo, stdio: 'pipe', maxBuffer: MAX_BUFFER })
+  return execFileSync('git', [...QUOTEPATH_OFF, ...args], { cwd: repo, stdio: 'pipe', maxBuffer: MAX_BUFFER })
 }
 
 export function isImageFile(filePath: string): boolean {
@@ -93,7 +95,7 @@ export function getWorktreeFileContent(repo: string, filePath: string): string |
 
 export function isGitRepo(cwd: string): boolean {
   try {
-    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'pipe' })
+    execFileSync('git', [...QUOTEPATH_OFF, 'rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'pipe' })
     return true
   } catch {
     return false
@@ -101,7 +103,7 @@ export function isGitRepo(cwd: string): boolean {
 }
 
 export function getRepoRoot(cwd: string): string {
-  return execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf-8', stdio: 'pipe' }).trim()
+  return execFileSync('git', [...QUOTEPATH_OFF, 'rev-parse', '--show-toplevel'], { cwd, encoding: 'utf-8', stdio: 'pipe' }).trim()
 }
 
 export function getRepoName(repo: string): string {
@@ -288,7 +290,7 @@ export function fetchAll(repo: string, timeoutMs = 60_000): Promise<{ ok: true }
   return new Promise((done) => {
     execFile(
       'git',
-      ['fetch', '--all', '--prune'],
+      [...QUOTEPATH_OFF, 'fetch', '--all', '--prune'],
       { cwd: repo, timeout: timeoutMs, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
       (err, _stdout, stderr) => {
         if (!err) return done({ ok: true })
