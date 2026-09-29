@@ -313,7 +313,7 @@ export function createApp(options: AppOptions) {
   app.get('/api/review/:id/events', (c) => {
     const id = c.req.param('id')
     return streamSSE(c, async (stream) => {
-      let unsubscribe: (() => void) | null = null
+      let unsubscribe = null as (() => void) | null
       try {
         await new Promise<void>((done) => {
           const finish = (event: string, data: string) => {
