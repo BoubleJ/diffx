@@ -5,15 +5,19 @@ import { Virtualizer } from '@pierre/diffs/react'
 import type { FileDiffMetadata } from '@pierre/diffs'
 import type { ReviewComment } from '../types'
 import { useDiff } from './hooks/useDiff'
+import { useRepo } from './hooks/useRepo'
+import { useBranches } from './hooks/useBranches'
 import { useComments } from './hooks/useComments'
 import { useSettings } from './hooks/useSettings'
 import { useViewed } from './hooks/useViewed'
 import { useFullDiffs, fileKey } from './hooks/useFullDiffs'
 import { Toolbar } from './components/Toolbar'
+import { BranchPicker } from './components/BranchPicker'
 import { DiffViewer } from './components/DiffViewer'
 import { FileTree } from './components/FileTree'
 import { CommentTracker } from './components/CommentTracker'
 import { SidebarStorage } from './sidebarStorage'
+import { comparisonParams, loadComparison, saveComparison, reconcileComparison, type Comparison } from './comparison'
 
 function useWindowSize({ factor }: { factor: number }) {
   const compute = () => Math.round(window.innerWidth * factor)
@@ -31,12 +35,39 @@ function useWindowSize({ factor }: { factor: number }) {
 
 export function App() {
   const { settings, loaded, updateSettings } = useSettings()
-  const { patch, repoName, branch, customMode, binaryFiles, tabSizeMap, untrackedFiles, loading, error } = useDiff({
-    staged: settings.staged,
-    untracked: settings.untracked,
-  })
-  const { comments, addComment, removeComment, copyAllComments } =
-    useComments()
+  const { repo, error: repoError } = useRepo()
+  const branchMode = !!repo && !repo.customMode
+  const { branches, fetchRemote, fetching, fetchError } = useBranches(branchMode)
+  const [comparison, setComparison] = useState<Comparison | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!repo) return
+    if (repo.customMode) {
+      setComparison({ mode: 'worktree' })
+      return
+    }
+    if (!branches) return
+    const base = comparison ?? loadComparison(repo.root)
+    const { comparison: next, missing } = reconcileComparison(base, branches)
+    if (missing.length > 0) {
+      setNotice(`저장된 브랜치 ${missing.join(', ')}을 찾지 못해 기본값으로 바꿨습니다`)
+    }
+    if (JSON.stringify(next) !== JSON.stringify(comparison)) setComparison(next)
+  }, [repo, branches])
+
+  const handleComparisonChange = useCallback((next: Comparison) => {
+    setNotice(null)
+    setComparison(next)
+    if (repo) saveComparison(repo.root, next)
+  }, [repo])
+
+  const params = useMemo(
+    () => (comparison ? comparisonParams(comparison, { staged: settings.staged, untracked: settings.untracked }) : null),
+    [comparison, settings.staged, settings.untracked],
+  )
+  const { patch, repoName, branch, binaryFiles, tabSizeMap, untrackedFiles, key, identical, loading, error } = useDiff(params)
+  const { comments, addComment, removeComment, copyAllComments } = useComments(key)
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [sidebar, setSidebar] = useState(() => SidebarStorage.load())
   const maxSidebarWidth = Math.max(SidebarStorage.minSize, useWindowSize({ factor: 0.5 }))
@@ -84,13 +115,13 @@ export function App() {
     }
   }, [patch, binaryFiles])
 
-  const fullFiles = useFullDiffs(patch, files, { staged: settings.staged, untracked: settings.untracked })
+  const fullFiles = useFullDiffs(patch, files, params)
   const displayFiles = useMemo(() => {
     if (fullFiles.size === 0) return files
     return files.map((f) => fullFiles.get(fileKey(f)) ?? f)
   }, [files, fullFiles])
 
-  const { viewedFiles, setViewed } = useViewed(files)
+  const { viewedFiles, setViewed } = useViewed(files, key)
 
   const diffStats = useMemo(() => {
     if (!patch) return { additions: 0, deletions: 0 }
@@ -164,7 +195,15 @@ export function App() {
     </div>
   )
 
-  if (!loaded || loading) {
+  if (repoError) {
+    return (
+      <div className="error">
+        <p>Error: {repoError}</p>
+      </div>
+    )
+  }
+
+  if (!loaded || !repo || !comparison) {
     return (
       <div className="loading">
         <p>Loading diff...</p>
@@ -172,18 +211,22 @@ export function App() {
     )
   }
 
-  if (error) {
-    return (
-      <div className="error">
-        <p>Error: {error}</p>
-      </div>
-    )
-  }
-
   return (
     <div className="app">
       <Toolbar
-        repoName={repoName}
+        repoName={repoName || repo.name}
+        showWorktreeOptions={!repo.customMode && comparison.mode === 'worktree'}
+        branchPicker={repo.customMode ? undefined : (
+          <BranchPicker
+            comparison={comparison}
+            branches={branches}
+            fetching={fetching}
+            fetchError={fetchError}
+            notice={notice}
+            onChange={handleComparisonChange}
+            onFetch={fetchRemote}
+          />
+        )}
         branch={branch}
         fileCount={files.length}
         additions={diffStats.additions}
@@ -194,7 +237,6 @@ export function App() {
         defaultTabSize={settings.defaultTabSize}
         softWrap={settings.softWrap}
         browser={settings.browser}
-        customMode={customMode}
         onDiffStyleChange={(style) => updateSettings({ diffStyle: style })}
         onDiffOptionsChange={(options) => updateSettings(options)}
         onDefaultTabSizeChange={(size) => updateSettings({ defaultTabSize: size })}
@@ -225,6 +267,13 @@ export function App() {
           </Resizable>
         )}
         <main className="main">
+          {loading ? (
+            <div className="loading"><p>Loading diff...</p></div>
+          ) : error ? (
+            <div className="empty-state"><p>{error}</p></div>
+          ) : identical ? (
+            <div className="empty-state"><p>두 브랜치의 내용이 같습니다</p></div>
+          ) : (
           <Virtualizer className="main-scroll" contentClassName="main-content">
             <DiffViewer
               files={displayFiles}
@@ -238,8 +287,10 @@ export function App() {
               fileAnnotationsMap={fileAnnotationsMap}
               onAddComment={addComment}
               onDeleteComment={removeComment}
+              contentQuery={params?.toString() ?? ''}
             />
           </Virtualizer>
+          )}
         </main>
       </div>
     </div>

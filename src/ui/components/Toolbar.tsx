@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { GitBranch, Settings } from 'lucide-react'
 import type { DiffOptions } from '../hooks/useDiff'
 
@@ -14,7 +14,8 @@ interface ToolbarProps {
   defaultTabSize: number
   softWrap: boolean
   browser?: string
-  customMode: boolean
+  showWorktreeOptions: boolean
+  branchPicker?: ReactNode
   onDiffStyleChange: (style: 'split' | 'unified') => void
   onDiffOptionsChange: (options: DiffOptions) => void
   onDefaultTabSizeChange: (size: number) => void
@@ -35,7 +36,8 @@ export function Toolbar({
   defaultTabSize,
   softWrap,
   browser,
-  customMode,
+  showWorktreeOptions,
+  branchPicker,
   onDiffStyleChange,
   onDiffOptionsChange,
   onDefaultTabSizeChange,
@@ -69,12 +71,12 @@ export function Toolbar({
     <div className="toolbar">
       <div className="toolbar-left">
         <h1 className="toolbar-title">{repoName}</h1>
-        {branch && (
+        {branchPicker ?? (branch && (
           <span className="toolbar-branch">
             <GitBranch size={12} />
             {branch}
           </span>
-        )}
+        ))}
         <span className="toolbar-stat">
           {fileCount} file{fileCount !== 1 ? 's' : ''} changed
           {additions > 0 && <span className="stat-additions"> +{additions}</span>}
@@ -106,7 +108,7 @@ export function Toolbar({
           </button>
           {settingsOpen && (
             <div className="settings-menu">
-              {!customMode && (
+              {showWorktreeOptions && (
                 <>
                   <label className="settings-item">
                     <input

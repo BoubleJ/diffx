@@ -14,9 +14,10 @@ interface BinaryFileDiffProps {
   info: BinaryFileInfo
   viewed: boolean
   onViewedChange: (filePath: string, viewed: boolean) => void
+  contentQuery: string
 }
 
-export function BinaryFileDiff({ filePath, info, viewed, onViewedChange }: BinaryFileDiffProps) {
+export function BinaryFileDiff({ filePath, info, viewed, onViewedChange, contentQuery }: BinaryFileDiffProps) {
   const image = isImage(filePath)
 
   return (
@@ -35,7 +36,7 @@ export function BinaryFileDiff({ filePath, info, viewed, onViewedChange }: Binar
       {!viewed && (
         <div className="binary-diff-body">
           {image ? (
-            <ImagePreview filePath={filePath} changeType={info.type} />
+            <ImagePreview filePath={filePath} changeType={info.type} contentQuery={contentQuery} />
           ) : (
             <div className="binary-diff-message">
               Binary file {info.type === 'added' ? 'added' : info.type === 'untracked' ? 'untracked' : info.type === 'deleted' ? 'deleted' : 'changed'}
@@ -47,9 +48,15 @@ export function BinaryFileDiff({ filePath, info, viewed, onViewedChange }: Binar
   )
 }
 
-function ImagePreview({ filePath, changeType }: { filePath: string; changeType: BinaryFileInfo['type'] }) {
-  const oldSrc = `/api/file-content?path=${encodeURIComponent(filePath)}&version=old`
-  const newSrc = `/api/file-content?path=${encodeURIComponent(filePath)}&version=new`
+function ImagePreview({ filePath, changeType, contentQuery }: { filePath: string; changeType: BinaryFileInfo['type']; contentQuery: string }) {
+  const src = (version: 'old' | 'new') => {
+    const q = new URLSearchParams(contentQuery)
+    q.set('path', filePath)
+    q.set('version', version)
+    return `/api/file-content?${q}`
+  }
+  const oldSrc = src('old')
+  const newSrc = src('new')
 
   if (changeType === 'added' || changeType === 'untracked') {
     return (
