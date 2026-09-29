@@ -89,6 +89,8 @@ diffx
 
 `/api/comments`, `/api/viewed`는 쿼리 `key`를 받아 해당 조합의 데이터만 읽고 쓴다. 조합을 바꿨다가 돌아오면 그 조합의 코멘트가 다시 나온다.
 
+`key`가 없는 요청은 마지막으로 `/api/diff`가 응답한 조합의 데이터를 읽고 쓴다. `skills/diffx-finish-review`처럼 `key` 없이 `/api/comments`를 부르는 기존 사용처가 지금처럼 화면에 보이는 코멘트를 받는다. 코멘트 수정, 삭제, 답글 API는 코멘트 id로 찾기 때문에 `key`를 받지 않는다.
+
 ### 오류 처리
 
 - source와 target이 같은 커밋이면 diff 영역에 "두 브랜치의 내용이 같습니다" 안내를 보여준다.
@@ -200,7 +202,8 @@ diffx
 
 1. 앱 실행 시 저장소 선택 창이 열린다. `폴더 열기` 버튼과 최근 연 저장소 목록(최대 10개)이 있다.
 2. 폴더 선택 시 `git rev-parse --show-toplevel`로 저장소 루트를 찾는다. 실패하면 선택 창에 "git 저장소가 아닙니다" 안내를 보여준다.
-3. 성공하면 main 프로세스가 `startServer({ repoPath, port: <빈 포트>, host: '127.0.0.1', token })`로 서버를 띄우고 새 창에서 그 주소를 연다. 창 제목은 저장소 이름이다.
+3. 성공하면 main 프로세스가 `startServer({ repoPath, port, host: '127.0.0.1', token })`로 서버를 띄우고 새 창에서 그 주소를 연다. 창 제목은 저장소 이름이다.
+   - `port`는 최근 저장소 목록에 기록해 둔 그 저장소의 마지막 포트를 먼저 쓰고 사용 중이면 빈 포트를 쓴다. localStorage는 origin(포트 포함)별로 저장되기 때문에 포트가 매번 바뀌면 브랜치 선택과 사이드바 상태가 다음 실행 때 적용되지 않는다.
 4. 이미 열린 저장소를 다시 열면 새 창을 만들지 않고 기존 창을 앞으로 가져온다.
 5. 창을 닫으면 그 창의 서버와 실행 중인 리뷰 프로세스를 종료한다.
 6. 모든 창을 닫아도 앱은 Dock에 남는다. Dock 아이콘 클릭 시 저장소 선택 창이 열린다.
@@ -215,14 +218,15 @@ diffx
 ### macOS 환경 처리
 
 - 앱 시작 시 `$SHELL -ilc 'printf %s "$PATH"'` 결과를 `process.env.PATH`에 넣는다. 5초 안에 응답이 없으면 기존 PATH에 `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`을 붙인다.
-- 최근 저장소 목록은 `app.getPath('userData')/recent.json`(`~/Library/Application Support/diffx/recent.json`)에 저장한다.
+- 최근 저장소 목록은 `app.getPath('userData')/recent.json`(`~/Library/Application Support/diffx/recent.json`)에 저장한다. 항목마다 `path`, `name`, `port`, `openedAt`을 기록한다.
 
 ### 보안
 
 - 서버는 `127.0.0.1`에만 바인딩한다.
-- 앱에서 띄운 서버는 창마다 무작위 토큰을 만든다. `/api/*` 요청은 `X-Diffx-Token` 헤더를 검사하고 맞지 않으면 403을 돌려준다. 토큰은 창을 열 때 preload를 통해 UI에 넘긴다. 같은 맥의 브라우저에서 다른 웹페이지가 서버로 요청을 보내 리뷰를 실행하는 경우를 막기 위해서다.
+- 앱에서 띄운 서버는 창마다 무작위 토큰을 만든다. `/api/*` 요청은 `X-Diffx-Token` 헤더를 검사하고 맞지 않으면 403을 돌려준다. 같은 맥의 브라우저에서 다른 웹페이지가 서버로 요청을 보내 리뷰를 실행하는 경우를 막기 위해서다.
+- 헤더는 main 프로세스가 `session.webRequest.onBeforeSendHeaders`로 해당 창의 서버 주소 요청에 붙인다. `<img src>`와 `EventSource`는 요청 헤더를 직접 넣을 수 없어서 UI 코드에서 토큰을 다루지 않는다.
 - CLI 실행 시에는 토큰 검사를 하지 않는다. 지금처럼 동작한다.
-- 창 설정: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. preload는 `selectFolder()`, `getToken()`, `openRepo(path)`만 노출한다.
+- 창 설정: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. 저장소 선택 창의 preload는 `selectFolder()`, `openRepo(path)`, `getRecent()`만 노출한다. diff 창에는 preload를 두지 않는다.
 
 ### 빌드와 배포
 
@@ -230,7 +234,7 @@ diffx
 - `electron-builder`로 arm64 `.app`을 만들고 ad-hoc 서명(`identity: "-"`)한 뒤 `diffx-<버전>-arm64.zip`으로 묶는다.
 - 스크립트
   - `pnpm run build:app`: UI 빌드, 서버와 electron 번들링, `.app`과 zip 생성
-  - `pnpm run dev:app`: vite 개발 서버와 Electron을 함께 실행한다. 로컬 개발 서버는 사용자가 직접 띄운다.
+  - `pnpm run dev:app`: UI와 electron 코드를 빌드한 뒤 Electron을 실행한다. 창마다 서버 포트가 달라 vite 개발 서버의 `/api` 프록시(3433 고정)를 쓸 수 없다. UI를 수정하며 확인할 때는 기존 `dev:client`, `dev:server` 스크립트를 쓴다. 개발 서버와 앱은 사용자가 직접 실행한다.
 - 앱 아이콘은 diffx 아이콘을 새로 만들어 `.icns`로 넣는다.
 - README에 설치 방법을 적는다: zip을 풀어 `/Applications`로 옮기고 처음 한 번 우클릭 후 `열기`를 누르거나 `xattr -dr com.apple.quarantine /Applications/diffx.app`을 실행한다.
 
