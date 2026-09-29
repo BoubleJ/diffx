@@ -1,5 +1,5 @@
 appId: com.github.boublej.diffx
-productName: diffx
+productName: review-helper
 directories:
   output: release
   buildResources: build
@@ -22,4 +22,4 @@ mac:
       - CFBundleTypeName: Folder
         CFBundleTypeRole: Viewer
         LSItemContentTypes: [public.folder]
-artifactName: mr리뷰도구-${version}.${ext}
+artifactName: review-helper-${version}.${ext}
