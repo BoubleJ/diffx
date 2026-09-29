@@ -16,7 +16,7 @@ npm install -g diffx-cli
 
 ### 설치
 
-1. `diffx-<버전>-arm64.zip`을 풀고 `diffx.app`을 `/Applications`로 옮긴다.
+1. `mr리뷰도구-<버전>.zip`을 풀고 `diffx.app`을 `/Applications`로 옮긴다.
 2. Apple 공증을 받지 않은 앱이라 처음 실행 시 Gatekeeper가 막는다. 아래 중 하나를 한 번만 하면 된다.
    - Finder에서 `diffx.app`을 우클릭하고 `열기`를 누른 뒤 경고 창에서 다시 `열기`를 누른다.
    - 터미널에서 `xattr -dr com.apple.quarantine /Applications/diffx.app`을 실행한다.
@@ -35,7 +35,7 @@ pnpm install
 pnpm run build:app
 ```
 
-`release/diffx-<버전>-arm64.zip`이 만들어진다.
+`release/mr리뷰도구-<버전>.zip`이 만들어진다. 버전은 `package.json`의 `version` 값이다.
 
 ## Usage
 
