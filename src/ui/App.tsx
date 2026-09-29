@@ -194,6 +194,10 @@ export function App() {
 
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  useEffect(() => () => {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current)
+  }, [])
+
   const handleFindingClick = useCallback((f: Finding) => {
     handleFileClick(f.file)
     if (f.line !== null) {

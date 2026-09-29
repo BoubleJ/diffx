@@ -9,6 +9,7 @@ const el = (attrs: Record<string, string>, children: FakeEl[] = [], shadow?: Fak
 function adapt(node: FakeEl | { children: FakeEl[] }): ParentNode {
   const wrap = (n: FakeEl): Element => ({
     getAttribute: (k: string) => n.attrs[k] ?? null,
+    hasAttribute: (k: string) => k in n.attrs,
     get children() { return n.children.map(wrap) as unknown as HTMLCollection },
     get shadowRoot() { return n.shadowRoot ? (adapt(n.shadowRoot) as ShadowRoot) : null },
   }) as unknown as Element
@@ -26,16 +27,40 @@ describe('findLineElement', () => {
     expect(findLineElement(adapt(root), 12, 'deletions')?.getAttribute('data-line-type')).toBe('change-deletion')
   })
 
-  it('accepts context lines by data-line and returns null when missing', () => {
+  it('returns null when the line is missing', () => {
     const root = { children: [el({ 'data-line': '3', 'data-line-type': 'context' })] }
-    expect(findLineElement(adapt(root), 3, 'deletions')).not.toBeNull()
-    expect(findLineElement(adapt(root), 4, 'deletions')).toBeNull()
+    expect(findLineElement(adapt(root), 4, 'additions')).toBeNull()
   })
 
-  it('matches unified context lines on the deletions side by data-alt-line', () => {
-    const root = { children: [el({ 'data-line': '5', 'data-alt-line': '3', 'data-line-type': 'context' })] }
-    expect(findLineElement(adapt(root), 3, 'deletions')).not.toBeNull()
-    expect(findLineElement(adapt(root), 3, 'additions')).toBeNull()
+  it('in split view only accepts context lines inside the requested side column', () => {
+    const root = { children: [
+      el({ 'data-code': '', 'data-deletions': '' }, [
+        el({ 'data-line': '5', 'data-alt-line': '9', 'data-line-type': 'context', id: 'del' }),
+      ]),
+      el({ 'data-code': '', 'data-additions': '' }, [
+        el({ 'data-line': '5', 'data-alt-line': '2', 'data-line-type': 'context', id: 'add' }),
+      ]),
+    ] }
+    expect(findLineElement(adapt(root), 5, 'additions')?.getAttribute('id')).toBe('add')
+    expect(findLineElement(adapt(root), 5, 'deletions')?.getAttribute('id')).toBe('del')
+    expect(findLineElement(adapt(root), 9, 'additions')).toBeNull()
+  })
+
+  it('in unified view matches context by data-line for additions and data-alt-line for deletions', () => {
+    const root = { children: [el({ 'data-unified': '' }, [
+      el({ 'data-line': '5', 'data-alt-line': '3', 'data-line-type': 'context', id: 'a' }),
+      el({ 'data-line': '3', 'data-alt-line': '1', 'data-line-type': 'context', id: 'b' }),
+    ])] }
+    expect(findLineElement(adapt(root), 3, 'additions')?.getAttribute('id')).toBe('b')
+    expect(findLineElement(adapt(root), 3, 'deletions')?.getAttribute('id')).toBe('a')
+  })
+
+  it('returns the first match in document order', () => {
+    const root = { children: [
+      el({ 'data-line': '1', 'data-line-type': 'change-addition', id: 'first' }),
+      el({ 'data-line': '1', 'data-line-type': 'change-addition', id: 'second' }),
+    ] }
+    expect(findLineElement(adapt(root), 1, 'additions')?.getAttribute('id')).toBe('first')
   })
 
   it('ignores gutter items that only carry data-column-number', () => {
