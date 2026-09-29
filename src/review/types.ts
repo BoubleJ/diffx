@@ -1,4 +1,4 @@
-export type ProviderId = 'claude' | 'codex' | 'cursor' | 'gemini'
+export type ProviderId = 'claude'
 export type Severity = 'critical' | 'major' | 'minor' | 'info'
 
 export interface Finding {
