@@ -25,6 +25,12 @@ process.stdin.on('end', () => {
   } else if (mode === 'crash') {
     console.error('boom')
     process.exit(3)
+  } else if (mode === 'progress-path') {
+    console.log(JSON.stringify({ type: 'progress', text: process.env.FAKE_PROGRESS }))
+    console.log(JSON.stringify({ type: 'final', json: result }))
+  } else if (mode === 'stubborn') {
+    process.on('SIGTERM', () => {})
+    setInterval(() => {}, 1000)
   } else if (mode === 'hang') {
     setInterval(() => {}, 1000)
   }
