@@ -163,6 +163,17 @@ describe('review API', () => {
     expect(receivedCtx).toMatchObject({ sourceCheckedOut: false })
   })
 
+  it('passes staged to the review context in worktree mode', async () => {
+    let receivedCtx: unknown
+    const { app } = setup(async (_p, ctx) => {
+      receivedCtx = ctx
+      return { summary: 's', findings: [] }
+    })
+    const { id } = await (await postReview(app, { mode: 'worktree', staged: true })).json()
+    await readSse(await app.request(`/api/review/${id}/events`))
+    expect(receivedCtx).toMatchObject({ mode: 'worktree', staged: true })
+  })
+
   it('returns 400 unknown_ref for an unknown branch', async () => {
     const { app } = setup(async () => ({ summary: 's', findings: [] }))
     const res = await postReview(app, { source: 'nope/none' })

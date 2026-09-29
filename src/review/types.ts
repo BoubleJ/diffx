@@ -21,6 +21,8 @@ export interface ReviewContext {
   source?: string
   target?: string
   mergeBase?: string
+  customArgs?: string[]
+  staged?: boolean
   sourceCheckedOut: boolean
   files: string[]
   patch: string

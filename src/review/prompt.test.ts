@@ -35,9 +35,29 @@ describe('buildPrompt', () => {
     expect(p).toContain('git diff abc123 feature/x -- <경로>')
   })
 
-  it('describes worktree mode', () => {
+  it('describes worktree mode without staged changes', () => {
     const p = buildPrompt({ ...base, mode: 'worktree', source: undefined, target: undefined, mergeBase: undefined })
     expect(p).toContain('커밋하지 않은 변경사항')
-    expect(p).toContain('git diff HEAD -- <경로>')
+    expect(p).toContain('`git diff -- <경로>`')
+    expect(p).not.toContain('git diff HEAD')
+    expect(p).toContain('작업 트리의 파일이 리뷰 대상 코드와 같습니다')
+  })
+
+  it('includes staged changes in the worktree diff command when staged is on', () => {
+    const p = buildPrompt({ ...base, mode: 'worktree', staged: true, source: undefined, target: undefined, mergeBase: undefined })
+    expect(p).toContain('`git diff HEAD -- <경로>`')
+  })
+
+  it('uses the custom git diff args and does not claim the worktree matches', () => {
+    const p = buildPrompt({ ...base, mode: 'custom', customArgs: ['HEAD~3'], source: undefined, target: undefined, mergeBase: undefined })
+    expect(p).toContain('`git diff HEAD~3 -- <경로>`')
+    expect(p).toContain('HEAD~3')
+    expect(p).not.toContain('작업 트리의 파일이 리뷰 대상 코드와 같습니다')
+    expect(p).not.toContain('git diff HEAD --')
+  })
+
+  it('drops the pathspec from custom args before adding the file path', () => {
+    const p = buildPrompt({ ...base, mode: 'custom', customArgs: ['main', '--', 'src'], source: undefined, target: undefined, mergeBase: undefined })
+    expect(p).toContain('`git diff main -- <경로>`')
   })
 })
