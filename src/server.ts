@@ -315,6 +315,8 @@ export function createApp(options: AppOptions) {
         source: resolved.source,
         target: resolved.target,
         mergeBase: resolved.mergeBase,
+        customArgs: customDiffArgs,
+        staged: resolved.mode === 'worktree' && body.staged === true,
         sourceCheckedOut: resolved.mode !== 'branch' || getHeadSha(repo) === resolved.sourceSha,
         files: parseFilePaths(resolved.patch),
         patch: resolved.patch,

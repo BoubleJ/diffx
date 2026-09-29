@@ -11,7 +11,7 @@ function describeComparison(ctx: ReviewContext): string {
       `- merge-base 커밋: ${ctx.mergeBase}`,
     ].join('\n')
   }
-  if (ctx.mode === 'custom') return '비교 대상: 사용자가 지정한 git diff 인자의 결과'
+  if (ctx.mode === 'custom') return `비교 대상: 사용자가 지정한 git diff 인자(${(ctx.customArgs ?? []).join(' ')})의 결과`
   return '비교 대상: 작업 트리의 커밋하지 않은 변경사항'
 }
 
@@ -19,12 +19,21 @@ function fileReadingGuide(ctx: ReviewContext): string {
   if (ctx.mode === 'branch' && !ctx.sourceCheckedOut) {
     return `소스 브랜치가 체크아웃되어 있지 않아서 작업 트리의 파일은 리뷰 대상과 다를 수 있습니다. 파일 전체 내용은 \`git show ${ctx.source}:<경로>\`로 읽으세요.`
   }
+  if (ctx.mode === 'custom') {
+    return '사용자가 지정한 git diff 인자로 만든 diff라서 작업 트리의 파일은 리뷰 대상과 다를 수 있습니다. 변경 내용은 아래 diff 명령으로 확인하세요.'
+  }
   return '작업 트리의 파일이 리뷰 대상 코드와 같습니다. 파일을 직접 읽어도 됩니다.'
 }
 
 function diffCommand(ctx: ReviewContext): string {
   if (ctx.mode === 'branch') return `git diff ${ctx.mergeBase} ${ctx.source} -- <경로>`
-  return 'git diff HEAD -- <경로>'
+  if (ctx.mode === 'custom') {
+    const args = ctx.customArgs ?? []
+    const separator = args.indexOf('--')
+    const revisionArgs = separator === -1 ? args : args.slice(0, separator)
+    return ['git diff', ...revisionArgs, '-- <경로>'].join(' ')
+  }
+  return ctx.staged ? 'git diff HEAD -- <경로>' : 'git diff -- <경로>'
 }
 
 export function buildPrompt(ctx: ReviewContext): string {
