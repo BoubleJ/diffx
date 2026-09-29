@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { runReview, type RunOptions } from './runner.js'
+import { runReview, STOP_IMMEDIATELY, type RunOptions } from './runner.js'
 import type { ReviewStore, ReviewRecord } from './store.js'
 import { ReviewFailure, type FailureKind, type ProviderId, type ReviewContext, type ReviewProvider, type ReviewResult } from './types.js'
 
@@ -116,11 +116,11 @@ export class ReviewJobs {
     return true
   }
 
-  cancelAll(): void {
+  cancelAll({ immediate = false }: { immediate?: boolean } = {}): void {
     for (const job of this.jobs.values()) {
       if (!job.finished) {
         job.aborted = true
-        job.controller.abort()
+        job.controller.abort(immediate ? STOP_IMMEDIATELY : undefined)
       }
     }
   }

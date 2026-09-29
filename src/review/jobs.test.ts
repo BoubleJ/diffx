@@ -6,6 +6,7 @@ import { ReviewJobs, type JobEvent, type RunFn } from './jobs'
 import { ReviewStore } from './store'
 import { ReviewFailure, type ReviewContext } from './types'
 import { claudeProvider } from './providers/claude'
+import { STOP_IMMEDIATELY } from './runner'
 
 const ctx: ReviewContext = { repoPath: '/repo', mode: 'worktree', sourceCheckedOut: true, files: [], patch: '' }
 const newStore = () => new ReviewStore(mkdtempSync(join(tmpdir(), 'diffx-reviews-')))
@@ -62,6 +63,17 @@ describe('ReviewJobs', () => {
     jobs.cancelAll()
     expect(calls.every((c) => c.signal?.aborted)).toBe(true)
     expect(jobs.cancel('unknown')).toBe(false)
+  })
+
+  it('stops immediately only when cancelAll is called with immediate', () => {
+    const { run, calls } = deferredRun()
+    const jobs = new ReviewJobs(newStore(), run)
+    const a = jobs.start(input)
+    jobs.start({ ...input, key: 'branch:x...y' })
+    jobs.cancel(a)
+    expect(calls[0].signal?.reason).not.toBe(STOP_IMMEDIATELY)
+    jobs.cancelAll({ immediate: true })
+    expect(calls[1].signal?.reason).toBe(STOP_IMMEDIATELY)
   })
 
   it('starts separate jobs for the same key in different repos', () => {

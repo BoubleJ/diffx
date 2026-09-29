@@ -6,6 +6,7 @@ import { makeRepo, commit, git } from './test/gitRepo'
 import { createApp, startServer } from './server'
 import { ReviewJobs, type RunFn } from './review/jobs'
 import { ReviewStore } from './review/store'
+import { STOP_IMMEDIATELY } from './review/runner'
 import type { ReviewProvider } from './review/types'
 
 const fakeProvider: ReviewProvider = {
@@ -149,6 +150,7 @@ describe('review API', () => {
     await vi.waitFor(() => expect(signal).toBeDefined())
     await server.close()
     expect(signal!.aborted).toBe(true)
+    expect(signal!.reason).toBe(STOP_IMMEDIATELY)
   })
 
   it('marks sourceCheckedOut false when HEAD is not the source branch', async () => {

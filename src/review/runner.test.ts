@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { mkdtempSync, rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { runReview, detectProvider } from './runner'
+import { runReview, detectProvider, STOP_IMMEDIATELY } from './runner'
 import { buildPrompt } from './prompt'
 import { ReviewFailure, type ReviewProvider, type ReviewContext } from './types'
 
@@ -150,6 +150,16 @@ describe('runReview', () => {
     setTimeout(() => controller.abort(), 100)
     expect((await failure(p)).kind).toBe('cancelled')
     expect(cleaned).toBe(1)
+  })
+
+  it('kills a process that ignores SIGTERM right away when stopped immediately', async () => {
+    const controller = new AbortController()
+    const p = run('stubborn', fakeProvider(), { signal: controller.signal })
+    await new Promise((r) => setTimeout(r, 200))
+    const startedAt = Date.now()
+    controller.abort(STOP_IMMEDIATELY)
+    expect((await failure(p)).kind).toBe('cancelled')
+    expect(Date.now() - startedAt).toBeLessThan(1500)
   })
 
   it('still times out when the process ignores SIGTERM', async () => {
