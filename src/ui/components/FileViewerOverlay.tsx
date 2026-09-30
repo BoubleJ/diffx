@@ -18,11 +18,12 @@ interface FileViewerOverlayProps {
   onBack: () => void
   onClose: () => void
   onDefinition: (req: DefinitionRequest, anchor: DOMRect) => void
+  onFileReferences: (path: string, side: 'additions' | 'deletions') => void
 }
 
 type LoadState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; contents: string }
 
-export function FileViewerOverlay({ entries, contentQuery, onBack, onClose, onDefinition }: FileViewerOverlayProps) {
+export function FileViewerOverlay({ entries, contentQuery, onBack, onClose, onDefinition, onFileReferences }: FileViewerOverlayProps) {
   const current = entries[entries.length - 1]
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -74,7 +75,14 @@ export function FileViewerOverlay({ entries, contentQuery, onBack, onClose, onDe
     <div className="file-overlay-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="file-overlay">
         <div className="file-overlay-header">
-          <span className="file-overlay-path">{current.path}</span>
+          <span
+            className="file-overlay-path"
+            onClick={(e) => { if (linkable && e.metaKey) onFileReferences(current.path, side) }}
+            onPointerOver={(e) => { if (linkable) tokenLinkHover.enter(e.currentTarget, e.metaKey) }}
+            onPointerOut={() => tokenLinkHover.leave()}
+          >
+            {current.path}
+          </span>
           <span className="file-overlay-version">{current.version === 'new' ? '소스' : '기준'}</span>
           <button className="btn btn-sm" onClick={onBack} disabled={entries.length <= 1} title="뒤로">
             <ArrowLeft size={14} /> 뒤로
