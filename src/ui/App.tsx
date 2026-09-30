@@ -27,6 +27,7 @@ import { SidebarStorage } from './sidebarStorage'
 import { loadExcluded, saveExcluded } from './excludedStorage'
 import { excludeFilesFromPatch } from '../review/filterPatch'
 import { loadReviewPanel, saveReviewPanel, REVIEW_PANEL_MIN } from './reviewPanelStorage'
+import { loadReviewInstruction, saveReviewInstruction } from './reviewInstructionStorage'
 import { comparisonParams, loadComparison, saveComparison, reconcileComparison, type Comparison } from './comparison'
 
 function useWindowSize({ factor }: { factor: number }) {
@@ -137,6 +138,14 @@ export function App() {
   }, [repoRoot, key])
   const review = useReview(params, key)
   const [reviewPanel, setReviewPanel] = useState(() => loadReviewPanel())
+  const [reviewInstruction, setReviewInstruction] = useState('')
+  useEffect(() => {
+    if (repoRoot) setReviewInstruction(loadReviewInstruction(repoRoot))
+  }, [repoRoot])
+  const handleInstructionChange = useCallback((value: string) => {
+    setReviewInstruction(value)
+    if (repoRoot) saveReviewInstruction(repoRoot, value)
+  }, [repoRoot])
   const updateReviewPanel = useCallback((next: typeof reviewPanel) => {
     setReviewPanel(next)
     saveReviewPanel(next)
@@ -450,7 +459,9 @@ export function App() {
                 record={review.record}
                 stale={review.stale}
                 state={review.state}
-                onStart={() => review.start('claude', excludedInDiff)}
+                instruction={reviewInstruction}
+                onInstructionChange={handleInstructionChange}
+                onStart={() => review.start('claude', excludedInDiff, reviewInstruction)}
                 onCancel={review.cancel}
                 onFindingClick={handleFindingClick}
                 onClose={() => updateReviewPanel({ ...reviewPanel, open: false })}

@@ -36,6 +36,17 @@ function diffCommand(ctx: ReviewContext): string {
   return ctx.staged ? 'git diff HEAD -- <경로>' : 'git diff -- <경로>'
 }
 
+function instructionSection(ctx: ReviewContext): string[] {
+  const instruction = ctx.instruction?.trim()
+  if (!instruction) return []
+  return [
+    '## 사용자 추가 지시',
+    '아래 지시를 우선 반영해 리뷰하세요. 단, 파일 수정 금지와 응답 JSON 형식은 그대로 지키세요.',
+    instruction,
+    '',
+  ]
+}
+
 export function buildPrompt(ctx: ReviewContext): string {
   const patchSection = ctx.patch.length > MAX_PATCH_CHARS
     ? `diff가 커서 본문을 싣지 않았습니다. 파일별 diff는 \`${diffCommand(ctx)}\`로 직접 확인하세요.`
@@ -54,6 +65,7 @@ export function buildPrompt(ctx: ReviewContext): string {
     '- 버그, 보안 문제, 잘못된 동작, 누락된 예외 처리를 우선 찾으세요. 취향 차이인 스타일 지적은 info로만 남기세요.',
     '- 모든 문장은 한국어로 쓰세요.',
     '',
+    ...instructionSection(ctx),
     '## 응답 형식',
     '다른 설명 없이 아래 형식의 JSON 객체 하나만 응답하세요.',
     '```json',

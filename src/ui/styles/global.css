@@ -1440,6 +1440,24 @@ body {
 }
 
 .review-panel-header,
+.review-panel-instruction {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    resize: vertical;
+}
+
+.review-panel-instruction-used {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .review-panel-controls {
     display: flex;
     align-items: center;

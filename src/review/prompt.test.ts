@@ -61,3 +61,19 @@ describe('buildPrompt', () => {
     expect(p).toContain('`git diff main -- <경로>`')
   })
 })
+
+describe('buildPrompt instruction', () => {
+  it('adds the user instruction section when given', () => {
+    const p = buildPrompt({ ...base, instruction: '성능 문제 위주로 봐줘' })
+    expect(p).toContain('## 사용자 추가 지시')
+    expect(p).toContain('아래 지시를 우선 반영해 리뷰하세요. 단, 파일 수정 금지와 응답 JSON 형식은 그대로 지키세요.')
+    expect(p).toContain('성능 문제 위주로 봐줘')
+    expect(p.indexOf('## 사용자 추가 지시')).toBeGreaterThan(p.indexOf('## 지켜야 할 것'))
+    expect(p.indexOf('## 사용자 추가 지시')).toBeLessThan(p.indexOf('## 응답 형식'))
+  })
+
+  it('leaves the prompt unchanged without an instruction', () => {
+    expect(buildPrompt({ ...base, instruction: '   ' })).toBe(buildPrompt(base))
+    expect(buildPrompt(base)).not.toContain('## 사용자 추가 지시')
+  })
+})
