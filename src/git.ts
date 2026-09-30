@@ -285,11 +285,23 @@ export function getHeadSha(repo: string): string | null {
   return resolveCommit(repo, 'HEAD')
 }
 
-export function fetchAll(repo: string, timeoutMs = 60_000): Promise<{ ok: true } | { ok: false; error: string }> {
+export function hasCommit(repo: string, sha: string): boolean {
+  if (!SHA_REGEX.test(sha)) return false
+  try {
+    run(repo, ['cat-file', '-e', `${sha}^{commit}`])
+    return true
+  } catch {
+    return false
+  }
+}
+
+type FetchResult = { ok: true } | { ok: false; error: string }
+
+function runFetch(repo: string, args: string[], timeoutMs: number): Promise<FetchResult> {
   return new Promise((done) => {
     execFile(
       'git',
-      [...QUOTEPATH_OFF, 'fetch', '--all', '--prune'],
+      [...QUOTEPATH_OFF, 'fetch', ...args],
       { cwd: repo, timeout: timeoutMs, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
       (err, _stdout, stderr) => {
         if (!err) return done({ ok: true })
@@ -298,6 +310,17 @@ export function fetchAll(repo: string, timeoutMs = 60_000): Promise<{ ok: true }
       },
     )
   })
+}
+
+export function fetchAll(repo: string, timeoutMs = 60_000): Promise<FetchResult> {
+  return runFetch(repo, ['--all', '--prune'], timeoutMs)
+}
+
+export function fetchRefs(repo: string, remote: string, refspecs: string[], timeoutMs = 60_000): Promise<FetchResult> {
+  if (remote.startsWith('-') || refspecs.some((r) => r.startsWith('-'))) {
+    return Promise.resolve({ ok: false, error: 'invalid fetch arguments' })
+  }
+  return runFetch(repo, ['--no-tags', remote, ...refspecs], timeoutMs)
 }
 
 export interface RemoteInfo {

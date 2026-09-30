@@ -18,7 +18,8 @@ import { fingerprint } from './review/fingerprint.js'
 import { excludeFilesFromPatch } from './review/filterPatch.js'
 import type { ReviewProvider } from './review/types.js'
 import { createGlabClient, GlabError, type GlabClient } from './gitlab/glab.js'
-import { getGitlabStatus, listMrs, parseMrListQuery, type GitlabStatus } from './gitlab/mr.js'
+import { getGitlabStatus, listMrs, parseMrListQuery, MrFetchError, type GitlabStatus } from './gitlab/mr.js'
+import { MrComparisons, MrRequestError, parseIid, type MrResolved } from './gitlab/mrComparison.js'
 
 export interface AppOptions {
   repoPath: string
@@ -159,15 +160,30 @@ export function createApp(options: AppOptions) {
     return map
   }
 
+  const glab = options.glab ?? createGlabClient(repo)
+  let gitlabStatus: Promise<GitlabStatus> | null = null
+  const getStatus = (refresh = false) => {
+    if (refresh || !gitlabStatus) gitlabStatus = getGitlabStatus(glab, listRemotes(repo))
+    return gitlabStatus
+  }
+
   const resolveOptions = { diffCwd, rangeDiff: createRangeDiffCache() }
-  const resolveFromRequest = (c: Context): ResolvedComparison => {
+  const mrComparisons = new MrComparisons(repo, glab, () => getStatus(), resolveOptions.rangeDiff)
+  const resolveFromRequest = async (c: Context, refresh = false): Promise<ResolvedComparison> => {
     const q = queryFromSearch((name) => c.req.query(name))
+    if (q.mode === 'mr' && !isCustomMode) return mrComparisons.resolve(parseIid(q.iid), { refresh })
     return resolveComparison(repo, customDiffArgs, q, resolveOptions)
   }
 
   const comparisonErrorResponse = (c: Context, err: unknown) => {
     if (err instanceof ComparisonError) {
       return c.json({ error: err.code, message: err.message }, err.code === 'no_merge_base' ? 422 : 400)
+    }
+    if (err instanceof MrRequestError) {
+      return c.json({ error: 'invalid_iid', message: err.message }, 400)
+    }
+    if (err instanceof MrFetchError) {
+      return c.json({ error: 'mr_fetch_failed', message: err.message }, 502)
     }
     if (err instanceof GlabError) {
       return c.json({ error: err.kind, message: err.message }, 502)
@@ -178,17 +194,11 @@ export function createApp(options: AppOptions) {
   const reviewStore = options.reviewStore ?? new ReviewStore()
   const reviewJobs = options.reviewJobs ?? new ReviewJobs(reviewStore)
   const providers = options.providers ?? PROVIDERS
-  const glab = options.glab ?? createGlabClient(repo)
-  let gitlabStatus: Promise<GitlabStatus> | null = null
-  const getStatus = (refresh = false) => {
-    if (refresh || !gitlabStatus) gitlabStatus = getGitlabStatus(glab, listRemotes(repo))
-    return gitlabStatus
-  }
 
-  app.get('/api/diff', (c) => {
+  app.get('/api/diff', async (c) => {
     let resolved: ResolvedComparison
     try {
-      resolved = resolveFromRequest(c)
+      resolved = await resolveFromRequest(c, true)
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
@@ -211,21 +221,28 @@ export function createApp(options: AppOptions) {
       sourceSha: resolved.sourceSha,
       targetSha: resolved.targetSha,
       mergeBase: resolved.mergeBase,
-      identical: resolved.mode === 'branch' && resolved.sourceSha === resolved.targetSha,
+      mr: resolved.mode === 'mr' ? (resolved as MrResolved).mr : undefined,
+      identical: (resolved.mode === 'branch' || resolved.mode === 'mr') && resolved.sourceSha === resolved.targetSha,
     })
   })
 
-  app.get('/api/file-content', (c) => {
+  app.get('/api/file-content', async (c) => {
     const path = c.req.query('path')
     const version = c.req.query('version') as 'old' | 'new'
     if (!path || !version) {
       return c.json({ error: 'Missing path or version' }, 400)
     }
+    const mode = c.req.query('mode')
     let content: Buffer | null
-    if (c.req.query('mode') === 'branch' && !isCustomMode) {
-      let refs: BranchRefs
+    if ((mode === 'branch' || mode === 'mr') && !isCustomMode) {
+      let refs: { mergeBase: string; sourceSha: string }
       try {
-        refs = resolveBranchRefs(repo, { source: c.req.query('source'), target: c.req.query('target') })
+        if (mode === 'mr') {
+          const resolved = await mrComparisons.resolve(parseIid(c.req.query('iid')), { refresh: false })
+          refs = { mergeBase: resolved.mergeBase!, sourceSha: resolved.sourceSha! }
+        } else {
+          refs = resolveBranchRefs(repo, { source: c.req.query('source'), target: c.req.query('target') })
+        }
       } catch (err) {
         return comparisonErrorResponse(c, err)
       }
@@ -250,7 +267,7 @@ export function createApp(options: AppOptions) {
   // requested path: this keeps arbitrary repository blobs unreachable, and
   // rejects requests whose patch no longer matches the worktree (git recomputes
   // the worktree blob hash on every diff, so any edit changes the new oid).
-  app.get('/api/file-versions', (c) => {
+  app.get('/api/file-versions', async (c) => {
     const path = c.req.query('path')
     const oldOid = c.req.query('oldOid')
     const newOid = c.req.query('newOid')
@@ -259,7 +276,7 @@ export function createApp(options: AppOptions) {
     }
     let patch: string
     try {
-      patch = resolveFromRequest(c).patch
+      patch = (await resolveFromRequest(c)).patch
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
@@ -311,10 +328,10 @@ export function createApp(options: AppOptions) {
     return c.json(list)
   })
 
-  app.get('/api/review', (c) => {
+  app.get('/api/review', async (c) => {
     let resolved: ResolvedComparison
     try {
-      resolved = resolveFromRequest(c)
+      resolved = await resolveFromRequest(c)
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
@@ -328,7 +345,7 @@ export function createApp(options: AppOptions) {
   })
 
   app.post('/api/review', async (c) => {
-    let body: { provider: string; mode?: string; source?: string; target?: string; staged?: boolean; untracked?: boolean; exclude?: unknown }
+    let body: { provider: string; mode?: string; source?: string; target?: string; iid?: unknown; staged?: boolean; untracked?: boolean; exclude?: unknown }
     try {
       body = await c.req.json()
     } catch {
@@ -338,7 +355,9 @@ export function createApp(options: AppOptions) {
     if (!provider) return c.json({ error: 'unknown_provider' }, 400)
     let resolved: ResolvedComparison
     try {
-      resolved = resolveComparison(repo, customDiffArgs, { mode: body.mode, source: body.source, target: body.target, staged: body.staged, untracked: body.untracked }, resolveOptions)
+      resolved = body.mode === 'mr' && !isCustomMode
+        ? await mrComparisons.resolve(parseIid(body.iid), { refresh: false })
+        : resolveComparison(repo, customDiffArgs, { mode: body.mode, source: body.source, target: body.target, staged: body.staged, untracked: body.untracked }, resolveOptions)
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
@@ -351,13 +370,13 @@ export function createApp(options: AppOptions) {
       fingerprint: fingerprint(resolved),
       ctx: {
         repoPath: repo,
-        mode: resolved.mode,
+        mode: resolved.mode === 'mr' ? 'branch' : resolved.mode,
         source: resolved.source,
         target: resolved.target,
         mergeBase: resolved.mergeBase,
         customArgs: customDiffArgs,
         staged: resolved.mode === 'worktree' && body.staged === true,
-        sourceCheckedOut: resolved.mode !== 'branch' || getHeadSha(repo) === resolved.sourceSha,
+        sourceCheckedOut: (resolved.mode !== 'branch' && resolved.mode !== 'mr') || getHeadSha(repo) === resolved.sourceSha,
         files: parseFilePaths(patch),
         patch,
       },

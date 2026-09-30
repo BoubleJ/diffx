@@ -1,4 +1,4 @@
-import type { RemoteInfo } from '../git.js'
+import { hasCommit, fetchRefs, type RemoteInfo } from '../git.js'
 import { GlabError, type GlabClient, type GlabErrorKind } from './glab.js'
 
 export type GitlabStatus =
@@ -116,4 +116,47 @@ export async function listMrs(glab: GlabClient, q: MrListQuery): Promise<MrSumma
     webUrl: m.web_url,
     updatedAt: m.updated_at,
   }))
+}
+
+export interface MrDetail {
+  iid: number
+  title: string
+  webUrl: string
+  sourceBranch: string
+  targetBranch: string
+  baseSha: string
+  startSha: string
+  headSha: string
+}
+
+export async function getMrDetail(glab: GlabClient, iid: number): Promise<MrDetail> {
+  const m = await glab(`projects/:fullpath/merge_requests/${iid}`) as ApiMr
+  if (!m.diff_refs) throw new GlabError('api', 'MR의 diff 정보를 찾지 못했습니다')
+  return {
+    iid: m.iid,
+    title: m.title,
+    webUrl: m.web_url,
+    sourceBranch: m.source_branch,
+    targetBranch: m.target_branch,
+    baseSha: m.diff_refs.base_sha,
+    startSha: m.diff_refs.start_sha,
+    headSha: m.diff_refs.head_sha,
+  }
+}
+
+export class MrFetchError extends Error {}
+
+export interface MrGitDeps {
+  hasCommit: (repo: string, sha: string) => boolean
+  fetchRefs: (repo: string, remote: string, refspecs: string[]) => Promise<{ ok: true } | { ok: false; error: string }>
+}
+
+export async function ensureMrCommits(repo: string, remote: string, mr: MrDetail, deps: MrGitDeps = { hasCommit, fetchRefs }): Promise<void> {
+  const present = () => deps.hasCommit(repo, mr.baseSha) && deps.hasCommit(repo, mr.headSha)
+  if (present()) return
+  const mrRef = `refs/merge-requests/${mr.iid}/head`
+  let result = await deps.fetchRefs(repo, remote, [mrRef, `refs/heads/${mr.targetBranch}`])
+  if (!result.ok) result = await deps.fetchRefs(repo, remote, [mrRef, mr.baseSha])
+  if (!result.ok) throw new MrFetchError(result.error)
+  if (!present()) throw new MrFetchError('MR 기준 커밋을 가져오지 못했습니다')
 }
