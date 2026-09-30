@@ -22,6 +22,8 @@ import { getGitlabStatus, listMrs, parseMrListQuery, MrFetchError, type GitlabSt
 import { MrComparisons, MrRequestError, parseIid, type MrResolved } from './gitlab/mrComparison.js'
 import { buildPosition } from './gitlab/position.js'
 import { buildThreads, type ApiDiscussion, type ApiDraftNote } from './gitlab/notes.js'
+import { worktreeReader, commitReader, type SourceReader } from './definition/reader.js'
+import { resolveDefinition } from './definition/resolve.js'
 
 export interface AppOptions {
   repoPath: string
@@ -269,6 +271,40 @@ export function createApp(options: AppOptions) {
   // requested path: this keeps arbitrary repository blobs unreachable, and
   // rejects requests whose patch no longer matches the worktree (git recomputes
   // the worktree blob hash on every diff, so any edit changes the new oid).
+  const readerFor = async (c: Context, side: 'additions' | 'deletions'): Promise<SourceReader | null> => {
+    const mode = c.req.query('mode')
+    if (mode === 'branch' && !isCustomMode) {
+      const refs = resolveBranchRefs(repo, { source: c.req.query('source'), target: c.req.query('target') })
+      return commitReader(repo, side === 'additions' ? refs.sourceSha : refs.mergeBase)
+    }
+    if (mode === 'mr' && !isCustomMode) {
+      const resolved = await mrComparisons.resolve(parseIid(c.req.query('iid')), { refresh: false })
+      return commitReader(repo, side === 'additions' ? resolved.sourceSha! : resolved.mergeBase!)
+    }
+    if (side === 'additions') return worktreeReader(repo)
+    const head = getHeadSha(repo)
+    return head ? commitReader(repo, head) : null
+  }
+
+  app.get('/api/definition', async (c) => {
+    const path = c.req.query('path')
+    const side = c.req.query('side')
+    const line = c.req.query('line') ?? ''
+    const col = c.req.query('col') ?? ''
+    if (!path || !isSafePath(path, repo) || (side !== 'additions' && side !== 'deletions') || !/^[1-9]\d*$/.test(line) || !/^\d+$/.test(col)) {
+      return c.json({ error: 'invalid_query' }, 400)
+    }
+    let reader: SourceReader | null
+    try {
+      reader = await readerFor(c, side)
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+    if (!reader) return c.json({ kind: 'not_found' })
+    const result = resolveDefinition(reader, path, Number(line), Number(col))
+    return c.json(result.kind === 'found' ? { kind: 'found', version: side === 'additions' ? 'new' : 'old', targets: result.targets } : result)
+  })
+
   app.get('/api/file-versions', async (c) => {
     const path = c.req.query('path')
     const oldOid = c.req.query('oldOid')
