@@ -16,6 +16,7 @@ export function useGitlabStatus(enabled: boolean) {
   const refresh = useCallback(async () => {
     const next: GitlabStatus = await (await fetch('/api/gitlab/status?refresh=true')).json()
     queryClient.setQueryData(STATUS_KEY, next)
+    return next
   }, [queryClient])
   return { status: data, refresh }
 }

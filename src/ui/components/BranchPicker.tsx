@@ -4,7 +4,7 @@ import { defaultBranchComparison } from '../comparison'
 import type { BranchList } from '../hooks/useBranches'
 import { RefSelect } from './RefSelect'
 import type { GitlabStatus } from '../../gitlab/mr'
-import { gitlabUnavailableMessage } from '../gitlab'
+import { gitlabUnavailableMessage, mrTabAction } from '../gitlab'
 import { MrSelect } from './MrSelect'
 
 interface BranchPickerProps {
@@ -20,15 +20,22 @@ interface BranchPickerProps {
   mrTitle: string | null
   mrRefreshing: boolean
   onRefreshMr: () => void
+  onRecheckGitlab: () => void
 }
 
-export function BranchPicker({ comparison, branches, fetching, fetchError, notice, onChange, onFetch, repoRoot, gitlab, mrTitle, mrRefreshing, onRefreshMr }: BranchPickerProps) {
+export function BranchPicker({ comparison, branches, fetching, fetchError, notice, onChange, onFetch, repoRoot, gitlab, mrTitle, mrRefreshing, onRefreshMr, onRecheckGitlab }: BranchPickerProps) {
   const switchToBranch = () => {
     if (comparison.mode === 'branch' || !branches) return
     onChange(defaultBranchComparison(branches))
   }
 
-  const mrUnavailable = gitlab && !gitlab.available ? gitlabUnavailableMessage(gitlab) : null
+  const mrUnavailable = gitlab && !gitlab.available ? `${gitlabUnavailableMessage(gitlab)} (클릭 시 다시 확인)` : null
+
+  const handleMrTab = () => {
+    const action = mrTabAction(gitlab)
+    if (action === 'recheck') onRecheckGitlab()
+    else if (action === 'open' && comparison.mode !== 'mr') onChange({ mode: 'mr', iid: null })
+  }
 
   return (
     <div className="branch-picker">
@@ -46,15 +53,14 @@ export function BranchPicker({ comparison, branches, fetching, fetchError, notic
         >
           브랜치 비교
         </button>
-        <span title={mrUnavailable ?? undefined}>
-          <button
-            className={`btn btn-sm ${comparison.mode === 'mr' ? 'btn-active' : ''}`}
-            onClick={() => comparison.mode !== 'mr' && onChange({ mode: 'mr', iid: null })}
-            disabled={!gitlab?.available}
-          >
-            MR
-          </button>
-        </span>
+        <button
+          className={`btn btn-sm ${comparison.mode === 'mr' ? 'btn-active' : ''} ${mrUnavailable ? 'btn-unavailable' : ''}`}
+          onClick={handleMrTab}
+          disabled={!gitlab}
+          title={mrUnavailable ?? undefined}
+        >
+          MR
+        </button>
       </div>
       {comparison.mode === 'branch' && branches && (
         <div className="branch-picker-refs">

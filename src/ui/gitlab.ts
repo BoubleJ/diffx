@@ -18,3 +18,8 @@ export function reconcileMrAvailability(c: Comparison, status: GitlabStatus | un
   if (c.mode !== 'mr' || !status || status.available) return { comparison: c, notice: null }
   return { comparison: { mode: 'worktree' }, notice: gitlabUnavailableMessage(status) }
 }
+
+export function mrTabAction(status: GitlabStatus | undefined): 'open' | 'recheck' | 'none' {
+  if (!status) return 'none'
+  return status.available ? 'open' : 'recheck'
+}

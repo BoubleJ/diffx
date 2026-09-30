@@ -1317,6 +1317,10 @@ body {
     background: var(--bg-secondary);
 }
 
+.btn-unavailable {
+    opacity: 0.5;
+}
+
 .mr-select-menu {
     width: 420px;
 }

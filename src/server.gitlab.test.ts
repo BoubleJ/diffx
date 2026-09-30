@@ -210,3 +210,20 @@ describe('MR comment APIs', () => {
     expect(await res.json()).toEqual({ error: 'api', message: 'glab: 400 Bad Request' })
   })
 })
+
+describe('threads use the head of the displayed diff', () => {
+  it('reads threads from the MR detail without fetching commits', async () => {
+    const { app } = setupNotes({ 'GET projects/:fullpath/merge_requests/7': apiMr(7, 'a'.repeat(40), 'f'.repeat(40)) })
+    const res = await app.request('/api/gitlab/mrs/7/threads')
+    expect(res.status).toBe(200)
+  })
+
+  it('reloads the MR detail when the requested head differs from the cached one', async () => {
+    const { app, calls, mrApi, head } = setupNotes()
+    await app.request('/api/diff?mode=mr&iid=7')
+    await app.request(`/api/gitlab/mrs/7/threads?head=${head}`)
+    expect(calls.filter((c) => c.path === mrApi)).toHaveLength(1)
+    await app.request(`/api/gitlab/mrs/7/threads?head=${'e'.repeat(40)}`)
+    expect(calls.filter((c) => c.path === mrApi)).toHaveLength(2)
+  })
+})

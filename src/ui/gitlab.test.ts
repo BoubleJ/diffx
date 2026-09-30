@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { gitlabUnavailableMessage, reconcileMrAvailability } from './gitlab'
+import { gitlabUnavailableMessage, reconcileMrAvailability, mrTabAction } from './gitlab'
 
 describe('gitlabUnavailableMessage', () => {
   it('explains each reason', () => {
@@ -29,5 +29,19 @@ describe('reconcileMrAvailability', () => {
   it('ignores other modes', () => {
     expect(reconcileMrAvailability({ mode: 'worktree' }, { available: false, reason: 'auth', message: '' }))
       .toEqual({ comparison: { mode: 'worktree' }, notice: null })
+  })
+})
+
+describe('mrTabAction', () => {
+  it('opens MR mode when GitLab is available', () => {
+    expect(mrTabAction({ available: true, host: 'h', project: 'p', webUrl: 'w', username: 'u' })).toBe('open')
+  })
+
+  it('rechecks the status when GitLab is unavailable so a later glab login takes effect', () => {
+    expect(mrTabAction({ available: false, reason: 'auth', message: '' })).toBe('recheck')
+  })
+
+  it('does nothing while the status is loading', () => {
+    expect(mrTabAction(undefined)).toBe('none')
   })
 })
