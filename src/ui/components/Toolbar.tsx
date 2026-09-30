@@ -12,8 +12,8 @@ interface ToolbarProps {
   defaultTabSize: number
   softWrap: boolean
   branchPicker?: ReactNode
-  reviewOpen: boolean
-  onToggleReview: () => void
+  panelOpen: boolean
+  onTogglePanel: () => void
   onDiffStyleChange: (style: 'split' | 'unified') => void
   onDefaultTabSizeChange: (size: number) => void
   onSoftWrapChange: (softWrap: boolean) => void
@@ -34,8 +34,8 @@ export function Toolbar({
   defaultTabSize,
   softWrap,
   branchPicker,
-  reviewOpen,
-  onToggleReview,
+  panelOpen,
+  onTogglePanel,
   onDiffStyleChange,
   onDefaultTabSizeChange,
   onSoftWrapChange,
@@ -141,8 +141,8 @@ export function Toolbar({
           )}
         </div>
         <button
-          className={`btn btn-sm panel-toggle-btn ${reviewOpen ? 'btn-active' : ''}`}
-          onClick={onToggleReview}
+          className={`btn btn-sm panel-toggle-btn ${panelOpen ? 'btn-active' : ''}`}
+          onClick={onTogglePanel}
           title="사이드 패널 열기/닫기"
           aria-label="사이드 패널 열기/닫기"
         >

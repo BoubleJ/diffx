@@ -33,7 +33,7 @@ import { ReviewPanel } from './components/ReviewPanel'
 import { SidebarStorage } from './sidebarStorage'
 import { loadExcluded, saveExcluded } from './excludedStorage'
 import { excludeFilesFromPatch } from '../review/filterPatch'
-import { loadReviewPanel, saveReviewPanel, nextOnReviewButton, openExploreTab, REVIEW_PANEL_MIN } from './reviewPanelStorage'
+import { loadReviewPanel, saveReviewPanel, togglePanel, openExploreTab, REVIEW_PANEL_MIN } from './reviewPanelStorage'
 import { comparisonParams, loadComparison, saveComparison, reconcileComparison, comparisonForMode, type Comparison } from './comparison'
 
 function useWindowSize({ factor }: { factor: number }) {
@@ -481,8 +481,8 @@ export function App() {
         onSoftWrapChange={(softWrap) => updateSettings({ softWrap })}
         terminalApp={settings.terminalApp}
         onTerminalAppChange={(terminalApp) => updateSettings({ terminalApp })}
-        reviewOpen={reviewPanel.open && reviewPanel.tab === 'review'}
-        onToggleReview={() => updateReviewPanel(nextOnReviewButton(reviewPanel))}
+        panelOpen={reviewPanel.open}
+        onTogglePanel={() => updateReviewPanel(togglePanel(reviewPanel))}
         mrLink={comparison.mode === 'mr' && diffMr ? diffMr : undefined}
         mrCheckout={comparison.mode === 'mr' && diffMr ? <MrCheckout key={diffMr.iid} iid={diffMr.iid} headSha={diffMr.headSha} onReloadDiff={() => void handleRefreshMr()} /> : undefined}
         submitReview={isMr && mrIid !== null ? {

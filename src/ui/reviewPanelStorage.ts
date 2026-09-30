@@ -25,10 +25,8 @@ export function saveReviewPanel(prefs: ReviewPanelPrefs, storage: Pick<Storage, 
   } catch {}
 }
 
-export function nextOnReviewButton(p: ReviewPanelPrefs): ReviewPanelPrefs {
-  if (!p.open) return { ...p, open: true, tab: 'review' }
-  if (p.tab === 'explore') return { ...p, tab: 'review' }
-  return { ...p, open: false }
+export function togglePanel(p: ReviewPanelPrefs): ReviewPanelPrefs {
+  return { ...p, open: !p.open }
 }
 
 export function openExploreTab(p: ReviewPanelPrefs): ReviewPanelPrefs {
