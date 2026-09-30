@@ -47,3 +47,20 @@ describe('classifyToken identifiers', () => {
     expect(at('const n = 123', '123')).toBeNull()
   })
 })
+
+describe('classifyToken code inside strings', () => {
+  it('links names inside template literal interpolations', () => {
+    expect(at('const url = `${NCMS_V1_API}/events`', 'NCMS_V1_API')).toEqual({ kind: 'identifier', name: 'NCMS_V1_API' })
+    expect(at('const url = `${a}/events/${b.c}`', 'b')).toEqual({ kind: 'identifier', name: 'b' })
+    expect(at('const url = `${a}/events`', 'events')).toBeNull()
+  })
+
+  it('links names inside vue directive and binding attributes when asked', () => {
+    const vue = { vue: true }
+    expect(classifyToken('<td v-for="channel in CHANNEL_COLUMNS" :key="channel">', '<td v-for="channel in CHANNEL_COLUMNS"'.indexOf('CHANNEL_COLUMNS'), vue)).toEqual({ kind: 'identifier', name: 'CHANNEL_COLUMNS' })
+    expect(classifyToken('  v-bind:option="renderData.status"', 17, vue)).toEqual({ kind: 'identifier', name: 'renderData' })
+    expect(classifyToken('<button @click="save">', '<button @click="'.length, vue)).toEqual({ kind: 'identifier', name: 'save' })
+    expect(classifyToken('<a class="save">', '<a class="'.length, vue)).toBeNull()
+    expect(classifyToken('<button @click="save">', '<button @click="'.length)).toBeNull()
+  })
+})
