@@ -18,7 +18,7 @@ describe('claudeProvider.buildCommand', () => {
     expect(allowed).toEqual(['Read', 'Grep', 'Glob', 'Bash(git show:*)', 'Bash(git log:*)', 'Bash(git diff:*)'])
     const denied = cmd.args.slice(cmd.args.indexOf('--disallowedTools') + 1)
     expect(denied).toEqual(['Edit', 'Write', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Bash(git * --output*)', 'Bash(git * --no-index*)'])
-    expect(JSON.parse(cmd.args[cmd.args.indexOf('--json-schema') + 1]).required).toEqual(['summary', 'findings'])
+    expect(JSON.parse(cmd.args[cmd.args.indexOf('--json-schema') + 1]).required).toEqual(['answer', 'locations'])
   })
 })
 

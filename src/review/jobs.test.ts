@@ -29,14 +29,14 @@ describe('ReviewJobs', () => {
     const jobs = new ReviewJobs(store, run)
     const id = jobs.start(input)
     calls[0].onProgress!('a.ts 읽는 중')
-    calls[0].resolve({ summary: 's', findings: [] })
+    calls[0].resolve({ answer: 's', locations: [] })
     await new Promise((r) => setTimeout(r, 0))
 
     const events: JobEvent[] = []
     jobs.subscribe(id, (e) => events.push(e))
     expect(events[0]).toEqual({ type: 'progress', text: 'a.ts 읽는 중' })
-    expect(events[1]).toMatchObject({ type: 'done', record: { provider: 'claude', fingerprint: 'fp', result: { summary: 's' } } })
-    expect(store.load('/repo', 'worktree')?.result.summary).toBe('s')
+    expect(events[1]).toMatchObject({ type: 'done', record: { provider: 'claude', fingerprint: 'fp', result: { answer: 's' } } })
+    expect(store.load('/repo', 'worktree')?.result.answer).toBe('s')
     expect(jobs.runningFor('/repo', 'worktree')).toBeNull()
   })
 
@@ -96,7 +96,7 @@ describe('ReviewJobs', () => {
     jobs.subscribe(id, () => {
       throw new Error('listener')
     })
-    calls[0].resolve({ summary: 's', findings: [] })
+    calls[0].resolve({ answer: 's', locations: [] })
     await new Promise((r) => setTimeout(r, 10))
     process.off('unhandledRejection', onUnhandled)
 
@@ -114,7 +114,7 @@ describe('ReviewJobs', () => {
     const { run, calls } = deferredRun()
     const jobs = new ReviewJobs(store, run)
     const id = jobs.start(input)
-    calls[0].resolve({ summary: 's', findings: [] })
+    calls[0].resolve({ answer: 's', locations: [] })
     await new Promise((r) => setTimeout(r, 0))
 
     const events: JobEvent[] = []
