@@ -513,17 +513,18 @@ export function createApp(options: AppOptions) {
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
-    const record = reviewStore.load(repo, resolved.key)
+    const conversation = reviewStore.load(repo, resolved.key)
+    const current = fingerprint(resolved)
     return c.json({
       key: resolved.key,
-      record,
-      stale: record ? record.fingerprint !== fingerprint(resolved) : false,
+      sessionId: conversation?.sessionId ?? null,
+      messages: (conversation?.messages ?? []).map((m) => ({ ...m, stale: m.fingerprint !== current })),
       running: reviewJobs.runningFor(repo, resolved.key),
     })
   })
 
   app.post('/api/review', async (c) => {
-    let body: { provider: string; mode?: string; source?: string; target?: string; iid?: unknown; exclude?: unknown; instruction?: unknown }
+    let body: { provider: string; mode?: string; source?: string; target?: string; iid?: unknown; exclude?: unknown; kind?: unknown; question?: unknown }
     try {
       body = await c.req.json()
     } catch {
@@ -531,9 +532,14 @@ export function createApp(options: AppOptions) {
     }
     const provider = providers.find((p) => p.id === body.provider)
     if (!provider) return c.json({ error: 'unknown_provider' }, 400)
-    const instruction = typeof body.instruction === 'string' && body.instruction.trim() ? body.instruction.trim() : undefined
-    if (instruction && instruction.length > 2000) {
-      return c.json({ error: 'instruction_too_long', message: '추가 지시는 2000자까지 입력할 수 있습니다' }, 400)
+    if (body.kind !== 'question' && body.kind !== 'review') return c.json({ error: 'invalid_kind' }, 400)
+    const kind = body.kind
+    const question = kind === 'question' && typeof body.question === 'string' ? body.question.trim() : ''
+    if (kind === 'question' && !question) {
+      return c.json({ error: 'empty_question', message: '질문을 입력해 주세요' }, 400)
+    }
+    if (question.length > 2000) {
+      return c.json({ error: 'question_too_long', message: '질문은 2000자까지 입력할 수 있습니다' }, 400)
     }
     let resolved: ResolvedComparison
     try {
@@ -543,13 +549,14 @@ export function createApp(options: AppOptions) {
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
-    const exclude = Array.isArray(body.exclude) && body.exclude.every((p) => typeof p === 'string') ? (body.exclude as string[]) : []
+    const exclude = kind === 'review' && Array.isArray(body.exclude) && body.exclude.every((p) => typeof p === 'string') ? (body.exclude as string[]) : []
     const patch = excludeFilesFromPatch(resolved.patch, exclude)
     const id = reviewJobs.start({
       provider,
       key: resolved.key,
+      kind,
+      question: kind === 'question' ? question : null,
       excluded: exclude,
-      instruction,
       fingerprint: fingerprint(resolved),
       ctx: {
         repoPath: repo,
@@ -560,10 +567,33 @@ export function createApp(options: AppOptions) {
         sourceCheckedOut: getHeadSha(repo) === resolved.sourceSha,
         files: parseFilePaths(patch),
         patch,
-        instruction,
       },
     })
     return c.json({ id })
+  })
+
+  app.delete('/api/review/messages/:messageId', async (c) => {
+    let resolved: ResolvedComparison
+    try {
+      resolved = await resolveFromRequest(c)
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+    return reviewStore.removeMessage(repo, resolved.key, c.req.param('messageId'))
+      ? c.json({ ok: true })
+      : c.json({ error: 'not_found' }, 404)
+  })
+
+  app.delete('/api/review/conversation', async (c) => {
+    let resolved: ResolvedComparison
+    try {
+      resolved = await resolveFromRequest(c)
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+    if (reviewJobs.runningFor(repo, resolved.key)) return c.json({ error: 'running' }, 409)
+    reviewStore.clear(repo, resolved.key)
+    return c.json({ ok: true })
   })
 
   app.get('/api/review/:id/events', (c) => {
@@ -580,7 +610,7 @@ export function createApp(options: AppOptions) {
             if (e.type === 'progress') {
               stream.writeSSE({ event: 'progress', data: e.text }).catch(() => {})
             } else if (e.type === 'done') {
-              finish('done', JSON.stringify(e.record))
+              finish('done', JSON.stringify(e.message))
             } else {
               finish('error', JSON.stringify({ kind: e.kind, message: e.message, rawOutput: e.rawOutput }))
             }

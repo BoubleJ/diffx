@@ -52,7 +52,7 @@ function postReview(app: ReturnType<typeof createApp>, overrides: Record<string,
   return app.request('/api/review', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider: 'claude', mode: 'branch', source: 'feature/x', target: 'main', ...overrides }),
+    body: JSON.stringify({ provider: 'claude', mode: 'branch', source: 'feature/x', target: 'main', kind: 'review', ...overrides }),
   })
 }
 
@@ -70,11 +70,7 @@ describe('review API', () => {
       opts.onProgress?.('a.txt 읽는 중')
       return { answer: '요약', locations: [] }
     })
-    const start = await app.request('/api/review', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: 'claude', mode: 'branch', source: 'feature/x', target: 'main' }),
-    })
+    const start = await postReview(app)
     const { id } = await start.json()
     const sse = await readSse(await app.request(`/api/review/${id}/events`))
     expect(sse).toContain('event: progress')
@@ -83,24 +79,21 @@ describe('review API', () => {
     expect(receivedCtx).toMatchObject({ mode: 'branch', source: 'feature/x', target: 'main', sourceCheckedOut: true, files: ['a.txt'] })
 
     const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
-    expect(saved).toMatchObject({ key: 'branch:main...feature/x', stale: false, running: null, record: { result: { answer: '요약' } } })
+    expect(saved).toMatchObject({ key: 'branch:main...feature/x', running: null, messages: [{ kind: 'review', question: null, stale: false, result: { answer: '요약' } }] })
+    expect(typeof saved.sessionId).toBe('string')
 
     commit(repo, { 'a.txt': 'base\nfeature\nmore\n' }, 'more')
     const stale = await (await app.request(`/api/review?${branchQuery}`)).json()
-    expect(stale.stale).toBe(true)
+    expect(stale.messages[0].stale).toBe(true)
   })
 
   it('reports a running review for the key and cancels it', async () => {
     const { app } = setup((_p, _c, _r, opts) => new Promise((_resolve, reject) => {
       opts.signal?.addEventListener('abort', () => reject(new Error('aborted')))
     }))
-    const { id } = await (await app.request('/api/review', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: 'claude', mode: 'branch', source: 'feature/x', target: 'main' }),
-    })).json()
+    const { id } = await (await postReview(app)).json()
     const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
-    expect(saved.running).toMatchObject({ id, provider: 'claude' })
+    expect(saved.running).toMatchObject({ id, provider: 'claude', kind: 'review', question: null })
     expect(await (await app.request(`/api/review/${id}`, { method: 'DELETE' })).json()).toEqual({ ok: true })
   })
 
@@ -144,7 +137,7 @@ describe('review API', () => {
     const res = await fetch(`http://127.0.0.1:${server.port}/api/review`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: 'claude', mode: 'branch', source: 'feature/x', target: 'main' }),
+      body: JSON.stringify({ provider: 'claude', mode: 'branch', source: 'feature/x', target: 'main', kind: 'review' }),
     })
     expect(res.status).toBe(200)
     await vi.waitFor(() => expect(signal).toBeDefined())
@@ -167,43 +160,97 @@ describe('review API', () => {
     expect(receivedCtx!.patch).not.toContain('a.txt')
     expect(receivedCtx!.patch).toContain('b.txt')
     const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
-    expect(saved.stale).toBe(false)
-    expect(saved.record.excluded).toEqual(['a.txt'])
-    expect(store.load(repo, saved.key)?.excluded).toEqual(['a.txt'])
+    expect(saved.messages[0].stale).toBe(false)
+    expect(saved.messages[0].excluded).toEqual(['a.txt'])
+    expect(store.load(repo, saved.key)?.messages[0].excluded).toEqual(['a.txt'])
   })
 
-  it('passes the trimmed instruction to the review context and stores it on the record', async () => {
-    let receivedCtx: { instruction?: string } | undefined
-    const { app, repo, store } = setup(async (_p, ctx) => {
-      receivedCtx = ctx
+  it('sends only the trimmed question, ignores exclude and stores the question', async () => {
+    let received: { files: string[]; request: { prompt: string } } | undefined
+    const { app, repo, store } = setup(async (_p, ctx, request) => {
+      received = { files: ctx.files, request }
       return { answer: 's', locations: [] }
     })
-    const { id } = await (await postReview(app, { instruction: '  타입 안정성만 확인해줘 ' })).json()
+    const { id } = await (await postReview(app, { kind: 'question', question: '  이 변경 설명해줘 ', exclude: ['a.txt'] })).json()
     await readSse(await app.request(`/api/review/${id}/events`))
-    expect(receivedCtx!.instruction).toBe('타입 안정성만 확인해줘')
+    expect(received!.request.prompt).toBe('이 변경 설명해줘')
+    expect(received!.files).toEqual(['a.txt'])
     const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
-    expect(saved.record.instruction).toBe('타입 안정성만 확인해줘')
-    expect(store.load(repo, saved.key)?.instruction).toBe('타입 안정성만 확인해줘')
+    expect(saved.messages[0]).toMatchObject({ kind: 'question', question: '이 변경 설명해줘' })
+    expect(saved.messages[0]).not.toHaveProperty('excluded')
+    expect(store.load(repo, saved.key)?.messages).toHaveLength(1)
   })
 
-  it('omits a blank instruction', async () => {
-    let receivedCtx: { instruction?: string } | undefined
-    const { app } = setup(async (_p, ctx) => {
-      receivedCtx = ctx
+  it('resumes the session for the next question', async () => {
+    const sessions: { id: string; resume: boolean }[] = []
+    const { app } = setup(async (_p, _c, request) => {
+      sessions.push(request.session)
       return { answer: 's', locations: [] }
     })
-    const { id } = await (await postReview(app, { instruction: '   ' })).json()
-    await readSse(await app.request(`/api/review/${id}/events`))
-    expect(receivedCtx!.instruction).toBeUndefined()
-    const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
-    expect(saved.record.instruction).toBeUndefined()
+    for (const body of [{}, { kind: 'question', question: '다음 질문' }]) {
+      const { id } = await (await postReview(app, body)).json()
+      await readSse(await app.request(`/api/review/${id}/events`))
+    }
+    expect(sessions[0].resume).toBe(false)
+    expect(sessions[1]).toEqual({ id: sessions[0].id, resume: true })
   })
 
-  it('rejects an instruction longer than 2000 characters', async () => {
+  it('rejects an empty or too long question and an unknown kind', async () => {
     const { app } = setup(async () => ({ answer: 's', locations: [] }))
-    const res = await postReview(app, { instruction: 'a'.repeat(2001) })
-    expect(res.status).toBe(400)
-    expect(await res.json()).toEqual({ error: 'instruction_too_long', message: '추가 지시는 2000자까지 입력할 수 있습니다' })
+    const empty = await postReview(app, { kind: 'question', question: '   ' })
+    expect(empty.status).toBe(400)
+    expect(await empty.json()).toEqual({ error: 'empty_question', message: '질문을 입력해 주세요' })
+    const long = await postReview(app, { kind: 'question', question: 'a'.repeat(2001) })
+    expect(long.status).toBe(400)
+    expect(await long.json()).toEqual({ error: 'question_too_long', message: '질문은 2000자까지 입력할 수 있습니다' })
+    const unknown = await postReview(app, { kind: 'chat' })
+    expect(unknown.status).toBe(400)
+    expect(await unknown.json()).toEqual({ error: 'invalid_kind' })
+  })
+
+  it('removes one message', async () => {
+    const { app } = setup(async () => ({ answer: 's', locations: [] }))
+    for (let i = 0; i < 2; i++) {
+      const { id } = await (await postReview(app)).json()
+      await readSse(await app.request(`/api/review/${id}/events`))
+    }
+    const before = await (await app.request(`/api/review?${branchQuery}`)).json()
+    const target = before.messages[0].id
+    const res = await app.request(`/api/review/messages/${target}?${branchQuery}`, { method: 'DELETE' })
+    expect(await res.json()).toEqual({ ok: true })
+    const after = await (await app.request(`/api/review?${branchQuery}`)).json()
+    expect(after.messages.map((m: { id: string }) => m.id)).toEqual([before.messages[1].id])
+    expect(after.sessionId).toBe(before.sessionId)
+    const missing = await app.request(`/api/review/messages/${target}?${branchQuery}`, { method: 'DELETE' })
+    expect(missing.status).toBe(404)
+  })
+
+  it('clears the conversation and starts a new session next time', async () => {
+    const sessions: { id: string; resume: boolean }[] = []
+    const { app } = setup(async (_p, _c, request) => {
+      sessions.push(request.session)
+      return { answer: 's', locations: [] }
+    })
+    const first = await (await postReview(app)).json()
+    await readSse(await app.request(`/api/review/${first.id}/events`))
+    const res = await app.request(`/api/review/conversation?${branchQuery}`, { method: 'DELETE' })
+    expect(await res.json()).toEqual({ ok: true })
+    const cleared = await (await app.request(`/api/review?${branchQuery}`)).json()
+    expect(cleared).toMatchObject({ sessionId: null, messages: [] })
+    const second = await (await postReview(app)).json()
+    await readSse(await app.request(`/api/review/${second.id}/events`))
+    expect(sessions[1].resume).toBe(false)
+    expect(sessions[1].id).not.toBe(sessions[0].id)
+  })
+
+  it('refuses to clear the conversation while a question is running', async () => {
+    const { app, repo, store } = setup(() => new Promise(() => {}))
+    store.append(repo, 'branch:main...feature/x', { provider: 'claude', providerLabel: 'Fake', sessionId: 's-1', message: { id: 'm1', createdAt: 1, kind: 'review', question: null, fingerprint: 'x', result: { answer: 's', locations: [] } } })
+    await postReview(app, { kind: 'question', question: '진행 중' })
+    const res = await app.request(`/api/review/conversation?${branchQuery}`, { method: 'DELETE' })
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'running' })
+    expect(store.load(repo, 'branch:main...feature/x')?.messages).toHaveLength(1)
   })
 
   it('excludes files with non-ASCII names', async () => {

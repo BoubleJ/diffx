@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { runReview, STOP_IMMEDIATELY, type RunOptions } from './runner.js'
-import type { ReviewStore, ReviewRecord } from './store.js'
 import { buildReviewPrompt, buildSystemPrompt } from './prompt.js'
-import { ReviewFailure, type FailureKind, type ProviderId, type ReviewContext, type ReviewProvider, type ReviewRequest, type ReviewResult } from './types.js'
+import { runReview, STOP_IMMEDIATELY, type RunOptions } from './runner.js'
+import type { MessageKind, ReviewMessage, ReviewStore } from './store.js'
+import { ReviewFailure, type FailureKind, type ProviderId, type ReviewContext, type ReviewProvider, type ReviewRequest, type ReviewResult, type ReviewSession } from './types.js'
 
 export type JobEvent =
   | { type: 'progress'; text: string }
-  | { type: 'done'; record: ReviewRecord }
+  | { type: 'done'; message: ReviewMessage }
   | { type: 'error'; kind: FailureKind; message: string; rawOutput?: string }
 
 export interface StartInput {
@@ -14,8 +14,9 @@ export interface StartInput {
   ctx: ReviewContext
   key: string
   fingerprint: string
+  kind: MessageKind
+  question: string | null
   excluded?: string[]
-  instruction?: string
 }
 
 export type RunFn = (provider: ReviewProvider, ctx: ReviewContext, request: ReviewRequest, options: RunOptions) => Promise<ReviewResult>
@@ -25,6 +26,8 @@ interface Job {
   repoPath: string
   key: string
   provider: ProviderId
+  kind: MessageKind
+  question: string | null
   startedAt: number
   events: JobEvent[]
   listeners: Set<(e: JobEvent) => void>
@@ -38,7 +41,7 @@ export class ReviewJobs {
 
   constructor(private store: ReviewStore, private run: RunFn = runReview) {}
 
-  start({ provider, ctx, key, fingerprint, excluded, instruction }: StartInput): string {
+  start({ provider, ctx, key, fingerprint, kind, question, excluded }: StartInput): string {
     const existing = [...this.jobs.values()].find((j) => this.isActive(j) && j.repoPath === ctx.repoPath && j.key === key && j.provider === provider.id)
     if (existing) return existing.id
 
@@ -47,6 +50,8 @@ export class ReviewJobs {
       repoPath: ctx.repoPath,
       key,
       provider: provider.id,
+      kind,
+      question: kind === 'question' ? question : null,
       startedAt: Date.now(),
       events: [],
       listeners: new Set(),
@@ -75,16 +80,40 @@ export class ReviewJobs {
       else finish({ type: 'error', kind: 'process', message: String((err as Error)?.message ?? err) })
     }
 
-    const request: ReviewRequest = { prompt: buildReviewPrompt(ctx), systemPrompt: buildSystemPrompt(ctx), session: { id: randomUUID(), resume: false } }
-    this.run(provider, ctx, request, { signal: job.controller.signal, onProgress: (text) => emit({ type: 'progress', text }) })
-      .then((result) => {
-        const record: ReviewRecord = { provider: provider.id, providerLabel: provider.label, createdAt: Date.now(), key, fingerprint, result, ...(excluded && excluded.length > 0 ? { excluded } : {}), ...(instruction ? { instruction } : {}) }
+    const prompt = kind === 'review' ? buildReviewPrompt(ctx) : job.question ?? ''
+    const systemPrompt = buildSystemPrompt(ctx)
+    const runWith = (session: ReviewSession) =>
+      this.run(provider, ctx, { prompt, systemPrompt, session }, { signal: job.controller.signal, onProgress: (text) => emit({ type: 'progress', text }) })
+        .then((result) => ({ result, sessionId: session.id }))
+    const newSession = (): ReviewSession => ({ id: randomUUID(), resume: false })
+
+    let savedSessionId: string | null = null
+    try {
+      savedSessionId = this.store.load(ctx.repoPath, key)?.sessionId ?? null
+    } catch {
+    }
+
+    runWith(savedSessionId ? { id: savedSessionId, resume: true } : newSession())
+      .catch((err) => {
+        if (err instanceof ReviewFailure && err.kind === 'session_missing' && !job.aborted) return runWith(newSession())
+        throw err
+      })
+      .then(({ result, sessionId }) => {
+        const message: ReviewMessage = {
+          id: randomUUID(),
+          createdAt: Date.now(),
+          kind,
+          question: job.question,
+          fingerprint,
+          ...(kind === 'review' && excluded && excluded.length > 0 ? { excluded } : {}),
+          result,
+        }
         try {
-          this.store.save(ctx.repoPath, record)
+          this.store.append(ctx.repoPath, key, { provider: provider.id, providerLabel: provider.label, sessionId, message })
         } catch (err) {
           return fail(err)
         }
-        finish({ type: 'done', record })
+        finish({ type: 'done', message })
       }, fail)
 
     return job.id
@@ -94,9 +123,9 @@ export class ReviewJobs {
     return !job.finished && !job.aborted
   }
 
-  runningFor(repoPath: string, key: string): { id: string; provider: ProviderId; startedAt: number } | null {
+  runningFor(repoPath: string, key: string): { id: string; provider: ProviderId; startedAt: number; kind: MessageKind; question: string | null } | null {
     const job = [...this.jobs.values()].find((j) => this.isActive(j) && j.repoPath === repoPath && j.key === key)
-    return job ? { id: job.id, provider: job.provider, startedAt: job.startedAt } : null
+    return job ? { id: job.id, provider: job.provider, startedAt: job.startedAt, kind: job.kind, question: job.question } : null
   }
 
   subscribe(id: string, listener: (e: JobEvent) => void): (() => void) | null {
