@@ -4,12 +4,14 @@ export interface Settings {
   diffStyle: 'split' | 'unified'
   defaultTabSize: number
   softWrap: boolean
+  terminalApp: string
 }
 
 const DEFAULTS: Settings = {
   diffStyle: 'split',
   defaultTabSize: 4,
   softWrap: false,
+  terminalApp: '',
 }
 
 export function useSettings() {
@@ -20,7 +22,7 @@ export function useSettings() {
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
-        setSettings(data)
+        setSettings({ ...DEFAULTS, ...data })
         setLoaded(true)
       })
       .catch(() => setLoaded(true))

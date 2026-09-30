@@ -17,6 +17,8 @@ interface ToolbarProps {
   onDiffStyleChange: (style: 'split' | 'unified') => void
   onDefaultTabSizeChange: (size: number) => void
   onSoftWrapChange: (softWrap: boolean) => void
+  terminalApp: string
+  onTerminalAppChange: (app: string) => void
   mrLink?: { iid: number; title: string; webUrl: string; state: string }
   mrCheckout?: ReactNode
   submitReview?: { count: number; submitting: boolean; error: string | null; onSubmit: () => void }
@@ -37,6 +39,8 @@ export function Toolbar({
   onDiffStyleChange,
   onDefaultTabSizeChange,
   onSoftWrapChange,
+  terminalApp,
+  onTerminalAppChange,
   mrLink,
   mrCheckout,
   submitReview,
@@ -124,6 +128,15 @@ export function Toolbar({
                   <option value={8}>8</option>
                 </select>
               </div>
+              <label className="settings-item settings-item-spaced">
+                <span>Terminal</span>
+                <input
+                  className="settings-input"
+                  value={terminalApp}
+                  placeholder="Terminal"
+                  onChange={(e) => onTerminalAppChange(e.target.value)}
+                />
+              </label>
             </div>
           )}
         </div>

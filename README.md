@@ -37,6 +37,19 @@ A local code review tool designed for the coding agent workflow. Review AI-gener
 
 `브랜치 비교` 탭에서 남긴 코멘트는 GitLab에 보내지 않고 앱 안에서만 보인다.
 
+#### MR 코드 로컬에서 실행하기
+
+MR 모드 툴바의 MR 제목 옆 버튼으로 MR 코드를 리뷰용 worktree에 체크아웃하고 터미널을 연다.
+
+1. `체크아웃` 클릭 시 MR 소스 브랜치의 최신 커밋이 `~/.config/diffx/worktrees/<저장소명>-<해시>` 폴더에 detached HEAD로 체크아웃된다. 원본 저장소의 브랜치와 작업 중인 파일은 바뀌지 않는다.
+2. 원본 저장소의 gitignore된 `.env*` 파일 중 worktree에 없는 파일이 복사된다. worktree에서 수정한 env 파일은 덮어쓰지 않는다.
+3. `터미널에서 열기` 클릭 시 설정한 터미널 앱이 worktree 폴더에서 열린다. 터미널에서 `pnpm install`, `pnpm dev`를 직접 실행한다.
+4. 다른 MR에서 `체크아웃`을 누르면 같은 폴더에서 커밋만 바뀐다. `node_modules`는 그대로 남고 실행 중인 개발서버에 변경이 반영된다.
+5. worktree에서 git에 등록된 파일을 수정한 상태로 체크아웃하면 변경된 파일 목록이 나온다. `변경사항을 버리고 체크아웃` 클릭 시 수정 내용을 버리고 체크아웃한다.
+6. `worktree 삭제` 클릭 후 `삭제`를 누르면 worktree 폴더가 삭제된다. 이 폴더에서 실행 중인 개발서버를 먼저 종료한다.
+
+터미널 앱은 툴바 설정 팝오버의 `Terminal` input에 `/Applications`의 앱 이름(`iTerm`, `Warp`, `Ghostty`)으로 입력한다. 비워 두면 `Terminal`을 쓴다.
+
 ### 코드 하이퍼링크
 
 diff 코드에서 Cmd를 누른 채 import 경로나 이름을 클릭하면 정의 위치로 이동한다. `.ts .tsx .js .jsx .mjs .cjs .vue` 파일이 대상이다.

@@ -435,6 +435,8 @@ export function App() {
         onDiffStyleChange={(style) => updateSettings({ diffStyle: style })}
         onDefaultTabSizeChange={(size) => updateSettings({ defaultTabSize: size })}
         onSoftWrapChange={(softWrap) => updateSettings({ softWrap })}
+        terminalApp={settings.terminalApp}
+        onTerminalAppChange={(terminalApp) => updateSettings({ terminalApp })}
         reviewOpen={reviewPanel.open}
         onToggleReview={() => updateReviewPanel({ ...reviewPanel, open: !reviewPanel.open })}
         mrLink={comparison.mode === 'mr' && diffMr ? diffMr : undefined}
