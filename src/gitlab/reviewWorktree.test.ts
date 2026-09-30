@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { git } from '../test/gitRepo'
@@ -115,5 +115,39 @@ describe('checkoutReviewWorktree', () => {
   it('rejects values that are not commit shas', async () => {
     const { root, local } = setup()
     await expect(checkoutReviewWorktree(root, local, '--help', { force: false })).rejects.toBeInstanceOf(WorktreeGitError)
+  })
+})
+
+describe('env files', () => {
+  function setupEnv() {
+    const ctx = setup()
+    appendFileSync(join(ctx.local, '.git', 'info', 'exclude'), '.env*\nnode_modules/\n')
+    writeFileSync(join(ctx.local, '.env.local'), 'A=1\n')
+    mkdirSync(join(ctx.local, 'apps', 'web'), { recursive: true })
+    writeFileSync(join(ctx.local, 'apps', 'web', '.env'), 'B=2\n')
+    mkdirSync(join(ctx.local, 'node_modules', 'pkg'), { recursive: true })
+    writeFileSync(join(ctx.local, 'node_modules', 'pkg', '.env'), 'C=3\n')
+    return ctx
+  }
+
+  it('copies ignored env files outside ignored folders', async () => {
+    const { root, local, head } = setupEnv()
+    const result = await checkoutReviewWorktree(root, local, head, { force: false })
+    const path = reviewWorktreePath(root, local)
+    expect(result.kind === 'done' && [...result.copiedEnvFiles].sort()).toEqual(['.env.local', 'apps/web/.env'])
+    expect(readFileSync(join(path, '.env.local'), 'utf-8')).toBe('A=1\n')
+    expect(readFileSync(join(path, 'apps', 'web', '.env'), 'utf-8')).toBe('B=2\n')
+    expect(existsSync(join(path, 'node_modules'))).toBe(false)
+  })
+
+  it('does not overwrite env files already in the worktree', async () => {
+    const { root, local, head, addMr } = setupEnv()
+    const other = addMr(8, { 'c.txt': 'c\n' })
+    await checkoutReviewWorktree(root, local, head, { force: false })
+    const path = reviewWorktreePath(root, local)
+    writeFileSync(join(path, '.env.local'), 'A=mine\n')
+    const result = await checkoutReviewWorktree(root, local, other, { force: false })
+    expect(result).toMatchObject({ kind: 'done', copiedEnvFiles: [] })
+    expect(readFileSync(join(path, '.env.local'), 'utf-8')).toBe('A=mine\n')
   })
 })
