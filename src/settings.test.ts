@@ -6,8 +6,8 @@ import { join } from 'node:path'
 describe('loadSettings', () => {
   it('drops settings that no longer exist', async () => {
     const home = mkdtempSync(join(tmpdir(), 'diffx-home-'))
-    mkdirSync(join(home, '.config', 'diffx'), { recursive: true })
-    writeFileSync(join(home, '.config', 'diffx', 'settings.json'), JSON.stringify({ staged: false, untracked: false, browser: 'chrome', diffStyle: 'unified' }))
+    mkdirSync(join(home, 'Library', 'Application Support', 'reviewHelper'), { recursive: true })
+    writeFileSync(join(home, 'Library', 'Application Support', 'reviewHelper', 'settings.json'), JSON.stringify({ staged: false, untracked: false, browser: 'chrome', diffStyle: 'unified' }))
     vi.stubEnv('HOME', home)
     vi.resetModules()
     const { loadSettings } = await import('./settings')

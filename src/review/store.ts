@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { APP_DATA_DIR } from '../appData.js'
 import type { ProviderId, ReviewLocation, ReviewResult } from './types.js'
 
 export type MessageKind = 'question' | 'review'
@@ -73,7 +73,7 @@ function fromLegacy(r: LegacyRecord): ReviewConversation {
 }
 
 export class ReviewStore {
-  constructor(private baseDir = join(homedir(), '.config', 'diffx', 'reviews')) {}
+  constructor(private baseDir = join(APP_DATA_DIR, 'reviews')) {}
 
   private file(repoPath: string, key: string): string {
     return join(this.baseDir, sha1(repoPath), `${sha1(key)}.json`)

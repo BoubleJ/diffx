@@ -1,8 +1,8 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { homedir } from 'node:os'
+import { APP_DATA_DIR } from './appData.js'
 
-const CONFIG_DIR = join(homedir(), '.config', 'diffx')
+const CONFIG_DIR = APP_DATA_DIR
 const SETTINGS_FILE = join(CONFIG_DIR, 'settings.json')
 
 export interface Settings {

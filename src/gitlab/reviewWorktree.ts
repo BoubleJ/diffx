@@ -1,11 +1,11 @@
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { copyFileSync, existsSync, lstatSync, mkdirSync, realpathSync, rmSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { basename, dirname, join, sep } from 'node:path'
+import { APP_DATA_DIR } from '../appData.js'
 import { getRepoName } from '../git.js'
 
-export const DEFAULT_WORKTREE_ROOT = join(homedir(), '.config', 'diffx', 'worktrees')
+export const DEFAULT_WORKTREE_ROOT = join(APP_DATA_DIR, 'worktrees')
 
 export type ReviewWorktreeStatus = { exists: false } | { exists: true; path: string; headSha: string | null }
 
