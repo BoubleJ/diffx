@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, memo, useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { questionToRefill, type MessageKind, type ProviderInfo, type ReviewLocation, type ReviewMessage, type ReviewState } from '../hooks/useReview'
 import { AnswerMarkdown } from './AnswerMarkdown'
@@ -16,16 +16,14 @@ interface ReviewPanelProps {
   onOpenLocation: (l: ReviewLocation) => void
 }
 
-function useElapsed(startedAt: number | null) {
+function Elapsed({ startedAt }: { startedAt: number }) {
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
-    if (startedAt === null) return
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [startedAt])
-  if (startedAt === null) return ''
   const s = Math.max(0, Math.floor((now - startedAt) / 1000))
-  return `${Math.floor(s / 60)}분 ${s % 60}초`
+  return <>{`${Math.floor(s / 60)}분 ${s % 60}초`}</>
 }
 
 function errorText(state: Extract<ReviewState, { status: 'error' }>, provider: ProviderInfo | undefined) {
@@ -47,7 +45,7 @@ function QuestionCard({ kind, question, excluded, onRemove }: { kind: MessageKin
   )
 }
 
-function AnswerCard({ message, onOpenLocation }: { message: ReviewMessage; onOpenLocation: (l: ReviewLocation) => void }) {
+const AnswerCard = memo(function AnswerCard({ message, onOpenLocation }: { message: ReviewMessage; onOpenLocation: (l: ReviewLocation) => void }) {
   const { answer, locations } = message.result
   return (
     <div className="review-answer">
@@ -64,7 +62,7 @@ function AnswerCard({ message, onOpenLocation }: { message: ReviewMessage; onOpe
       {message.stale && <div className="review-panel-stale">이 답변 이후 코드가 바뀌었습니다</div>}
     </div>
   )
-}
+})
 
 export function ReviewPanel(props: ReviewPanelProps) {
   const { provider, messages, state, onAsk, onReview, onCancel, onRemove, onNewConversation, onOpenLocation } = props
@@ -73,7 +71,6 @@ export function ReviewPanel(props: ReviewPanelProps) {
   inputRef.current = input
   const listRef = useRef<HTMLDivElement>(null)
   const running = state.status === 'running'
-  const elapsed = useElapsed(running ? state.startedAt : null)
   const installed = provider?.installed === true
   const canSend = installed && !running
 
@@ -85,7 +82,7 @@ export function ReviewPanel(props: ReviewPanelProps) {
   useEffect(() => {
     const el = listRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [messages.length, state.status])
+  }, [messages.at(-1)?.id, state.status])
 
   const send = () => {
     const question = input.trim()
@@ -118,7 +115,7 @@ export function ReviewPanel(props: ReviewPanelProps) {
         {state.status === 'running' && (
           <div className="review-panel-status">
             <div>{state.progress ?? '답변을 준비하는 중'}</div>
-            <div className="review-panel-elapsed">경과 시간 {elapsed}</div>
+            <div className="review-panel-elapsed">경과 시간 <Elapsed startedAt={state.startedAt} /></div>
           </div>
         )}
         {state.status === 'error' && (
@@ -135,6 +132,7 @@ export function ReviewPanel(props: ReviewPanelProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing || e.keyCode === 229) return
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
               send()

@@ -1623,6 +1623,7 @@ body {
     font: inherit;
     font-size: 12px;
     resize: vertical;
+    max-height: 40vh;
 }
 
 .review-panel-actions {

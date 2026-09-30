@@ -63,7 +63,7 @@ function fromLegacy(r: LegacyRecord): ReviewConversation {
       kind: r.instruction ? 'question' : 'review',
       question: r.instruction ?? null,
       fingerprint: r.fingerprint,
-      ...(r.excluded && r.excluded.length > 0 ? { excluded: r.excluded } : {}),
+      ...(!r.instruction && r.excluded && r.excluded.length > 0 ? { excluded: r.excluded } : {}),
       result: {
         answer: r.result.summary,
         locations: r.result.findings.map(({ file, line, side, title, body }) => ({ file, line, side, title, body })),

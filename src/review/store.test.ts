@@ -94,6 +94,7 @@ describe('ReviewStore', () => {
     const dir = mkdtempSync(join(tmpdir(), 'diffx-reviews-'))
     writeLegacy(dir, '/repo', { ...legacy, instruction: '성능 위주로' })
     expect(new ReviewStore(dir).load('/repo', key)!.messages[0]).toMatchObject({ kind: 'question', question: '성능 위주로' })
+    expect(new ReviewStore(dir).load('/repo', key)!.messages[0]).not.toHaveProperty('excluded')
   })
 
   it('gives a legacy message a stable id so it can be removed', () => {

@@ -81,6 +81,7 @@ describe('runReview', () => {
     const err = await failure(run('garbage'))
     expect(err.kind).toBe('invalid_output')
     expect(err.rawOutput).toContain('정리하면')
+    expect(err.message).toBe('답변을 읽지 못했습니다')
   })
 
   it('classifies login errors as auth', async () => {
@@ -145,7 +146,9 @@ describe('runReview', () => {
   it('times out and runs cleanup', async () => {
     let cleaned = 0
     const provider = fakeProvider({ buildCommand: (_c, request) => ({ bin: process.execPath, args: [FAKE], stdin: request.prompt, cleanup: () => { cleaned++ } }) })
-    expect((await failure(run('hang', provider, { timeoutMs: 300 }))).kind).toBe('timeout')
+    const err = await failure(run('hang', provider, { timeoutMs: 300 }))
+    expect(err.kind).toBe('timeout')
+    expect(err.message).toBe('10분 안에 답변이 끝나지 않아 중단했습니다')
     expect(cleaned).toBe(1)
   })
 
@@ -155,7 +158,9 @@ describe('runReview', () => {
     const controller = new AbortController()
     const p = run('hang', provider, { signal: controller.signal })
     setTimeout(() => controller.abort(), 100)
-    expect((await failure(p)).kind).toBe('cancelled')
+    const err = await failure(p)
+    expect(err.kind).toBe('cancelled')
+    expect(err.message).toBe('요청을 취소했습니다')
     expect(cleaned).toBe(1)
   })
 
