@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { join, extname, resolve } from 'node:path'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
@@ -20,6 +21,7 @@ import type { ReviewProvider } from './review/types.js'
 import { createGlabClient, GlabError, type GlabClient } from './gitlab/glab.js'
 import { getGitlabStatus, listMrs, parseMrListQuery, MrFetchError, MrNotFoundError, type GitlabStatus } from './gitlab/mr.js'
 import { MrComparisons, MrRequestError, parseIid, type MrResolved } from './gitlab/mrComparison.js'
+import { DEFAULT_WORKTREE_ROOT, WorktreeGitError, checkoutReviewWorktree, getReviewWorktree, listChangedFiles, openWithApp, removeReviewWorktree, reviewWorktreePath } from './gitlab/reviewWorktree.js'
 import { buildPosition } from './gitlab/position.js'
 import { buildThreads, type ApiDiscussion, type ApiDraftNote } from './gitlab/notes.js'
 import { commitReader, type SourceReader } from './definition/reader.js'
@@ -34,6 +36,8 @@ export interface AppOptions {
   providers?: ReviewProvider[]
   token?: string
   glab?: GlabClient
+  reviewWorktreeRoot?: string
+  openApp?: (args: string[]) => Promise<void>
 }
 
 export interface StartOptions extends AppOptions {
@@ -187,6 +191,9 @@ export function createApp(options: AppOptions) {
     }
     if (err instanceof GlabError) {
       return c.json({ error: err.kind, message: err.message }, 502)
+    }
+    if (err instanceof WorktreeGitError) {
+      return c.json({ error: 'git', message: err.message }, 502)
     }
     throw err
   }
@@ -406,6 +413,64 @@ export function createApp(options: AppOptions) {
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
+  })
+
+  const worktreeRoot = options.reviewWorktreeRoot ?? DEFAULT_WORKTREE_ROOT
+  const openApp = options.openApp ?? openWithApp
+
+  app.get('/api/review-worktree', async (c) => {
+    try {
+      return c.json(await getReviewWorktree(worktreeRoot, repo))
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+  })
+
+  app.get('/api/review-worktree/changes', async (c) => {
+    try {
+      return c.json({ files: await listChangedFiles(worktreeRoot, repo) })
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+  })
+
+  app.post('/api/gitlab/mrs/:iid/checkout', async (c) => {
+    let body: { force?: unknown }
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'invalid_body' }, 400)
+    }
+    try {
+      const mr = await mrComparisons.prepare(parseIid(c.req.param('iid')), { refresh: true })
+      const result = await checkoutReviewWorktree(worktreeRoot, repo, mr.headSha, { force: body.force === true })
+      if (result.kind === 'dirty') return c.json({ error: 'dirty', files: result.files }, 409)
+      return c.json({ path: result.path, headSha: result.headSha, copiedEnvFiles: result.copiedEnvFiles })
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+  })
+
+  app.post('/api/review-worktree/open-terminal', async (c) => {
+    const path = reviewWorktreePath(worktreeRoot, repo)
+    if (!existsSync(path)) {
+      return c.json({ error: 'not_found', message: '리뷰용 worktree가 없습니다. 먼저 체크아웃해 주세요' }, 404)
+    }
+    try {
+      await openApp(['-a', loadSettings().terminalApp || 'Terminal', path])
+    } catch (err) {
+      return c.json({ error: 'open_failed', message: (err as Error).message }, 502)
+    }
+    return c.body(null, 204)
+  })
+
+  app.delete('/api/review-worktree', async (c) => {
+    try {
+      await removeReviewWorktree(worktreeRoot, repo)
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+    return c.body(null, 204)
   })
 
   app.get('/api/review/providers', async (c) => {

@@ -19,3 +19,20 @@ describe('loadSettings', () => {
     vi.unstubAllEnvs()
   })
 })
+
+describe('terminalApp', () => {
+  it('saves a trimmed string and ignores other types', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'diffx-home-'))
+    vi.stubEnv('HOME', home)
+    vi.resetModules()
+    const { loadSettings, saveSettings } = await import('./settings')
+    expect(loadSettings().terminalApp).toBeUndefined()
+    saveSettings({ terminalApp: '  iTerm  ' })
+    expect(loadSettings().terminalApp).toBe('iTerm')
+    saveSettings({ terminalApp: 5 } as never)
+    expect(loadSettings().terminalApp).toBe('iTerm')
+    saveSettings({ terminalApp: '' })
+    expect(loadSettings().terminalApp).toBe('')
+    vi.unstubAllEnvs()
+  })
+})

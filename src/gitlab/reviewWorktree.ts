@@ -99,3 +99,13 @@ export async function removeReviewWorktree(root: string, repo: string): Promise<
   if (existsSync(path)) await runGit(repo, ['worktree', 'remove', '--force', path])
   else await runGit(repo, ['worktree', 'prune'])
 }
+
+// 앱을 찾지 못하면 open이 "Unable to find application named '<앱>'"을 stderr로 출력한다.
+export function openWithApp(args: string[]): Promise<void> {
+  return new Promise((done, fail) => {
+    execFile('open', args, { timeout: 10_000 }, (err, _stdout, stderr) => {
+      if (err) fail(new Error(stderr.trim() || err.message))
+      else done()
+    })
+  })
+}

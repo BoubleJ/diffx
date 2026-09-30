@@ -9,6 +9,7 @@ export interface Settings {
   diffStyle: 'split' | 'unified'
   defaultTabSize: number
   softWrap?: boolean
+  terminalApp?: string
 }
 
 const DEFAULTS: Settings = {
@@ -21,6 +22,7 @@ function pick(value: Record<string, unknown>): Partial<Settings> {
   if (value.diffStyle === 'split' || value.diffStyle === 'unified') out.diffStyle = value.diffStyle
   if (typeof value.defaultTabSize === 'number') out.defaultTabSize = value.defaultTabSize
   if (typeof value.softWrap === 'boolean') out.softWrap = value.softWrap
+  if (typeof value.terminalApp === 'string') out.terminalApp = value.terminalApp.trim()
   return out
 }
 
