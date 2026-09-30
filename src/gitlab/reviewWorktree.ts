@@ -1,8 +1,8 @@
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, existsSync, mkdirSync, realpathSync, rmSync } from 'node:fs'
+import { copyFileSync, existsSync, lstatSync, mkdirSync, realpathSync, rmSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, sep } from 'node:path'
 import { getRepoName } from '../git.js'
 
 export const DEFAULT_WORKTREE_ROOT = join(homedir(), '.config', 'diffx', 'worktrees')
@@ -79,11 +79,17 @@ export async function listChangedFiles(root: string, repo: string): Promise<stri
 // --directory는 node_modules처럼 무시된 폴더를 폴더 이름 한 줄(`node_modules/`)로 출력해서 그 안의 파일을 나열하지 않는다.
 export async function copyEnvFiles(repo: string, worktree: string): Promise<string[]> {
   const output = await runGit(repo, ['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--directory'])
+  const worktreeReal = realpathSync(worktree)
+  const insideWorktree = (dir: string) => {
+    while (!existsSync(dir)) dir = dirname(dir)
+    const real = realpathSync(dir)
+    return real === worktreeReal || real.startsWith(worktreeReal + sep)
+  }
   const copied: string[] = []
   for (const file of output.split('\0')) {
     if (!file || file.endsWith('/') || !basename(file).startsWith('.env')) continue
     const target = join(worktree, file)
-    if (existsSync(target)) continue
+    if (lstatSync(target, { throwIfNoEntry: false }) || !insideWorktree(dirname(target))) continue
     mkdirSync(dirname(target), { recursive: true })
     copyFileSync(join(repo, file), target)
     copied.push(file)

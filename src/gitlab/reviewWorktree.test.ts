@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { git, makeRepo } from '../test/gitRepo'
@@ -239,5 +239,29 @@ describe('untracked files that the next commit adds', () => {
     expect(headOf(path)).toBe(head)
     expect(await checkoutReviewWorktree(root, local, other, { force: true })).toMatchObject({ kind: 'done', headSha: other })
     expect(readFileSync(join(path, 'c.txt'), 'utf-8')).toBe('from mr\n')
+  })
+})
+
+describe('env files and committed symlinks', () => {
+  it('does not write through a symlink committed in the MR', async () => {
+    const { root, local, remote, base } = setup()
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'diffx-outside-')))
+    git(remote, 'switch', '-q', '--detach', base)
+    symlinkSync(join(outside, 'target'), join(remote, '.env.local'))
+    symlinkSync(outside, join(remote, 'apps'))
+    git(remote, 'add', '.env.local', 'apps')
+    git(remote, 'commit', '-q', '-m', 'links')
+    const linked = git(remote, 'rev-parse', 'HEAD').trim()
+    git(remote, 'update-ref', 'refs/merge-requests/9/head', linked)
+    git(remote, 'switch', '-q', 'main')
+    git(local, 'fetch', '-q', 'origin', 'refs/merge-requests/9/head')
+    appendFileSync(join(local, '.git', 'info', 'exclude'), '.env*\n')
+    writeFileSync(join(local, '.env.local'), 'SECRET=1\n')
+    mkdirSync(join(local, 'apps', 'web'), { recursive: true })
+    writeFileSync(join(local, 'apps', 'web', '.env'), 'SECRET=2\n')
+    const result = await checkoutReviewWorktree(root, local, linked, { force: false })
+    expect(result).toMatchObject({ kind: 'done', copiedEnvFiles: [] })
+    expect(existsSync(join(outside, 'target'))).toBe(false)
+    expect(existsSync(join(outside, 'web'))).toBe(false)
   })
 })
