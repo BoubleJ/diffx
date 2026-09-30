@@ -21,7 +21,7 @@ import { definitionAction, fetchDefinition, fetchReferences, exploreTitle, type 
 import { useSettings } from './hooks/useSettings'
 import { useViewed } from './hooks/useViewed'
 import { useFullDiffs, fileKey } from './hooks/useFullDiffs'
-import { useReview, type Finding } from './hooks/useReview'
+import { useReview, type ReviewLocation } from './hooks/useReview'
 import { Toolbar } from './components/Toolbar'
 import { MrCheckout } from './components/MrCheckout'
 import { BranchPicker } from './components/BranchPicker'
@@ -34,7 +34,6 @@ import { SidebarStorage } from './sidebarStorage'
 import { loadExcluded, saveExcluded } from './excludedStorage'
 import { excludeFilesFromPatch } from '../review/filterPatch'
 import { loadReviewPanel, saveReviewPanel, nextOnReviewButton, openExploreTab, REVIEW_PANEL_MIN } from './reviewPanelStorage'
-import { loadReviewInstruction, saveReviewInstruction } from './reviewInstructionStorage'
 import { comparisonParams, loadComparison, saveComparison, reconcileComparison, comparisonForMode, type Comparison } from './comparison'
 
 function useWindowSize({ factor }: { factor: number }) {
@@ -156,14 +155,6 @@ export function App() {
   }, [repoRoot, key])
   const review = useReview(params, key)
   const [reviewPanel, setReviewPanel] = useState(() => loadReviewPanel())
-  const [reviewInstruction, setReviewInstruction] = useState('')
-  useEffect(() => {
-    if (repoRoot) setReviewInstruction(loadReviewInstruction(repoRoot))
-  }, [repoRoot])
-  const handleInstructionChange = useCallback((value: string) => {
-    setReviewInstruction(value)
-    if (repoRoot) saveReviewInstruction(repoRoot, value)
-  }, [repoRoot])
   const updateReviewPanel = useCallback((next: typeof reviewPanel) => {
     setReviewPanel(next)
     saveReviewPanel(next)
@@ -296,10 +287,10 @@ export function App() {
     if (highlightTimer.current) clearTimeout(highlightTimer.current)
   }, [])
 
-  const handleFindingClick = useCallback((f: Finding) => {
-    handleFileClick(f.file)
-    if (f.line !== null) {
-      setHighlight({ file: f.file, side: f.side === 'old' ? 'deletions' : 'additions', line: f.line })
+  const handleLocationClick = useCallback((l: ReviewLocation) => {
+    handleFileClick(l.file)
+    if (l.line !== null) {
+      setHighlight({ file: l.file, side: l.side === 'old' ? 'deletions' : 'additions', line: l.line })
       if (highlightTimer.current) clearTimeout(highlightTimer.current)
       highlightTimer.current = setTimeout(() => setHighlight(null), 2000)
     }
@@ -586,14 +577,14 @@ export function App() {
                   review={(
                     <ReviewPanel
                       provider={claude}
-                      record={review.record}
-                      stale={review.stale}
+                      messages={review.messages}
                       state={review.state}
-                      instruction={reviewInstruction}
-                      onInstructionChange={handleInstructionChange}
-                      onStart={() => review.start('claude', excludedInDiff, reviewInstruction)}
+                      onAsk={review.ask}
+                      onReview={() => review.review(excludedInDiff)}
                       onCancel={review.cancel}
-                      onFindingClick={handleFindingClick}
+                      onRemove={review.removeMessage}
+                      onNewConversation={review.newConversation}
+                      onOpenLocation={handleLocationClick}
                     />
                   )}
                   explore={<ExplorePanel state={explore} selected={exploreSelected} onPick={handleExplorePick} />}

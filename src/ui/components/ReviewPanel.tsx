@@ -1,19 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { Finding, ProviderInfo, ReviewRecord, ReviewState } from '../hooks/useReview'
-import { FindingItem } from './FindingItem'
-
-const SEVERITY_ORDER: Record<Finding['severity'], number> = { critical: 0, major: 1, minor: 2, info: 3 }
+import { Fragment, useEffect, useRef, useState } from 'react'
+import { X } from 'lucide-react'
+import { questionToRefill, type MessageKind, type ProviderInfo, type ReviewLocation, type ReviewMessage, type ReviewState } from '../hooks/useReview'
+import { AnswerMarkdown } from './AnswerMarkdown'
+import { LocationItem } from './LocationItem'
 
 interface ReviewPanelProps {
   provider: ProviderInfo | undefined
-  record: ReviewRecord | null
-  stale: boolean
+  messages: ReviewMessage[]
   state: ReviewState
-  instruction: string
-  onInstructionChange: (value: string) => void
-  onStart: () => void
+  onAsk: (question: string) => void
+  onReview: () => void
   onCancel: () => void
-  onFindingClick: (f: Finding) => void
+  onRemove: (id: string) => void
+  onNewConversation: () => void
+  onOpenLocation: (l: ReviewLocation) => void
 }
 
 function useElapsed(startedAt: number | null) {
@@ -33,79 +33,137 @@ function errorText(state: Extract<ReviewState, { status: 'error' }>, provider: P
   return state.message
 }
 
-export function ReviewPanel(props: ReviewPanelProps) {
-  const { provider, record, stale, state, instruction, onInstructionChange, onStart, onCancel, onFindingClick } = props
-  const elapsed = useElapsed(state.status === 'running' ? state.startedAt : null)
-  const findings = useMemo(
-    () => [...(record?.result.findings ?? [])].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]),
-    [record],
+function QuestionCard({ kind, question, excluded, onRemove }: { kind: MessageKind; question: string | null; excluded?: string[]; onRemove?: () => void }) {
+  return (
+    <div className="review-question">
+      <div className="review-question-text">{kind === 'review' ? '전체 리뷰' : question}</div>
+      {excluded && excluded.length > 0 && <div className="review-panel-meta">제외한 파일 {excluded.length}개를 빼고 리뷰</div>}
+      {onRemove && (
+        <button className="review-question-remove" onClick={onRemove} title="삭제" aria-label="삭제">
+          <X size={14} />
+        </button>
+      )}
+    </div>
   )
+}
+
+function AnswerCard({ message, onOpenLocation }: { message: ReviewMessage; onOpenLocation: (l: ReviewLocation) => void }) {
+  const { answer, locations } = message.result
+  return (
+    <div className="review-answer">
+      <AnswerMarkdown text={answer} />
+      {locations.length > 0 && (
+        <>
+          <div className="review-panel-count">관련 위치 {locations.length}건</div>
+          {locations.map((l, i) => (
+            <LocationItem key={`${l.file}:${l.line}:${i}`} location={l} onOpen={onOpenLocation} />
+          ))}
+        </>
+      )}
+      <div className="review-panel-meta">{new Date(message.createdAt).toLocaleString()}</div>
+      {message.stale && <div className="review-panel-stale">이 답변 이후 코드가 바뀌었습니다</div>}
+    </div>
+  )
+}
+
+export function ReviewPanel(props: ReviewPanelProps) {
+  const { provider, messages, state, onAsk, onReview, onCancel, onRemove, onNewConversation, onOpenLocation } = props
+  const [input, setInput] = useState('')
+  const inputRef = useRef(input)
+  inputRef.current = input
+  const listRef = useRef<HTMLDivElement>(null)
   const running = state.status === 'running'
+  const elapsed = useElapsed(running ? state.startedAt : null)
+  const installed = provider?.installed === true
+  const canSend = installed && !running
+
+  useEffect(() => {
+    const text = questionToRefill(state, inputRef.current)
+    if (text !== null) setInput(text)
+  }, [state])
+
+  useEffect(() => {
+    const el = listRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [messages.length, state.status])
+
+  const send = () => {
+    const question = input.trim()
+    if (!question || !canSend) return
+    setInput('')
+    onAsk(question)
+  }
+
+  const confirmNewConversation = () => {
+    if (window.confirm('모든 질문과 답변을 지우고 새 대화를 시작할까요?')) onNewConversation()
+  }
+
+  const pending = state.status === 'idle' ? null : state.pending
 
   return (
     <div className="review-panel">
       <div className="review-panel-header">
         <span className="review-panel-title">AI 리뷰</span>
+        <button className="btn btn-sm" onClick={confirmNewConversation} disabled={running || messages.length === 0}>새 대화</button>
       </div>
 
-      <textarea
-        className="review-panel-instruction"
-        value={instruction}
-        onChange={(e) => onInstructionChange(e.target.value)}
-        placeholder="리뷰 방향을 적어 주세요 (예: 성능 문제 위주로 봐줘)"
-        rows={3}
-        maxLength={2000}
-        disabled={running}
-      />
-
-      <div className="review-panel-controls">
-        <span className="review-panel-meta">
-          {provider ? `${provider.label}${provider.installed ? '' : ' (설치 안 됨)'}` : 'Claude Code 확인 중'}
-        </span>
-        {running ? (
-          <button className="btn btn-sm" onClick={onCancel}>취소</button>
-        ) : (
-          <button className="btn btn-primary btn-sm" onClick={onStart} disabled={!provider?.installed}>
-            {record ? '다시 리뷰' : '리뷰 요청'}
-          </button>
+      <div className="review-panel-list" ref={listRef}>
+        {messages.map((m) => (
+          <Fragment key={m.id}>
+            <QuestionCard kind={m.kind} question={m.question} excluded={m.excluded} onRemove={() => onRemove(m.id)} />
+            <AnswerCard message={m} onOpenLocation={onOpenLocation} />
+          </Fragment>
+        ))}
+        {pending && <QuestionCard kind={pending.kind} question={pending.question} excluded={pending.excluded} />}
+        {state.status === 'running' && (
+          <div className="review-panel-status">
+            <div>{state.progress ?? '답변을 준비하는 중'}</div>
+            <div className="review-panel-elapsed">경과 시간 {elapsed}</div>
+          </div>
+        )}
+        {state.status === 'error' && (
+          <div className="review-panel-error">
+            <div>{errorText(state, provider)}</div>
+            {state.rawOutput && <pre className="review-panel-raw">{state.rawOutput}</pre>}
+          </div>
         )}
       </div>
-      {provider && !provider.installed && (
-        <a className="review-panel-hint" href={provider.installHint} target="_blank" rel="noreferrer">
-          {provider.label} 설치 방법 보기
-        </a>
-      )}
 
-      {running && (
-        <div className="review-panel-status">
-          <div>{state.progress ?? '리뷰를 준비하는 중'}</div>
-          <div className="review-panel-elapsed">경과 시간 {elapsed}</div>
-        </div>
-      )}
-
-      {state.status === 'error' && (
-        <div className="review-panel-error">
-          <div>{errorText(state, provider)}</div>
-          {state.rawOutput && <pre className="review-panel-raw">{state.rawOutput}</pre>}
-        </div>
-      )}
-
-      {record && !running && (
-        <div className="review-panel-result">
-          <div className="review-panel-meta">{record.providerLabel}로 리뷰</div>
-          <div className="review-panel-meta">{new Date(record.createdAt).toLocaleString()}</div>
-          {record.excluded && record.excluded.length > 0 && (
-            <div className="review-panel-meta">제외한 파일 {record.excluded.length}개를 빼고 리뷰</div>
+      <div className="review-panel-composer">
+        <textarea
+          className="review-panel-input"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault()
+              send()
+            }
+          }}
+          placeholder="질문을 입력하세요 (Cmd+Enter로 보내기)"
+          rows={3}
+          maxLength={2000}
+          disabled={!installed}
+        />
+        {provider && !provider.installed && (
+          <a className="review-panel-hint" href={provider.installHint} target="_blank" rel="noreferrer">
+            {provider.label} 설치 방법 보기
+          </a>
+        )}
+        <div className="review-panel-controls">
+          <span className="review-panel-meta">
+            {provider ? `${provider.label}${provider.installed ? '' : ' (설치 안 됨)'}` : 'Claude Code 확인 중'}
+          </span>
+          {running ? (
+            <button className="btn btn-sm" onClick={onCancel}>취소</button>
+          ) : (
+            <div className="review-panel-actions">
+              <button className="btn btn-sm" onClick={onReview} disabled={!canSend}>전체 리뷰</button>
+              <button className="btn btn-primary btn-sm" onClick={send} disabled={!canSend || !input.trim()}>보내기</button>
+            </div>
           )}
-          {record.instruction && <div className="review-panel-meta review-panel-instruction-used">추가 지시: {record.instruction}</div>}
-          {stale && <div className="review-panel-stale">리뷰 이후 코드가 바뀌었습니다</div>}
-          <p className="review-panel-summary">{record.result.summary}</p>
-          <div className="review-panel-count">지적 사항 {findings.length}건</div>
-          {findings.map((f, i) => (
-            <FindingItem key={`${f.file}:${f.line}:${i}`} finding={f} onClick={onFindingClick} />
-          ))}
         </div>
-      )}
+      </div>
     </div>
   )
 }
