@@ -42,7 +42,7 @@ describe('startServer', () => {
 
 describe('mutation request check', () => {
   const json = { 'Content-Type': 'application/json' }
-  const comment = JSON.stringify({ filePath: 'a.txt', side: 'additions', lineNumber: 1, lineContent: 'a', body: 'c' })
+  const comment = JSON.stringify({ filePath: 'a.txt', side: 'additions', lineNumber: 1, lineContent: 'a', body: 'c', key: 'branch:main...feature/x' })
 
   it('rejects non-JSON bodies so other pages cannot send simple requests', async () => {
     const { repo, clientDir } = setup()

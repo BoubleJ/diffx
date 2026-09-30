@@ -3,8 +3,8 @@ import { join, extname, resolve } from 'node:path'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { serve } from '@hono/node-server'
-import { getRepoName, getBranchName, getFileContent, getBlobContent, getWorktreeFileContent, getTabSizeForFiles, getUntrackedFilePaths, listBranches, fetchAll, getFileAtCommit, getHeadSha, listRemotes } from './git.js'
-import { resolveComparison, resolveBranchRefs, createRangeDiffCache, comparisonKey, queryFromSearch, ComparisonError, type ResolvedComparison, type BranchRefs } from './comparison.js'
+import { getRepoName, getBranchName, getBlobContent, getTabSizeForFiles, listBranches, fetchAll, getFileAtCommit, getHeadSha, listRemotes } from './git.js'
+import { resolveComparison, resolveBranchRefs, createRangeDiffCache, queryFromSearch, ComparisonError, type ResolvedComparison, type BranchRefs } from './comparison.js'
 import type { Context } from 'hono'
 import { loadSettings, saveSettings } from './settings.js'
 import { InMemoryCommentStore } from './comments.js'
@@ -22,15 +22,12 @@ import { getGitlabStatus, listMrs, parseMrListQuery, MrFetchError, type GitlabSt
 import { MrComparisons, MrRequestError, parseIid, type MrResolved } from './gitlab/mrComparison.js'
 import { buildPosition } from './gitlab/position.js'
 import { buildThreads, type ApiDiscussion, type ApiDraftNote } from './gitlab/notes.js'
-import { worktreeReader, commitReader, type SourceReader } from './definition/reader.js'
+import { commitReader, type SourceReader } from './definition/reader.js'
 import { resolveDefinition } from './definition/resolve.js'
 
 export interface AppOptions {
   repoPath: string
   clientDir: string
-  customDiffArgs?: string[]
-  // CLI에서 custom 모드 인자의 pathspec을 사용자가 실행한 디렉터리 기준으로 해석하려고 쓴다.
-  diffCwd?: string
   commentStore?: CommentStore
   reviewJobs?: ReviewJobs
   reviewStore?: ReviewStore
@@ -62,7 +59,7 @@ const MIME_TYPES: Record<string, string> = {
 
 export interface BinaryFileInfo {
   path: string
-  type: 'added' | 'deleted' | 'changed' | 'untracked'
+  type: 'added' | 'deleted' | 'changed'
 }
 
 function parseFilePaths(patch: string): string[] {
@@ -74,7 +71,7 @@ function parseFilePaths(patch: string): string[] {
   return [...paths]
 }
 
-function parseBinaryFiles(patch: string, untrackedFiles?: Set<string>): BinaryFileInfo[] {
+function parseBinaryFiles(patch: string): BinaryFileInfo[] {
   const binaryFiles: BinaryFileInfo[] = []
   const lines = patch.split('\n')
   for (let i = 0; i < lines.length; i++) {
@@ -106,9 +103,6 @@ function parseBinaryFiles(patch: string, untrackedFiles?: Set<string>): BinaryFi
       }
     }
 
-    if (changeType === 'added' && untrackedFiles?.has(filePath)) {
-      changeType = 'untracked'
-    }
     binaryFiles.push({ path: filePath, type: changeType })
   }
   return binaryFiles
@@ -127,7 +121,7 @@ function diffContainsFileVersion(patch: string, path: string, oldOid: string, ne
 }
 
 export function createApp(options: AppOptions) {
-  const { repoPath: repo, clientDir, customDiffArgs, commentStore, diffCwd = repo } = options
+  const { repoPath: repo, clientDir, commentStore } = options
   const app = new Hono()
   if (options.token) {
     const token = options.token
@@ -150,10 +144,9 @@ export function createApp(options: AppOptions) {
     }
     await next()
   })
-  const isCustomMode = !!customDiffArgs
   const store = commentStore ?? new InMemoryCommentStore()
   const viewedByKey = new Map<string, Map<string, string>>()
-  let activeKey = isCustomMode ? comparisonKey({ mode: 'custom', customArgs: customDiffArgs }) : 'worktree'
+  let activeKey: string | null = null
   const keyFrom = (value: string | undefined) => value || activeKey
   const viewedFor = (key: string) => {
     let map = viewedByKey.get(key)
@@ -171,12 +164,12 @@ export function createApp(options: AppOptions) {
     return gitlabStatus
   }
 
-  const resolveOptions = { diffCwd, rangeDiff: createRangeDiffCache() }
+  const resolveOptions = { rangeDiff: createRangeDiffCache() }
   const mrComparisons = new MrComparisons(repo, glab, () => getStatus(), resolveOptions.rangeDiff)
   const resolveFromRequest = async (c: Context, refresh = false): Promise<ResolvedComparison> => {
     const q = queryFromSearch((name) => c.req.query(name))
-    if (q.mode === 'mr' && !isCustomMode) return mrComparisons.resolve(parseIid(q.iid), { refresh })
-    return resolveComparison(repo, customDiffArgs, q, resolveOptions)
+    if (q.mode === 'mr') return mrComparisons.resolve(parseIid(q.iid), { refresh })
+    return resolveComparison(repo, q, resolveOptions)
   }
 
   const comparisonErrorResponse = (c: Context, err: unknown) => {
@@ -208,18 +201,14 @@ export function createApp(options: AppOptions) {
     }
     activeKey = resolved.key
     const { patch } = resolved
-    const untracked = resolved.mode === 'worktree' && c.req.query('untracked') === 'true'
-    const untrackedFiles = untracked ? getUntrackedFilePaths(repo) : []
-    const binaryFiles = parseBinaryFiles(patch, new Set(untrackedFiles))
+    const binaryFiles = parseBinaryFiles(patch)
     const tabSizeMap = getTabSizeForFiles(repo, parseFilePaths(patch))
     return c.json({
       patch,
       repoName: getRepoName(repo),
       branch: getBranchName(repo),
-      customMode: isCustomMode,
       binaryFiles,
       tabSizeMap,
-      untrackedFiles,
       key: resolved.key,
       mode: resolved.mode,
       sourceSha: resolved.sourceSha,
@@ -237,23 +226,21 @@ export function createApp(options: AppOptions) {
       return c.json({ error: 'Missing path or version' }, 400)
     }
     const mode = c.req.query('mode')
-    let content: Buffer | null
-    if ((mode === 'branch' || mode === 'mr') && !isCustomMode) {
-      let refs: { mergeBase: string; sourceSha: string }
-      try {
-        if (mode === 'mr') {
-          const resolved = await mrComparisons.resolve(parseIid(c.req.query('iid')), { refresh: false })
-          refs = { mergeBase: resolved.mergeBase!, sourceSha: resolved.sourceSha! }
-        } else {
-          refs = resolveBranchRefs(repo, { source: c.req.query('source'), target: c.req.query('target') })
-        }
-      } catch (err) {
-        return comparisonErrorResponse(c, err)
-      }
-      content = getFileAtCommit(repo, version === 'old' ? refs.mergeBase : refs.sourceSha, path)
-    } else {
-      content = getFileContent(repo, path, version)
+    if (mode !== 'branch' && mode !== 'mr') {
+      return comparisonErrorResponse(c, new ComparisonError('missing_mode', '비교 방식을 선택해 주세요'))
     }
+    let refs: { mergeBase: string; sourceSha: string }
+    try {
+      if (mode === 'mr') {
+        const resolved = await mrComparisons.resolve(parseIid(c.req.query('iid')), { refresh: false })
+        refs = { mergeBase: resolved.mergeBase!, sourceSha: resolved.sourceSha! }
+      } else {
+        refs = resolveBranchRefs(repo, { source: c.req.query('source'), target: c.req.query('target') })
+      }
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+    const content = getFileAtCommit(repo, version === 'old' ? refs.mergeBase : refs.sourceSha, path)
     if (!content) {
       return c.json({ error: 'File not found' }, 404)
     }
@@ -271,19 +258,17 @@ export function createApp(options: AppOptions) {
   // requested path: this keeps arbitrary repository blobs unreachable, and
   // rejects requests whose patch no longer matches the worktree (git recomputes
   // the worktree blob hash on every diff, so any edit changes the new oid).
-  const readerFor = async (c: Context, side: 'additions' | 'deletions'): Promise<SourceReader | null> => {
+  const readerFor = async (c: Context, side: 'additions' | 'deletions'): Promise<SourceReader> => {
     const mode = c.req.query('mode')
-    if (mode === 'branch' && !isCustomMode) {
+    if (mode === 'branch') {
       const refs = resolveBranchRefs(repo, { source: c.req.query('source'), target: c.req.query('target') })
       return commitReader(repo, side === 'additions' ? refs.sourceSha : refs.mergeBase)
     }
-    if (mode === 'mr' && !isCustomMode) {
+    if (mode === 'mr') {
       const resolved = await mrComparisons.resolve(parseIid(c.req.query('iid')), { refresh: false })
       return commitReader(repo, side === 'additions' ? resolved.sourceSha! : resolved.mergeBase!)
     }
-    if (side === 'additions') return worktreeReader(repo)
-    const head = getHeadSha(repo)
-    return head ? commitReader(repo, head) : null
+    throw new ComparisonError('missing_mode', '비교 방식을 선택해 주세요')
   }
 
   app.get('/api/definition', async (c) => {
@@ -294,13 +279,12 @@ export function createApp(options: AppOptions) {
     if (!path || !isSafePath(path, repo) || (side !== 'additions' && side !== 'deletions') || !/^[1-9]\d*$/.test(line) || !/^\d+$/.test(col)) {
       return c.json({ error: 'invalid_query' }, 400)
     }
-    let reader: SourceReader | null
+    let reader: SourceReader
     try {
       reader = await readerFor(c, side)
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
-    if (!reader) return c.json({ kind: 'not_found' })
     const result = resolveDefinition(reader, path, Number(line), Number(col))
     return c.json(result.kind === 'found' ? { kind: 'found', version: side === 'additions' ? 'new' : 'old', targets: result.targets } : result)
   })
@@ -326,7 +310,7 @@ export function createApp(options: AppOptions) {
     // database is the worktree blob of an unstaged change (git computes its
     // hash without storing it), so fall back to reading the worktree.
     const oldContent = /^0+$/.test(oldOid) ? '' : getBlobContent(repo, oldOid)
-    const newContent = /^0+$/.test(newOid) ? '' : getBlobContent(repo, newOid) ?? getWorktreeFileContent(repo, path)
+    const newContent = /^0+$/.test(newOid) ? '' : getBlobContent(repo, newOid)
     if (oldContent == null || newContent == null) {
       return c.json({ error: 'Content unavailable' }, 404)
     }
@@ -334,7 +318,7 @@ export function createApp(options: AppOptions) {
   })
 
   app.get('/api/repo', (c) => {
-    return c.json({ root: repo, name: getRepoName(repo), customMode: isCustomMode })
+    return c.json({ root: repo, name: getRepoName(repo) })
   })
 
   app.get('/api/branches', (c) => {
@@ -450,7 +434,7 @@ export function createApp(options: AppOptions) {
   })
 
   app.post('/api/review', async (c) => {
-    let body: { provider: string; mode?: string; source?: string; target?: string; iid?: unknown; staged?: boolean; untracked?: boolean; exclude?: unknown; instruction?: unknown }
+    let body: { provider: string; mode?: string; source?: string; target?: string; iid?: unknown; exclude?: unknown; instruction?: unknown }
     try {
       body = await c.req.json()
     } catch {
@@ -464,9 +448,9 @@ export function createApp(options: AppOptions) {
     }
     let resolved: ResolvedComparison
     try {
-      resolved = body.mode === 'mr' && !isCustomMode
+      resolved = body.mode === 'mr'
         ? await mrComparisons.resolve(parseIid(body.iid), { refresh: false })
-        : resolveComparison(repo, customDiffArgs, { mode: body.mode, source: body.source, target: body.target, staged: body.staged, untracked: body.untracked }, resolveOptions)
+        : resolveComparison(repo, { mode: body.mode, source: body.source, target: body.target }, resolveOptions)
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
@@ -480,13 +464,11 @@ export function createApp(options: AppOptions) {
       fingerprint: fingerprint(resolved),
       ctx: {
         repoPath: repo,
-        mode: resolved.mode === 'mr' ? 'branch' : resolved.mode,
+        mode: 'branch',
         source: resolved.source,
         target: resolved.target,
         mergeBase: resolved.mergeBase,
-        customArgs: customDiffArgs,
-        staged: resolved.mode === 'worktree' && body.staged === true,
-        sourceCheckedOut: (resolved.mode !== 'branch' && resolved.mode !== 'mr') || getHeadSha(repo) === resolved.sourceSha,
+        sourceCheckedOut: getHeadSha(repo) === resolved.sourceSha,
         files: parseFilePaths(patch),
         patch,
         instruction,
@@ -537,12 +519,16 @@ export function createApp(options: AppOptions) {
   })
 
   app.get('/api/viewed', (c) => {
-    return c.json(Object.fromEntries(viewedFor(keyFrom(c.req.query('key')))))
+    const key = keyFrom(c.req.query('key'))
+    if (!key) return c.json({})
+    return c.json(Object.fromEntries(viewedFor(key)))
   })
 
   app.put('/api/viewed', async (c) => {
     const { key, filePath, viewed, contentHash } = await c.req.json<{ key?: string; filePath: string; viewed: boolean; contentHash?: string }>()
-    const map = viewedFor(keyFrom(key))
+    const activeOrGiven = keyFrom(key)
+    if (!activeOrGiven) return c.json({ error: 'missing_key' }, 400)
+    const map = viewedFor(activeOrGiven)
     if (viewed) {
       if (typeof contentHash !== 'string' || contentHash.length === 0) {
         return c.json({ error: 'non-empty contentHash required when marking viewed' }, 400)
@@ -555,15 +541,19 @@ export function createApp(options: AppOptions) {
   })
 
   app.get('/api/comments', async (c) => {
-    const comments = await store.getAll(keyFrom(c.req.query('key')))
+    const key = keyFrom(c.req.query('key'))
+    if (!key) return c.json([])
+    const comments = await store.getAll(key)
     return c.json(comments)
   })
 
   app.post('/api/comments', async (c) => {
     const body = await c.req.json()
+    const key = keyFrom(body.key)
+    if (!key) return c.json({ error: 'missing_key' }, 400)
     const comment = {
       id: crypto.randomUUID(),
-      key: keyFrom(body.key),
+      key,
       origin: 'local' as const,
       filePath: body.filePath,
       side: body.side,

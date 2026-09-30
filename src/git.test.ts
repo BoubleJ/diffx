@@ -4,23 +4,21 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { makeRepo, commit, git } from './test/gitRepo'
 import {
-  getRepoRoot, getRepoName, getBranchName, getGitDiff, isGitRepo,
-  listBranches, resolveCommit, getMergeBase, getRangeDiff, getFileAtCommit, fetchAll, getHeadSha, getUntrackedFilePaths,
+  getRepoRoot, getRepoName, getBranchName, isGitRepo,
+  listBranches, resolveCommit, getMergeBase, getRangeDiff, getFileAtCommit, fetchAll, getHeadSha,
 } from './git'
 
 describe('git functions take a repo path', () => {
-  it('reads branch and diff of the given repo regardless of process.cwd()', () => {
+  it('reads branch and name of the given repo regardless of process.cwd()', () => {
     const repo = makeRepo()
     commit(repo, { 'a.txt': 'one\n' }, 'init')
     git(repo, 'switch', '-q', '-c', 'feature/x')
-    writeFileSync(join(repo, 'a.txt'), 'two\n')
 
     expect(process.cwd()).not.toBe(repo)
     expect(isGitRepo(repo)).toBe(true)
     expect(getRepoRoot(join(repo))).toBe(repo)
     expect(getRepoName(repo)).toBe(repo.split('/').pop())
     expect(getBranchName(repo)).toBe('feature/x')
-    expect(getGitDiff(repo)).toContain('+two')
   })
 })
 
@@ -67,15 +65,10 @@ describe('resolveCommit', () => {
 })
 
 describe('non-ASCII file names', () => {
-  it('prints paths unquoted in diffs and untracked lists', () => {
+  it('prints paths unquoted in diffs', () => {
     const repo = makeRepo()
     const base = commit(repo, { '한글 파일.txt': 'one\n' }, 'base')
-    writeFileSync(join(repo, '한글 파일.txt'), 'one\ntwo\n')
-    expect(getGitDiff(repo)).toContain('+++ b/한글 파일.txt')
-    writeFileSync(join(repo, '새 파일.txt'), 'x\n')
-    expect(getUntrackedFilePaths(repo)).toEqual(['새 파일.txt'])
-    git(repo, 'add', '-A')
-    const next = commit(repo, {}, 'next')
+    const next = commit(repo, { '한글 파일.txt': 'one\ntwo\n' }, 'next')
     expect(getRangeDiff(repo, base, next)).toContain('+++ b/한글 파일.txt')
   })
 })

@@ -36,14 +36,6 @@ describe('GET /api/definition', () => {
     expect(body).toEqual({ kind: 'found', version: 'old', targets: [{ path: 'src/a.ts', line: 1 }] })
   })
 
-  it('uses the working tree and HEAD in worktree mode', async () => {
-    const app = setup()
-    expect(await (await app.request(`/api/definition?mode=worktree&side=additions&${click}`)).json())
-      .toEqual({ kind: 'found', version: 'new', targets: [{ path: 'src/a.ts', line: 4 }] })
-    expect(await (await app.request(`/api/definition?mode=worktree&side=deletions&${click}`)).json())
-      .toEqual({ kind: 'found', version: 'old', targets: [{ path: 'src/a.ts', line: 1 }] })
-  })
-
   it('returns other result kinds without a version', async () => {
     const app = setup()
     expect(await (await app.request(`/api/definition?${branch}&side=additions&path=src/a.ts&line=2&col=16`)).json()).toEqual({ kind: 'self' })
@@ -52,6 +44,9 @@ describe('GET /api/definition', () => {
 
   it('rejects invalid queries', async () => {
     const app = setup()
+    const noMode = await app.request(`/api/definition?side=additions&${click}`)
+    expect(noMode.status).toBe(400)
+    expect(await noMode.json()).toMatchObject({ error: 'missing_mode' })
     for (const q of ['path=../x.ts&side=additions&line=1&col=0', 'path=src/b.ts&side=left&line=1&col=0', 'path=src/b.ts&side=additions&line=0&col=0', 'path=src/b.ts&side=additions&line=1&col=-1', 'side=additions&line=1&col=0']) {
       const res = await app.request(`/api/definition?${branch}&${q}`)
       expect(res.status).toBe(400)

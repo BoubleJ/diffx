@@ -11,7 +11,7 @@ function clientDir() {
   return dir
 }
 
-export function setupApp(customDiffArgs?: string[]) {
+export function setupApp() {
   const repo = makeRepo()
   const base = commit(repo, { 'a.txt': 'base\n', 'img.png': 'OLDPNG' }, 'base')
   git(repo, 'update-ref', 'refs/remotes/origin/main', base)
@@ -19,7 +19,7 @@ export function setupApp(customDiffArgs?: string[]) {
   const feature = commit(repo, { 'a.txt': 'base\nfeature\n', 'img.png': 'NEWPNG' }, 'feature')
   git(repo, 'switch', '-q', 'main')
   writeFileSync(join(repo, 'img.png'), 'WORKTREEPNG')
-  const app = createApp({ repoPath: repo, clientDir: clientDir(), customDiffArgs })
+  const app = createApp({ repoPath: repo, clientDir: clientDir() })
   return { app, repo, base, feature }
 }
 
@@ -27,7 +27,7 @@ describe('GET /api/repo and /api/branches', () => {
   it('returns repo info and branch lists', async () => {
     const { app, repo } = setupApp()
     const info = await (await app.request('/api/repo')).json()
-    expect(info).toEqual({ root: repo, name: repo.split('/').pop(), customMode: false })
+    expect(info).toEqual({ root: repo, name: repo.split('/').pop() })
     const branches = await (await app.request('/api/branches')).json()
     expect(branches.local).toEqual(['feature/x', 'main'])
     expect(branches.remote).toEqual(['origin/main'])
@@ -73,11 +73,6 @@ describe('GET /api/file-content in branch mode', () => {
     const q = 'mode=branch&source=feature/x&target=origin/main&path=img.png'
     expect(await (await app.request(`/api/file-content?${q}&version=old`)).text()).toBe('OLDPNG')
     expect(await (await app.request(`/api/file-content?${q}&version=new`)).text()).toBe('NEWPNG')
-  })
-
-  it('worktree mode keeps reading the worktree for the new version', async () => {
-    const { app } = setupApp()
-    expect(await (await app.request('/api/file-content?path=img.png&version=new')).text()).toBe('WORKTREEPNG')
   })
 })
 
@@ -125,11 +120,11 @@ describe('comments and viewed are scoped by comparison key', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filePath: 'a.txt', side: 'additions', lineNumber: 1, lineContent: 'x', body: 'c', ...body }),
     })
-    await post({ key: 'worktree', body: 'on worktree' })
+    await post({ key: 'branch:origin/main...main', body: 'on main' })
     await post({ key: 'branch:origin/main...feature/x', body: 'on branch' })
 
-    const wt = await (await app.request('/api/comments?key=worktree')).json()
-    expect(wt.map((c: { body: string }) => c.body)).toEqual(['on worktree'])
+    const other = await (await app.request('/api/comments?key=branch:origin/main...main')).json()
+    expect(other.map((c: { body: string }) => c.body)).toEqual(['on main'])
 
     // key 없는 요청은 마지막 /api/diff 조합을 따른다 (skills/diffx-finish-review 호환)
     await app.request('/api/diff?mode=branch&source=feature/x&target=origin/main')
@@ -147,22 +142,25 @@ describe('comments and viewed are scoped by comparison key', () => {
     await app.request('/api/viewed', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: 'worktree', filePath: 'a.txt', viewed: true, contentHash: 'abc' }),
+      body: JSON.stringify({ key: 'branch:origin/main...main', filePath: 'a.txt', viewed: true, contentHash: 'abc' }),
     })
-    expect(await (await app.request('/api/viewed?key=worktree')).json()).toEqual({ 'a.txt': 'abc' })
+    expect(await (await app.request('/api/viewed?key=branch:origin/main...main')).json()).toEqual({ 'a.txt': 'abc' })
     expect(await (await app.request('/api/viewed?key=branch:origin/main...feature/x')).json()).toEqual({})
   })
 })
 
-describe('custom mode diff directory', () => {
-  it('runs custom git diff args from diffCwd so pathspecs are relative to it', async () => {
-    const repo = makeRepo()
-    commit(repo, { 'a.txt': 'a\n', 'sub/b.txt': 'b\n' }, 'base')
-    writeFileSync(join(repo, 'a.txt'), 'a changed\n')
-    writeFileSync(join(repo, 'sub/b.txt'), 'b changed\n')
-    const app = createApp({ repoPath: repo, clientDir: clientDir(), customDiffArgs: ['--', '.'], diffCwd: join(repo, 'sub') })
-    const body = await (await app.request('/api/diff')).json()
-    expect(body.patch).toContain('+++ b/sub/b.txt')
-    expect(body.patch).not.toContain('a.txt')
+describe('comparison mode is required', () => {
+  it('rejects requests without a branch or mr mode', async () => {
+    const { app } = setupApp()
+    for (const path of ['/api/diff', '/api/diff?mode=worktree', '/api/file-content?path=a.txt&version=new', '/api/definition?path=a.txt&side=additions&line=1&col=0']) {
+      const res = await app.request(path)
+      expect(res.status).toBe(400)
+      expect(await res.json()).toMatchObject({ error: 'missing_mode', message: '비교 방식을 선택해 주세요' })
+    }
+  })
+
+  it('returns no comments without a key before any diff', async () => {
+    const { app } = setupApp()
+    expect(await (await app.request('/api/comments')).json()).toEqual([])
   })
 })

@@ -25,39 +25,6 @@ export function isImageFile(filePath: string): boolean {
   return IMAGE_EXTENSIONS.has(ext)
 }
 
-function isBinaryFile(absolutePath: string): boolean {
-  try {
-    const buffer = readFileSync(absolutePath)
-    const bytesToCheck = Math.min(buffer.length, 8192)
-    for (let i = 0; i < bytesToCheck; i++) {
-      if (buffer[i] === 0) return true
-    }
-    return false
-  } catch {
-    return true
-  }
-}
-
-export function getFileContent(repo: string, filePath: string, version: 'old' | 'new'): Buffer | null {
-  if (!isSafePath(filePath, repo)) {
-    return null
-  }
-  const resolved = resolve(repo, filePath)
-  if (version === 'new') {
-    try {
-      return readFileSync(resolved)
-    } catch {
-      return null
-    }
-  }
-  // old version: try staged first, then HEAD
-  try {
-    return runBuffer(repo, ['show', `HEAD:${filePath}`])
-  } catch {
-    return null
-  }
-}
-
 const BLOB_OID_REGEX = /^[0-9a-f]{4,64}$/
 
 export function getBlobContent(repo: string, oid: string): string | null {
@@ -122,32 +89,6 @@ export function getBranchName(repo: string): string {
 // (e.g. diff.external = difftastic, color.ui = always).
 const DIFF_FLAGS = ['--no-ext-diff', '--no-color'] as const
 
-export function getCustomGitDiff(repo: string, args: string[]): string {
-  return run(repo, ['diff', ...DIFF_FLAGS, ...args])
-}
-
-export function getGitDiff(repo: string, options: { staged?: boolean; untracked?: boolean } = {}): string {
-  const parts: string[] = []
-
-  // unstaged changes (always included as the base)
-  const unstaged = run(repo, ['diff', ...DIFF_FLAGS])
-  if (unstaged) parts.push(unstaged)
-
-  // staged changes
-  if (options.staged) {
-    const staged = run(repo, ['diff', ...DIFF_FLAGS, '--staged'])
-    if (staged) parts.push(staged)
-  }
-
-  // untracked files
-  if (options.untracked) {
-    const untrackedPatch = getUntrackedFilesDiff(repo)
-    if (untrackedPatch) parts.push(untrackedPatch)
-  }
-
-  return parts.join('\n')
-}
-
 export function getTabSizeForFiles(repo: string, filePaths: string[]): Record<string, number> {
   const cache = new Map<string, ProcessedFileConfig>()
   const result: Record<string, number> = {}
@@ -164,51 +105,6 @@ export function getTabSizeForFiles(repo: string, filePaths: string[]): Record<st
     }
   }
   return result
-}
-
-export function getUntrackedFilePaths(repo: string): string[] {
-  const output = run(repo, ['ls-files', '--others', '--exclude-standard']).trim()
-  return output ? output.split('\n') : []
-}
-
-function getUntrackedFilesDiff(repo: string): string {
-  const files = getUntrackedFilePaths(repo)
-  if (files.length === 0) return ''
-
-  const patches: string[] = []
-
-  for (const file of files) {
-    const absolutePath = join(repo, file)
-    if (isBinaryFile(absolutePath)) {
-      const patch = [
-        `diff --git a/${file} b/${file}`,
-        'new file mode 100644',
-        'index 0000000..0000001',
-        `Binary files /dev/null and b/${file} differ`,
-      ].join('\n')
-      patches.push(patch)
-    } else {
-      try {
-        const content = readFileSync(absolutePath, 'utf-8')
-        const lines = content.split('\n')
-        const diffLines = lines.map((l: string) => `+${l}`)
-        const patch = [
-          `diff --git a/${file} b/${file}`,
-          'new file mode 100644',
-          'index 0000000..0000001',
-          '--- /dev/null',
-          `+++ b/${file}`,
-          `@@ -0,0 +1,${lines.length} @@`,
-          ...diffLines,
-        ].join('\n')
-        patches.push(patch)
-      } catch {
-        // skip unreadable files
-      }
-    }
-  }
-
-  return patches.length > 0 ? '\n' + patches.join('\n') : ''
 }
 
 export interface BranchList {
