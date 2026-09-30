@@ -92,3 +92,10 @@ export async function checkoutReviewWorktree(root: string, repo: string, headSha
   }
   return { kind: 'done', path, headSha, copiedEnvFiles: await copyEnvFiles(repo, path) }
 }
+
+// node_modules처럼 git에 등록되지 않은 파일이 있으면 --force 없이는 git이 삭제를 거부한다.
+export async function removeReviewWorktree(root: string, repo: string): Promise<void> {
+  const path = reviewWorktreePath(root, repo)
+  if (existsSync(path)) await runGit(repo, ['worktree', 'remove', '--force', path])
+  else await runGit(repo, ['worktree', 'prune'])
+}
