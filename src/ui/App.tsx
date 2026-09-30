@@ -9,7 +9,7 @@ import { useDiff } from './hooks/useDiff'
 import { useRepo } from './hooks/useRepo'
 import { useBranches } from './hooks/useBranches'
 import { useGitlabStatus } from './hooks/useGitlab'
-import { reconcileMrAvailability, gitlabUnavailableMessage } from './gitlab'
+import { reconcileMrAvailability, gitlabUnavailableMessage, mrNotFoundReset } from './gitlab'
 import { useComments } from './hooks/useComments'
 import { useMrComments } from './hooks/useMrComments'
 import { DefinitionPopover, type PopoverContent } from './components/DefinitionPopover'
@@ -99,7 +99,14 @@ export function App() {
     await fetchRemote()
     setDiffReloadToken((t) => t + 1)
   }, [fetchRemote])
-  const { patch, branch, binaryFiles, tabSizeMap, key, identical, loading, error, mr: diffMr } = useDiff(params, diffReloadToken)
+  const { patch, branch, binaryFiles, tabSizeMap, key, identical, loading, error, errorCode, mr: diffMr } = useDiff(params, diffReloadToken)
+  useEffect(() => {
+    if (!comparison) return
+    const reset = mrNotFoundReset(comparison, errorCode)
+    if (!reset) return
+    handleComparisonChange(reset.comparison)
+    setNotice(reset.notice)
+  }, [comparison, errorCode, handleComparisonChange])
   const [mrRefreshing, setMrRefreshing] = useState(false)
   const handleRefreshMr = useCallback(async () => {
     setMrRefreshing(true)

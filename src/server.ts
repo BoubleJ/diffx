@@ -18,7 +18,7 @@ import { fingerprint } from './review/fingerprint.js'
 import { excludeFilesFromPatch } from './review/filterPatch.js'
 import type { ReviewProvider } from './review/types.js'
 import { createGlabClient, GlabError, type GlabClient } from './gitlab/glab.js'
-import { getGitlabStatus, listMrs, parseMrListQuery, MrFetchError, type GitlabStatus } from './gitlab/mr.js'
+import { getGitlabStatus, listMrs, parseMrListQuery, MrFetchError, MrNotFoundError, type GitlabStatus } from './gitlab/mr.js'
 import { MrComparisons, MrRequestError, parseIid, type MrResolved } from './gitlab/mrComparison.js'
 import { buildPosition } from './gitlab/position.js'
 import { buildThreads, type ApiDiscussion, type ApiDraftNote } from './gitlab/notes.js'
@@ -178,6 +178,9 @@ export function createApp(options: AppOptions) {
     }
     if (err instanceof MrRequestError) {
       return c.json({ error: 'invalid_iid', message: err.message }, 400)
+    }
+    if (err instanceof MrNotFoundError) {
+      return c.json({ error: 'mr_not_found', message: err.message }, 404)
     }
     if (err instanceof MrFetchError) {
       return c.json({ error: 'mr_fetch_failed', message: err.message }, 502)
