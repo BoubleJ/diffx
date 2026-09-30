@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { getSharedHighlighter } from '@pierre/diffs'
 import { codeLanguage, hastText, type HastNode } from '../markdownCode'
 
@@ -28,6 +29,7 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
 }
 
 const components: Components = {
+  table: ({ children }) => <div className="answer-table"><table>{children}</table></div>,
   a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer">{children}</a>,
   pre: ({ node }) => {
     const code = (node as unknown as HastNode | undefined)?.children?.[0]
@@ -41,7 +43,7 @@ const components: Components = {
 export function AnswerMarkdown({ text }: { text: string }) {
   return (
     <div className="answer-markdown">
-      <Markdown components={components}>{text}</Markdown>
+      <Markdown remarkPlugins={[remarkGfm]} components={components}>{text}</Markdown>
     </div>
   )
 }

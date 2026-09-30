@@ -1762,6 +1762,29 @@ body {
     font-size: 12px;
 }
 
+.answer-table {
+    margin: 6px 0;
+    overflow-x: auto;
+}
+
+.answer-table table {
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.answer-table th,
+.answer-table td {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+}
+
+.answer-table th {
+    background: var(--bg-secondary);
+    font-weight: 600;
+}
+
 .answer-code,
 .answer-code-highlighted pre {
     margin: 6px 0;
