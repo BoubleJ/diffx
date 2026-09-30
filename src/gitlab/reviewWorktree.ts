@@ -1,8 +1,8 @@
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { getRepoName } from '../git.js'
 
 export const DEFAULT_WORKTREE_ROOT = join(homedir(), '.config', 'diffx', 'worktrees')
@@ -62,6 +62,21 @@ export async function listChangedFiles(root: string, repo: string): Promise<stri
   return parseStatus(await runGit(path, ['status', '--porcelain', '-z', '--untracked-files=no']))
 }
 
+// --directory는 node_modules처럼 무시된 폴더를 폴더 이름 한 줄(`node_modules/`)로 출력해서 그 안의 파일을 나열하지 않는다.
+export async function copyEnvFiles(repo: string, worktree: string): Promise<string[]> {
+  const output = await runGit(repo, ['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--directory'])
+  const copied: string[] = []
+  for (const file of output.split('\0')) {
+    if (!file || file.endsWith('/') || !basename(file).startsWith('.env')) continue
+    const target = join(worktree, file)
+    if (existsSync(target)) continue
+    mkdirSync(dirname(target), { recursive: true })
+    copyFileSync(join(repo, file), target)
+    copied.push(file)
+  }
+  return copied
+}
+
 export async function checkoutReviewWorktree(root: string, repo: string, headSha: string, options: { force: boolean }): Promise<CheckoutResult> {
   if (!SHA_REGEX.test(headSha)) throw new WorktreeGitError('커밋 sha가 올바르지 않습니다')
   const path = reviewWorktreePath(root, repo)
@@ -75,5 +90,5 @@ export async function checkoutReviewWorktree(root: string, repo: string, headSha
     if (files.length > 0 && !options.force) return { kind: 'dirty', files }
     await runGit(path, ['checkout', ...(files.length > 0 ? ['--force'] : []), '--detach', headSha])
   }
-  return { kind: 'done', path, headSha, copiedEnvFiles: [] }
+  return { kind: 'done', path, headSha, copiedEnvFiles: await copyEnvFiles(repo, path) }
 }
