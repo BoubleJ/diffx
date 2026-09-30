@@ -299,3 +299,23 @@ export function fetchAll(repo: string, timeoutMs = 60_000): Promise<{ ok: true }
     )
   })
 }
+
+export interface RemoteInfo {
+  name: string
+  url: string
+}
+
+export function listRemotes(repo: string): RemoteInfo[] {
+  let output: string
+  try {
+    output = run(repo, ['remote', '-v'])
+  } catch {
+    return []
+  }
+  const remotes: RemoteInfo[] = []
+  for (const line of output.split('\n')) {
+    const match = line.match(/^(\S+)\t(\S+) \(fetch\)$/)
+    if (match) remotes.push({ name: match[1], url: match[2] })
+  }
+  return remotes
+}
