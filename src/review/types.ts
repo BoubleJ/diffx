@@ -44,6 +44,17 @@ export interface Command {
   cleanup?: () => void
 }
 
+export interface ReviewSession {
+  id: string
+  resume: boolean
+}
+
+export interface ReviewRequest {
+  prompt: string
+  systemPrompt: string
+  session: ReviewSession
+}
+
 export interface ReviewProvider {
   id: ProviderId
   label: string
@@ -51,13 +62,14 @@ export interface ReviewProvider {
   installHint: string
   loginHint: string
   authPattern: RegExp
+  sessionMissingPattern?: RegExp
   versionArgs: string[]
-  buildCommand(ctx: ReviewContext, prompt: string): Command
+  buildCommand(ctx: ReviewContext, request: ReviewRequest): Command
   parseLine?(line: string): LineParse | null
   parseFinal?(stdout: string): FinalOutput | null
 }
 
-export type FailureKind = 'not_installed' | 'auth' | 'timeout' | 'invalid_output' | 'process' | 'cancelled'
+export type FailureKind = 'not_installed' | 'auth' | 'timeout' | 'invalid_output' | 'process' | 'cancelled' | 'session_missing'
 
 export class ReviewFailure extends Error {
   constructor(public kind: FailureKind, message: string, public rawOutput?: string) {

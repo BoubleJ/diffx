@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { runReview, STOP_IMMEDIATELY, type RunOptions } from './runner.js'
 import type { ReviewStore, ReviewRecord } from './store.js'
-import { ReviewFailure, type FailureKind, type ProviderId, type ReviewContext, type ReviewProvider, type ReviewResult } from './types.js'
+import { buildReviewPrompt, buildSystemPrompt } from './prompt.js'
+import { ReviewFailure, type FailureKind, type ProviderId, type ReviewContext, type ReviewProvider, type ReviewRequest, type ReviewResult } from './types.js'
 
 export type JobEvent =
   | { type: 'progress'; text: string }
@@ -17,7 +18,7 @@ export interface StartInput {
   instruction?: string
 }
 
-export type RunFn = (provider: ReviewProvider, ctx: ReviewContext, options: RunOptions) => Promise<ReviewResult>
+export type RunFn = (provider: ReviewProvider, ctx: ReviewContext, request: ReviewRequest, options: RunOptions) => Promise<ReviewResult>
 
 interface Job {
   id: string
@@ -74,7 +75,8 @@ export class ReviewJobs {
       else finish({ type: 'error', kind: 'process', message: String((err as Error)?.message ?? err) })
     }
 
-    this.run(provider, ctx, { signal: job.controller.signal, onProgress: (text) => emit({ type: 'progress', text }) })
+    const request: ReviewRequest = { prompt: buildReviewPrompt(ctx), systemPrompt: buildSystemPrompt(ctx), session: { id: randomUUID(), resume: false } }
+    this.run(provider, ctx, request, { signal: job.controller.signal, onProgress: (text) => emit({ type: 'progress', text }) })
       .then((result) => {
         const record: ReviewRecord = { provider: provider.id, providerLabel: provider.label, createdAt: Date.now(), key, fingerprint, result, ...(excluded && excluded.length > 0 ? { excluded } : {}), ...(instruction ? { instruction } : {}) }
         try {

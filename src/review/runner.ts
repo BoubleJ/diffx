@@ -1,9 +1,8 @@
 import { spawn, execFile } from 'node:child_process'
 import { readFileSync, existsSync, rmSync } from 'node:fs'
 import { createInterface } from 'node:readline'
-import { buildReviewPrompt } from './prompt.js'
 import { extractJson, validateResult } from './schema.js'
-import { ReviewFailure, type Command, type FinalOutput, type ReviewContext, type ReviewProvider, type ReviewResult } from './types.js'
+import { ReviewFailure, type Command, type FinalOutput, type ReviewContext, type ReviewProvider, type ReviewRequest, type ReviewResult } from './types.js'
 
 export interface RunOptions {
   signal?: AbortSignal
@@ -19,9 +18,10 @@ const DEFAULT_TIMEOUT = 600_000
 const MAX_STDOUT = 20 * 1024 * 1024
 
 const PROBE_CONTEXT: ReviewContext = { repoPath: process.cwd(), mode: 'branch', source: 'HEAD', target: 'HEAD', mergeBase: 'HEAD', sourceCheckedOut: true, files: [], patch: '' }
+const PROBE_REQUEST: ReviewRequest = { prompt: '', systemPrompt: '', session: { id: 'probe', resume: false } }
 
 export function detectProvider(provider: ReviewProvider): Promise<{ installed: boolean; version?: string }> {
-  const command = provider.buildCommand(PROBE_CONTEXT, '')
+  const command = provider.buildCommand(PROBE_CONTEXT, PROBE_REQUEST)
   command.cleanup?.()
   return new Promise((done) => {
     execFile(command.bin, provider.versionArgs, { timeout: 5000 }, (err, stdout) => {
@@ -47,10 +47,10 @@ function tail(text: string, lines: number): string {
   return text.trim().split('\n').slice(-lines).join('\n')
 }
 
-export function runReview(provider: ReviewProvider, ctx: ReviewContext, options: RunOptions = {}): Promise<ReviewResult> {
+export function runReview(provider: ReviewProvider, ctx: ReviewContext, request: ReviewRequest, options: RunOptions = {}): Promise<ReviewResult> {
   let command: Command
   try {
-    command = provider.buildCommand(ctx, buildReviewPrompt(ctx))
+    command = provider.buildCommand(ctx, request)
   } catch (err) {
     return Promise.reject(new ReviewFailure('process', err instanceof Error ? err.message : String(err)))
   }
@@ -182,6 +182,9 @@ export function runReview(provider: ReviewProvider, ctx: ReviewContext, options:
 
         const combined = `${stdout}\n${stderr}`
         if (code !== 0 || final?.isError) {
+          if (provider.sessionMissingPattern?.test(combined)) {
+            return reject(new ReviewFailure('session_missing', '이어갈 Claude 세션을 찾지 못했습니다'))
+          }
           if (provider.authPattern.test(combined) || provider.authPattern.test(final?.text ?? '')) {
             return reject(new ReviewFailure('auth', `${provider.label} 로그인이 필요합니다. 터미널에서 \`${provider.loginHint}\`을 실행해 주세요`))
           }
