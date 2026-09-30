@@ -39,7 +39,8 @@ function findExportLocation(reader: SourceReader, path: string, name: string, de
 
 function searchDeclarations(reader: SourceReader, name: string): DefinitionTarget[] {
   const escaped = name.replace(/\$/g, '\\$')
-  const pattern = `(function|const|let|var|class|interface|type|enum|namespace)[[:space:]*]+${escaped}([^A-Za-z0-9_$]|$)`
+  const prefix = '^[[:space:]]*(export[[:space:]]+)?(default[[:space:]]+)?(declare[[:space:]]+)?(abstract[[:space:]]+)?(async[[:space:]]+)?(const[[:space:]]+)?'
+  const pattern = `${prefix}(function|const|let|var|class|interface|type|enum|namespace)[[:space:]*]+${escaped}([^A-Za-z0-9_$]|$)`
   const confirm = declarationRegex(name)
   return reader.grep(pattern)
     .filter((hit) => confirm.test(hit.text))
@@ -53,7 +54,7 @@ export function resolveDefinition(reader: SourceReader, filePath: string, line: 
   if (text === null) return NOT_FOUND
   const lineText = text.split('\n')[line - 1]
   if (lineText === undefined) return NOT_FOUND
-  const target = classifyToken(lineText, col)
+  const target = classifyToken(lineText, col, { vue: filePath.endsWith('.vue') })
   if (!target) return NOT_FOUND
 
   if (target.kind === 'module') {

@@ -25,16 +25,19 @@ const PATHSPECS = [
   ':(exclude,glob)**/.next/**',
 ]
 
-function git(repo: string, args: string[]): string {
-  return execFileSync('git', ['-c', 'core.quotepath=false', ...args], { cwd: repo, encoding: 'utf-8', stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 })
+const GREP_TIMEOUT_MS = 10_000
+
+function git(repo: string, args: string[], timeout?: number): string {
+  return execFileSync('git', ['-c', 'core.quotepath=false', ...args], { cwd: repo, encoding: 'utf-8', stdio: 'pipe', maxBuffer: 50 * 1024 * 1024, timeout })
 }
 
 function runGrep(repo: string, args: string[], prefix: string): GrepHit[] {
   let output: string
   try {
-    output = git(repo, ['grep', '-n', '-I', '-E', ...args])
+    output = git(repo, ['grep', '-n', '-I', '-E', ...args], GREP_TIMEOUT_MS)
   } catch (err) {
-    if ((err as { status?: number }).status === 1) return []
+    const { status, signal } = err as { status?: number; signal?: string }
+    if (status === 1 || signal === 'SIGTERM') return []
     throw err
   }
   const hits: GrepHit[] = []

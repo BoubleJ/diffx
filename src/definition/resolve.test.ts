@@ -114,3 +114,20 @@ describe('resolveDefinition', () => {
     expect(click(worktreeReader(repo), 'src/page.ts', PAGE[8], 9, 'fmt')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/date.ts', line: 3 }] })
   })
 })
+
+describe('repository search pattern', () => {
+  it('anchors the git grep pattern at the start of a line so minified code is not returned', () => {
+    const patterns: string[] = []
+    const reader = {
+      readFile: (path: string) => (path === 'src/x.ts' ? 'use(thing)\n' : null),
+      exists: () => false,
+      grep: (pattern: string) => {
+        patterns.push(pattern)
+        return []
+      },
+    }
+    expect(resolveDefinition(reader, 'src/x.ts', 1, 4)).toEqual({ kind: 'not_found' })
+    expect(patterns).toHaveLength(1)
+    expect(patterns[0].startsWith('^[[:space:]]*')).toBe(true)
+  })
+})

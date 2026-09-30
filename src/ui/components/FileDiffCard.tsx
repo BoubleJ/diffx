@@ -33,6 +33,14 @@ interface FileDiffCardProps {
   onHighlightMissing?: (filePath: string, line: number, side: 'additions' | 'deletions') => void
 }
 
+function scrollToEstimatedLine(card: HTMLElement, line: number, total: number): void {
+  const scroller = card.closest('.main-scroll')
+  if (!scroller || total === 0) return
+  const cardRect = card.getBoundingClientRect()
+  const scrollerRect = scroller.getBoundingClientRect()
+  scroller.scrollTop += cardRect.top - scrollerRect.top + (cardRect.height * (line - 1)) / total - scrollerRect.height / 2
+}
+
 export const FileDiffCard = memo(function FileDiffCard({
   id,
   fileDiff,
@@ -59,13 +67,20 @@ export const FileDiffCard = memo(function FileDiffCard({
     if (!highlightLine) return
     let frames = 0
     let handle = 0
+    let nudged = false
     const tryScroll = () => {
-      const target = cardRef.current && findLineElement(cardRef.current, highlightLine.line, highlightLine.side)
+      const card = cardRef.current
+      const target = card && findLineElement(card, highlightLine.line, highlightLine.side)
       if (target) {
         target.scrollIntoView({ block: 'center' })
         return
       }
-      if (frames++ < 30) handle = requestAnimationFrame(tryScroll)
+      if (!nudged && frames >= 5 && card && !fileDiff.isPartial) {
+        nudged = true
+        const total = highlightLine.side === 'additions' ? fileDiff.additionLines.length : fileDiff.deletionLines.length
+        scrollToEstimatedLine(card, highlightLine.line, total)
+      }
+      if (frames++ < 60) handle = requestAnimationFrame(tryScroll)
       else onHighlightMissing?.(filePath, highlightLine.line, highlightLine.side)
     }
     handle = requestAnimationFrame(tryScroll)
