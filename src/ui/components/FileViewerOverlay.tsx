@@ -15,6 +15,7 @@ interface OverlayEntry {
 interface FileViewerOverlayProps {
   entries: OverlayEntry[]
   contentQuery: string
+  rightInset: number
   onBack: () => void
   onClose: () => void
   onDefinition: (req: DefinitionRequest, anchor: DOMRect) => void
@@ -23,7 +24,7 @@ interface FileViewerOverlayProps {
 
 type LoadState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; contents: string }
 
-export function FileViewerOverlay({ entries, contentQuery, onBack, onClose, onDefinition, onFileReferences }: FileViewerOverlayProps) {
+export function FileViewerOverlay({ entries, contentQuery, rightInset, onBack, onClose, onDefinition, onFileReferences }: FileViewerOverlayProps) {
   const current = entries[entries.length - 1]
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -72,7 +73,7 @@ export function FileViewerOverlay({ entries, contentQuery, onBack, onClose, onDe
   const linkable = isSourceFile(current.path)
 
   return (
-    <div className="file-overlay-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="file-overlay-backdrop" style={{ right: rightInset }} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="file-overlay">
         <div className="file-overlay-header">
           <span

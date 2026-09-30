@@ -311,6 +311,7 @@ export function App() {
   const [explore, setExplore] = useState<ExploreState>({ status: 'idle' })
   const [exploreSelected, setExploreSelected] = useState<string | null>(null)
   const exploreGate = useRef(createRequestGate())
+  const definitionGate = useRef(createRequestGate())
   const [overlayEntries, setOverlayEntries] = useState<{ path: string; line: number; version: DefinitionVersion }[]>([])
   const pendingJump = useRef<{ file: string; line: number; side: 'additions' | 'deletions'; version: DefinitionVersion } | null>(null)
 
@@ -361,7 +362,7 @@ export function App() {
         setExplore({ status: 'ready', title, items: [], truncated: false, version: req.side === 'additions' ? 'new' : 'old' })
         return
       }
-      setExplore({ status: 'ready', title, items: res.references, truncated: res.truncated, version: res.version })
+      setExplore({ status: 'ready', title: 'scope' in req ? title : exploreTitle.references(res.name), items: res.references, truncated: res.truncated, version: res.version })
     } catch {
       if (exploreGate.current.isLatest(id)) setExplore({ status: 'error', title })
     }
@@ -373,7 +374,7 @@ export function App() {
   }, [jumpTo])
 
   const handleDefinition = useCallback(async (req: DefinitionRequest, anchor: DOMRect, fromOverlay = false) => {
-    const requestId = exploreGate.current.next()
+    const requestId = definitionGate.current.next()
     document.body.classList.add('definition-loading')
     let action: DefinitionAction
     try {
@@ -383,10 +384,11 @@ export function App() {
     } finally {
       document.body.classList.remove('definition-loading')
     }
-    if (!exploreGate.current.isLatest(requestId)) return
+    if (!definitionGate.current.isLatest(requestId)) return
     if (action.type === 'jump') {
       jumpTo(action.target, action.version, fromOverlay)
     } else if (action.type === 'choose') {
+      exploreGate.current.next()
       showExplore({ status: 'ready', title: exploreTitle.candidates(req.name ?? ''), items: action.targets, truncated: false, version: action.version })
     } else if (action.type === 'references') {
       void openReferences({ path: req.path, side: req.side, line: req.line, col: req.col }, req.name ?? '')
@@ -407,6 +409,7 @@ export function App() {
   useEffect(() => setOverlayEntries([]), [contentQuery])
   useEffect(() => {
     exploreGate.current.next()
+    definitionGate.current.next()
     setExplore({ status: 'idle' })
     setExploreSelected(null)
   }, [contentQuery])
@@ -604,6 +607,7 @@ export function App() {
         <FileViewerOverlay
           entries={overlayEntries}
           contentQuery={contentQuery}
+          rightInset={reviewPanel.open ? Math.min(reviewPanel.size, maxSidebarWidth) : 0}
           onBack={backOverlay}
           onClose={closeOverlay}
           onDefinition={handleOverlayDefinition}
