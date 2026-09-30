@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { gitlabUnavailableMessage, reconcileMrAvailability, mrTabAction } from './gitlab'
+import { gitlabUnavailableMessage, reconcileMrAvailability, mrTabAction, mrNotFoundReset, mrStateBadge } from './gitlab'
 
 describe('gitlabUnavailableMessage', () => {
   it('explains each reason', () => {
@@ -45,5 +45,23 @@ describe('mrTabAction', () => {
 
   it('does nothing while the status is loading', () => {
     expect(mrTabAction(undefined)).toBe('none')
+  })
+})
+
+describe('mrNotFoundReset', () => {
+  it('clears the MR selection only when GitLab has no such MR', () => {
+    expect(mrNotFoundReset({ mode: 'mr', iid: 100 }, 'mr_not_found')).toEqual({ comparison: { mode: 'mr', iid: null }, notice: 'MR !100을 찾지 못했습니다' })
+    expect(mrNotFoundReset({ mode: 'mr', iid: 100 }, 'api')).toBeNull()
+    expect(mrNotFoundReset({ mode: 'mr', iid: 100 }, null)).toBeNull()
+    expect(mrNotFoundReset({ mode: 'mr', iid: null }, 'mr_not_found')).toBeNull()
+    expect(mrNotFoundReset({ mode: 'branch', source: 'a', target: 'b' }, 'mr_not_found')).toBeNull()
+  })
+})
+
+describe('mrStateBadge', () => {
+  it('labels merged and closed MRs only', () => {
+    expect(mrStateBadge('merged')).toBe('머지됨')
+    expect(mrStateBadge('closed')).toBe('닫힘')
+    expect(mrStateBadge('opened')).toBeNull()
   })
 })

@@ -89,7 +89,7 @@ describe('GET /api/diff?mode=mr', () => {
     const body = await res.json()
     expect(body.patch).toContain('+TWO')
     expect(body).toMatchObject({ key: 'mr:7', mode: 'mr', sourceSha: head, targetSha: base, mergeBase: base, identical: false })
-    expect(body.mr).toEqual({ iid: 7, title: '로그인 수정', webUrl: 'https://gitlab.example.com/team/app/-/merge_requests/7', sourceBranch: 'feature', targetBranch: 'main', baseSha: base, startSha: base, headSha: head })
+    expect(body.mr).toEqual({ iid: 7, title: '로그인 수정', state: 'opened', webUrl: 'https://gitlab.example.com/team/app/-/merge_requests/7', sourceBranch: 'feature', targetBranch: 'main', baseSha: base, startSha: base, headSha: head })
     expect(hasCommit(local, head)).toBe(true)
   })
 
@@ -113,6 +113,19 @@ describe('GET /api/diff?mode=mr', () => {
     expect(await bad.json()).toMatchObject({ error: 'invalid_iid' })
     const missing = await app.request('/api/diff?mode=mr&iid=8')
     expect(missing.status).toBe(500)
+  })
+
+  it('returns 404 mr_not_found when GitLab has no such MR', async () => {
+    const repo = makeMrRepo()
+    const fake = fakeGlab({
+      'GET projects/:fullpath': PROJECT,
+      'GET user': { username: 'me' },
+      'GET projects/:fullpath/merge_requests/7': new GlabError('api', 'glab: 404 Not Found (HTTP 404)'),
+    })
+    const app = createApp({ repoPath: repo.local, clientDir: clientDir(), glab: fake.glab })
+    const res = await app.request('/api/diff?mode=mr&iid=7')
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'mr_not_found', message: 'MR !7을 찾지 못했습니다' })
   })
 
   it('returns 502 when the MR commits cannot be fetched', async () => {

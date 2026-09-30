@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { GitBranch, PanelRight, RefreshCw, Settings } from 'lucide-react'
+import { mrStateBadge } from '../gitlab'
 
 interface ToolbarProps {
   branch: string
@@ -16,7 +17,7 @@ interface ToolbarProps {
   onDiffStyleChange: (style: 'split' | 'unified') => void
   onDefaultTabSizeChange: (size: number) => void
   onSoftWrapChange: (softWrap: boolean) => void
-  mrLink?: { iid: number; title: string; webUrl: string }
+  mrLink?: { iid: number; title: string; webUrl: string; state: string }
   submitReview?: { count: number; submitting: boolean; error: string | null; onSubmit: () => void }
 }
 
@@ -61,6 +62,7 @@ export function Toolbar({
             !{mrLink.iid} {mrLink.title}
           </a>
         )}
+        {mrLink && mrStateBadge(mrLink.state) && <span className="mr-badge">{mrStateBadge(mrLink.state)}</span>}
         {branchPicker ?? (branch && (
           <span className="toolbar-branch">
             <GitBranch size={12} />

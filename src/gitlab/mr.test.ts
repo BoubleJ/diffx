@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseRemoteUrl, findGitlabRemote, getGitlabStatus, mrListPath, listMrs, parseMrListQuery, getMrDetail, ensureMrCommits, MrFetchError, type MrDetail } from './mr'
+import { parseRemoteUrl, findGitlabRemote, getGitlabStatus, mrListPath, listMrs, parseMrListQuery, getMrDetail, ensureMrCommits, MrFetchError, MrNotFoundError, type MrDetail } from './mr'
 import { GlabError } from './glab'
 import { fakeGlab } from '../test/fakeGlab'
 
@@ -84,7 +84,7 @@ describe('getMrDetail', () => {
       },
     })
     expect(await getMrDetail(glab, 7)).toEqual({
-      iid: 7, title: 't', webUrl: 'u', sourceBranch: 's', targetBranch: 'main',
+      iid: 7, title: 't', state: 'opened', webUrl: 'u', sourceBranch: 's', targetBranch: 'main',
       baseSha: 'b'.repeat(40), startSha: 'c'.repeat(40), headSha: 'd'.repeat(40),
     })
   })
@@ -93,10 +93,22 @@ describe('getMrDetail', () => {
     const { glab } = fakeGlab({ 'GET projects/:fullpath/merge_requests/7': { iid: 7, diff_refs: null } })
     await expect(getMrDetail(glab, 7)).rejects.toMatchObject({ kind: 'api', message: 'MR의 diff 정보를 찾지 못했습니다' })
   })
+
+  it('reports a missing MR separately from other GitLab errors', async () => {
+    const missing = fakeGlab({ 'GET projects/:fullpath/merge_requests/7': new GlabError('api', 'glab: 404 Not Found (HTTP 404)') })
+    const err = await getMrDetail(missing.glab, 7).catch((e) => e)
+    expect(err).toBeInstanceOf(MrNotFoundError)
+    expect(err.message).toBe('MR !7을 찾지 못했습니다')
+
+    const project = fakeGlab({ 'GET projects/:fullpath/merge_requests/7': new GlabError('api', 'glab: 404 Project Not Found (HTTP 404)') })
+    await expect(getMrDetail(project.glab, 7)).rejects.not.toBeInstanceOf(MrNotFoundError)
+    const server = fakeGlab({ 'GET projects/:fullpath/merge_requests/7': new GlabError('api', 'glab: 500') })
+    await expect(getMrDetail(server.glab, 7)).rejects.not.toBeInstanceOf(MrNotFoundError)
+  })
 })
 
 describe('ensureMrCommits', () => {
-  const mr: MrDetail = { iid: 7, title: 't', webUrl: 'u', sourceBranch: 's', targetBranch: 'release/1.0', baseSha: 'b'.repeat(40), startSha: 'b'.repeat(40), headSha: 'h'.repeat(40) }
+  const mr: MrDetail = { iid: 7, title: 't', state: 'opened', webUrl: 'u', sourceBranch: 's', targetBranch: 'release/1.0', baseSha: 'b'.repeat(40), startSha: 'b'.repeat(40), headSha: 'h'.repeat(40) }
 
   function deps(present: boolean[], results: ({ ok: true } | { ok: false; error: string })[]) {
     const fetches: string[][] = []

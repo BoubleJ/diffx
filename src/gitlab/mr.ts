@@ -121,6 +121,7 @@ export async function listMrs(glab: GlabClient, q: MrListQuery): Promise<MrSumma
 export interface MrDetail {
   iid: number
   title: string
+  state: string
   webUrl: string
   sourceBranch: string
   targetBranch: string
@@ -129,12 +130,25 @@ export interface MrDetail {
   headSha: string
 }
 
+export class MrNotFoundError extends Error {}
+
+function isMissingMr(err: unknown): boolean {
+  return err instanceof GlabError && err.kind === 'api' && /\b404\b/.test(err.message) && !/Project Not Found/i.test(err.message)
+}
+
 export async function getMrDetail(glab: GlabClient, iid: number): Promise<MrDetail> {
-  const m = await glab(`projects/:fullpath/merge_requests/${iid}`) as ApiMr
+  let m: ApiMr
+  try {
+    m = await glab(`projects/:fullpath/merge_requests/${iid}`) as ApiMr
+  } catch (err) {
+    if (isMissingMr(err)) throw new MrNotFoundError(`MR !${iid}을 찾지 못했습니다`)
+    throw err
+  }
   if (!m.diff_refs) throw new GlabError('api', 'MR의 diff 정보를 찾지 못했습니다')
   return {
     iid: m.iid,
     title: m.title,
+    state: m.state,
     webUrl: m.web_url,
     sourceBranch: m.source_branch,
     targetBranch: m.target_branch,

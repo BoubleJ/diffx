@@ -23,3 +23,14 @@ export function mrTabAction(status: GitlabStatus | undefined): 'open' | 'recheck
   if (!status) return 'none'
   return status.available ? 'open' : 'recheck'
 }
+
+export function mrNotFoundReset(c: Comparison, errorCode: string | null): { comparison: Comparison; notice: string } | null {
+  if (errorCode !== 'mr_not_found' || c.mode !== 'mr' || c.iid === null) return null
+  return { comparison: { mode: 'mr', iid: null }, notice: `MR !${c.iid}을 찾지 못했습니다` }
+}
+
+const STATE_BADGE: Record<string, string> = { merged: '머지됨', closed: '닫힘' }
+
+export function mrStateBadge(state: string): string | null {
+  return STATE_BADGE[state] ?? null
+}

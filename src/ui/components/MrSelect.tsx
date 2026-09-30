@@ -3,14 +3,13 @@ import { ChevronDown } from 'lucide-react'
 import type { MrState } from '../../gitlab/mr'
 import { useMrList } from '../hooks/useGitlab'
 import { loadMrFilter, saveMrFilter, type MrFilter } from '../mrFilterStorage'
+import { mrStateBadge } from '../gitlab'
 
 const STATE_OPTIONS: { value: MrState; label: string }[] = [
   { value: 'all', label: '전체' },
   { value: 'opened', label: '열린 MR' },
   { value: 'merged', label: '머지된 MR' },
 ]
-
-const STATE_BADGE: Record<string, string> = { merged: '머지됨', closed: '닫힘' }
 
 interface MrSelectProps {
   repoRoot: string
@@ -99,7 +98,7 @@ export function MrSelect({ repoRoot, value, title, onChange }: MrSelectProps) {
               >
                 <span className="mr-select-title">
                   !{mr.iid} {mr.title}
-                  {STATE_BADGE[mr.state] && <span className="mr-badge">{STATE_BADGE[mr.state]}</span>}
+                  {mrStateBadge(mr.state) && <span className="mr-badge">{mrStateBadge(mr.state)}</span>}
                 </span>
                 <span className="mr-select-meta">
                   <span>{mr.sourceBranch} → {mr.targetBranch}</span>
