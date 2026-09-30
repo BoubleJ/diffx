@@ -300,10 +300,10 @@ export function createApp(options: AppOptions) {
     const side = c.req.query('side')
     const line = c.req.query('line') ?? ''
     const col = c.req.query('col') ?? ''
+    const fileTarget = c.req.query('scope') === 'file'
     if (!path || !isSafePath(path, repo) || (side !== 'additions' && side !== 'deletions')) {
       return c.json({ error: 'invalid_query' }, 400)
     }
-    const fileTarget = !line && !col
     if (!fileTarget && (!/^[1-9]\d*$/.test(line) || !/^\d+$/.test(col))) {
       return c.json({ error: 'invalid_query' }, 400)
     }

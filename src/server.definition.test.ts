@@ -72,14 +72,14 @@ describe('GET /api/references', () => {
 
   it('lists files that import a file', async () => {
     const app = setup()
-    const body = await (await app.request(`/api/references?${branch}&side=additions&path=src/a.ts&target=file`)).json()
+    const body = await (await app.request(`/api/references?${branch}&side=additions&path=src/a.ts&scope=file`)).json()
     expect(body).toEqual({ kind: 'found', name: 'a', version: 'new', truncated: false, references: [{ path: 'src/b.ts', line: 1, text: "import { greet } from './a'" }] })
   })
 
   it('returns not_declaration and rejects invalid queries', async () => {
     const app = setup()
     expect(await (await app.request(`/api/references?${branch}&side=additions&path=src/b.ts&line=2&col=0`)).json()).toEqual({ kind: 'not_declaration' })
-    for (const q of ['side=additions&path=src/a.ts&line=2&col=16', `${branch}&side=x&path=src/a.ts&line=2&col=16`, `${branch}&side=additions&path=../x&line=2&col=16`, `${branch}&side=additions&path=src/a.ts&line=0&col=0`]) {
+    for (const q of ['side=additions&path=src/a.ts&line=2&col=16', `${branch}&side=x&path=src/a.ts&line=2&col=16`, `${branch}&side=additions&path=../x&line=2&col=16`, `${branch}&side=additions&path=src/a.ts&line=0&col=0`, `${branch}&side=additions&path=src/a.ts`]) {
       expect((await app.request(`/api/references?${q}`)).status).toBe(400)
     }
   })
