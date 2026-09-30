@@ -26,6 +26,7 @@
     "dev:client": "vite",
     "build:electron": "vite build && tsdown",
     "build:app": "pnpm run build:electron && electron-builder --mac zip --arm64",
+    "release": "bash scripts/release.sh",
     "test": "vitest run",
     "test:watch": "vitest"
   },

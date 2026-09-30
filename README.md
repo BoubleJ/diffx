@@ -73,6 +73,38 @@ pnpm run build:app
 
 `release/reviewHelper-<버전>.zip`이 만들어진다. 버전은 `package.json`의 `version` 값이다.
 
+### 자동 업데이트
+
+앱 실행 시 GitHub Release(`BoubleJ/diffx`)의 최신 버전을 확인한다. 앱 메뉴의 `업데이트 확인...` 클릭 시에도 확인한다.
+
+1. 새 버전이 있으면 현재 버전과 Release 노트가 담긴 대화상자가 열린다.
+2. `지금 업데이트` 클릭 시 zip을 내려받는다. 내려받는 동안 Dock 아이콘에 진행률 막대가 표시된다.
+3. 다 받으면 앱이 종료되고 기존 `reviewHelper.app`이 새 버전으로 교체된 뒤 다시 실행된다.
+
+`나중에`를 누르면 다음 실행 때 다시 확인한다. 설정과 AI 리뷰 기록은 `~/Library/Application Support/reviewHelper`에 있어서 업데이트 후에도 남는다.
+
+브라우저로 받은 zip을 풀고 앱을 옮기지 않은 채 실행하면 macOS가 앱을 읽기 전용 임시 경로에서 실행해서 교체할 수 없다. 이때는 앱을 `/Applications`나 다른 폴더로 옮긴 뒤 다시 실행한다.
+
+1.0.0에는 업데이트 기능이 없다. 업데이트 기능이 들어간 첫 버전은 zip으로 한 번 직접 설치한다.
+
+### 릴리스
+
+1. gh를 설치하고 GitHub에 로그인한다. 처음 한 번만 한다.
+   ```bash
+   brew install gh
+   gh auth login
+   ```
+2. `main` 브랜치에서 커밋하지 않은 변경이 없는 상태로 실행한다.
+   ```bash
+   pnpm run release patch   # 또는 minor, major
+   ```
+3. 스크립트가 아래 순서로 실행한다.
+   - `package.json` 버전을 올리고 `chore: v1.0.1 버전업` 커밋과 `v1.0.1` 태그를 만든다.
+   - 테스트와 `build:app`을 실행한다. 실패하면 버전업 커밋과 태그를 되돌린다.
+   - 커밋과 태그를 push한다.
+   - 이전 태그 이후의 커밋 제목으로 Release 노트를 만들고 `v1.0.1` Release에 `reviewHelper-1.0.1.zip`을 올린다.
+   - zip을 바탕화면에 복사한다.
+
 ## 개발
 
 | 명령 | 용도 |
