@@ -31,7 +31,7 @@ import { loadExcluded, saveExcluded } from './excludedStorage'
 import { excludeFilesFromPatch } from '../review/filterPatch'
 import { loadReviewPanel, saveReviewPanel, REVIEW_PANEL_MIN } from './reviewPanelStorage'
 import { loadReviewInstruction, saveReviewInstruction } from './reviewInstructionStorage'
-import { comparisonParams, loadComparison, saveComparison, reconcileComparison, type Comparison } from './comparison'
+import { comparisonParams, loadComparison, saveComparison, reconcileComparison, comparisonForMode, type Comparison } from './comparison'
 
 function useWindowSize({ factor }: { factor: number }) {
   const compute = () => Math.round(window.innerWidth * factor)
@@ -81,6 +81,14 @@ export function App() {
     setComparison(next)
     if (repo) saveComparison(repo.root, next)
   }, [repo])
+
+  const handleModeChange = useCallback((mode: Comparison['mode']) => {
+    if (!repo) return
+    const next = comparisonForMode(repo.root, mode, branches)
+    if (!next) return
+    handleComparisonChange(next.comparison)
+    if (next.missing.length > 0) setNotice(`저장된 브랜치 ${next.missing.join(', ')}을 찾지 못해 기본값으로 바꿨습니다`)
+  }, [repo, branches, handleComparisonChange])
 
   const params = useMemo(
     () => (comparison ? comparisonParams(comparison) : null),
@@ -398,6 +406,7 @@ export function App() {
             fetchError={fetchError}
             notice={notice}
             onChange={handleComparisonChange}
+            onModeChange={handleModeChange}
             onFetch={handleFetch}
             repoRoot={repo.root}
             gitlab={gitlab.status}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { comparisonParams, loadComparison, saveComparison, reconcileComparison } from './comparison'
+import { comparisonParams, loadComparison, saveComparison, reconcileComparison, comparisonForMode } from './comparison'
 
 function memoryStorage() {
   const data = new Map<string, string>()
@@ -71,5 +71,37 @@ describe('mr comparison', () => {
 
   it('keeps a saved MR during branch reconciliation', () => {
     expect(reconcileComparison({ mode: 'mr', iid: 7 }, branches)).toEqual({ comparison: { mode: 'mr', iid: 7 }, missing: [] })
+  })
+})
+
+describe('comparisonForMode', () => {
+  it('returns the last MR after visiting the branch tab', () => {
+    const s = memoryStorage()
+    saveComparison('/repo/a', { mode: 'mr', iid: 100 }, s)
+    saveComparison('/repo/a', { mode: 'branch', source: 'main', target: 'origin/main' }, s)
+    expect(comparisonForMode('/repo/a', 'mr', branches, s)).toEqual({ comparison: { mode: 'mr', iid: 100 }, missing: [] })
+  })
+
+  it('returns the last branch pair after visiting the MR tab', () => {
+    const s = memoryStorage()
+    saveComparison('/repo/a', { mode: 'branch', source: 'main', target: 'origin/main' }, s)
+    saveComparison('/repo/a', { mode: 'mr', iid: 100 }, s)
+    expect(comparisonForMode('/repo/a', 'branch', branches, s)).toEqual({ comparison: { mode: 'branch', source: 'main', target: 'origin/main' }, missing: [] })
+  })
+
+  it('falls back to defaults when nothing was chosen in that mode', () => {
+    const s = memoryStorage()
+    expect(comparisonForMode('/repo/a', 'mr', branches, s)).toEqual({ comparison: { mode: 'mr', iid: null }, missing: [] })
+    expect(comparisonForMode('/repo/a', 'branch', branches, s)).toEqual({ comparison: { mode: 'branch', source: 'feature/x', target: 'origin/main' }, missing: [] })
+  })
+
+  it('replaces a remembered branch that no longer exists', () => {
+    const s = memoryStorage()
+    saveComparison('/repo/a', { mode: 'branch', source: 'gone', target: 'main' }, s)
+    expect(comparisonForMode('/repo/a', 'branch', branches, s)).toEqual({ comparison: { mode: 'branch', source: 'feature/x', target: 'main' }, missing: ['gone'] })
+  })
+
+  it('cannot open the branch tab without a branch list', () => {
+    expect(comparisonForMode('/repo/a', 'branch', undefined, memoryStorage())).toBeNull()
   })
 })

@@ -1,6 +1,5 @@
 import { ArrowRight, RefreshCw } from 'lucide-react'
 import type { Comparison } from '../comparison'
-import { defaultBranchComparison } from '../comparison'
 import type { BranchList } from '../hooks/useBranches'
 import { RefSelect } from './RefSelect'
 import type { GitlabStatus } from '../../gitlab/mr'
@@ -14,6 +13,7 @@ interface BranchPickerProps {
   fetchError: string | null
   notice: string | null
   onChange: (c: Comparison) => void
+  onModeChange: (mode: Comparison['mode']) => void
   onFetch: () => void
   repoRoot: string
   gitlab: GitlabStatus | undefined
@@ -23,10 +23,10 @@ interface BranchPickerProps {
   onRecheckGitlab: () => void
 }
 
-export function BranchPicker({ comparison, branches, fetching, fetchError, notice, onChange, onFetch, repoRoot, gitlab, mrTitle, mrRefreshing, onRefreshMr, onRecheckGitlab }: BranchPickerProps) {
+export function BranchPicker({ comparison, branches, fetching, fetchError, notice, onChange, onModeChange, onFetch, repoRoot, gitlab, mrTitle, mrRefreshing, onRefreshMr, onRecheckGitlab }: BranchPickerProps) {
   const switchToBranch = () => {
     if (comparison.mode === 'branch' || !branches) return
-    onChange(defaultBranchComparison(branches))
+    onModeChange('branch')
   }
 
   const mrUnavailable = gitlab && !gitlab.available ? `${gitlabUnavailableMessage(gitlab)} (클릭 시 다시 확인)` : null
@@ -34,7 +34,7 @@ export function BranchPicker({ comparison, branches, fetching, fetchError, notic
   const handleMrTab = () => {
     const action = mrTabAction(gitlab)
     if (action === 'recheck') onRecheckGitlab()
-    else if (action === 'open' && comparison.mode !== 'mr') onChange({ mode: 'mr', iid: null })
+    else if (action === 'open' && comparison.mode !== 'mr') onModeChange('mr')
   }
 
   return (
