@@ -43,7 +43,7 @@ A local code review tool designed for the coding agent workflow. Review AI-gener
 
 MR 모드 툴바의 MR 제목 옆 버튼으로 MR 코드를 리뷰용 worktree에 체크아웃하고 터미널을 연다.
 
-1. `체크아웃` 클릭 시 MR 소스 브랜치의 최신 커밋이 `~/.config/diffx/worktrees/<저장소명>-<해시>` 폴더에 detached HEAD로 체크아웃된다. 원본 저장소의 브랜치와 작업 중인 파일은 바뀌지 않는다.
+1. `체크아웃` 클릭 시 MR 소스 브랜치의 최신 커밋이 `~/Library/Application Support/reviewHelper/worktrees/<저장소명>-<해시>` 폴더에 detached HEAD로 체크아웃된다. 원본 저장소의 브랜치와 작업 중인 파일은 바뀌지 않는다.
 2. 원본 저장소의 gitignore된 `.env*` 파일 중 worktree에 없는 파일이 복사된다. worktree에서 수정한 env 파일은 덮어쓰지 않는다.
 3. `터미널에서 열기` 클릭 시 설정한 터미널 앱이 worktree 폴더에서 열린다. 터미널에서 `pnpm install`, `pnpm dev`를 직접 실행한다.
 4. 다른 MR에서 `체크아웃`을 누르면 같은 폴더에서 커밋만 바뀐다. `node_modules`는 그대로 남고 실행 중인 개발서버에 변경이 반영된다.
