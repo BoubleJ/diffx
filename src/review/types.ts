@@ -17,12 +17,10 @@ export interface ReviewResult {
 
 export interface ReviewContext {
   repoPath: string
-  mode: 'worktree' | 'branch' | 'custom'
-  source?: string
-  target?: string
-  mergeBase?: string
-  customArgs?: string[]
-  staged?: boolean
+  mode: 'branch'
+  source: string
+  target: string
+  mergeBase: string
   sourceCheckedOut: boolean
   files: string[]
   patch: string

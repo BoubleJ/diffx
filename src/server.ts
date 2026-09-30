@@ -465,9 +465,9 @@ export function createApp(options: AppOptions) {
       ctx: {
         repoPath: repo,
         mode: 'branch',
-        source: resolved.source,
-        target: resolved.target,
-        mergeBase: resolved.mergeBase,
+        source: resolved.source!,
+        target: resolved.target!,
+        mergeBase: resolved.mergeBase!,
         sourceCheckedOut: getHeadSha(repo) === resolved.sourceSha,
         files: parseFilePaths(patch),
         patch,
