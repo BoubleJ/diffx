@@ -6,6 +6,8 @@ import { ExcludeButton } from './ExcludeButton'
 import { CommentForm } from './CommentForm'
 import { CommentBubble } from './CommentBubble'
 import { findLineElement } from '../findLine'
+import { isSourceFile } from '../../definition/sourceFiles'
+import type { DefinitionRequest } from '../definition'
 
 interface PendingComment {
   side: AnnotationSide
@@ -27,6 +29,8 @@ interface FileDiffCardProps {
   onReplyComment?: (discussionId: string, body: string) => Promise<void>
   onDeleteComment: (id: string) => void
   highlightLine: { side: 'additions' | 'deletions'; line: number } | null
+  onDefinition?: (req: DefinitionRequest, anchor: DOMRect) => void
+  onHighlightMissing?: (filePath: string, line: number, side: 'additions' | 'deletions') => void
 }
 
 export const FileDiffCard = memo(function FileDiffCard({
@@ -44,6 +48,8 @@ export const FileDiffCard = memo(function FileDiffCard({
   onDeleteComment,
   onReplyComment,
   highlightLine,
+  onDefinition,
+  onHighlightMissing,
 }: FileDiffCardProps) {
   const [pending, setPending] = useState<PendingComment | null>(null)
   const [pendingError, setPendingError] = useState<string | null>(null)
@@ -60,6 +66,7 @@ export const FileDiffCard = memo(function FileDiffCard({
         return
       }
       if (frames++ < 30) handle = requestAnimationFrame(tryScroll)
+      else onHighlightMissing?.(filePath, highlightLine.line, highlightLine.side)
     }
     handle = requestAnimationFrame(tryScroll)
     return () => cancelAnimationFrame(handle)
@@ -85,6 +92,24 @@ export const FileDiffCard = memo(function FileDiffCard({
     }
     return ''
   }
+
+  const linkable = !!onDefinition && isSourceFile(filePath)
+  const tokenHandlers = linkable ? {
+    onTokenEnter: (props: { tokenElement: HTMLElement }, event: PointerEvent) => {
+      if (!event.metaKey) return
+      props.tokenElement.style.textDecoration = 'underline'
+      props.tokenElement.style.cursor = 'pointer'
+    },
+    onTokenLeave: (props: { tokenElement: HTMLElement }) => {
+      props.tokenElement.style.textDecoration = ''
+      props.tokenElement.style.cursor = ''
+    },
+    onTokenClick: (props: { side: 'additions' | 'deletions'; lineNumber: number; lineCharStart: number; tokenElement: HTMLElement }, event: MouseEvent) => {
+      if (!event.metaKey) return
+      event.preventDefault()
+      onDefinition!({ path: filePath, side: props.side, line: props.lineNumber, col: props.lineCharStart }, props.tokenElement.getBoundingClientRect())
+    },
+  } : {}
 
   const allAnnotations: DiffLineAnnotation<ReviewComment | { _pending: true }>[] = [
     ...annotations,
@@ -129,6 +154,7 @@ export const FileDiffCard = memo(function FileDiffCard({
               themeType: 'system',
               overflow: softWrap ? 'wrap' : 'scroll',
               unsafeCSS: `:host { --diffs-tab-size: ${tabSize}; }`,
+              ...tokenHandlers,
             }}
             lineAnnotations={allAnnotations}
             selectedLines={highlightLine ? { start: highlightLine.line, end: highlightLine.line, side: highlightLine.side } : null}

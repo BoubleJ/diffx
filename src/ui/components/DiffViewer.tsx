@@ -4,6 +4,7 @@ import type { ReviewComment } from '../../types'
 import type { BinaryFileInfo } from '../hooks/useDiff'
 import { FileDiffCard } from './FileDiffCard'
 import { BinaryFileDiff } from './BinaryFileDiff'
+import type { DefinitionRequest } from '../definition'
 
 interface DiffViewerProps {
   files: FileDiffMetadata[]
@@ -21,6 +22,8 @@ interface DiffViewerProps {
   onReplyComment?: (discussionId: string, body: string) => Promise<void>
   contentQuery: string
   highlight: { file: string; side: 'additions' | 'deletions'; line: number } | null
+  onDefinition?: (req: DefinitionRequest, anchor: DOMRect) => void
+  onHighlightMissing?: (filePath: string, line: number, side: 'additions' | 'deletions') => void
 }
 
 const emptyAnnotations: DiffLineAnnotation<ReviewComment>[] = []
@@ -41,6 +44,8 @@ export const DiffViewer = memo(function DiffViewer({
   onReplyComment,
   contentQuery,
   highlight,
+  onDefinition,
+  onHighlightMissing,
 }: DiffViewerProps) {
   const sortedFiles = useMemo(() => {
     return [...files].sort((a, b) => {
@@ -111,6 +116,8 @@ export const DiffViewer = memo(function DiffViewer({
             onDeleteComment={onDeleteComment}
             onReplyComment={onReplyComment}
             highlightLine={highlight && highlight.file === filePath ? highlight : null}
+            onDefinition={onDefinition}
+            onHighlightMissing={onHighlightMissing}
           />
         )
       })}
