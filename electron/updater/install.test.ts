@@ -68,6 +68,17 @@ describe('downloadFile', () => {
     expect(progress.at(-1)).toBe(1)
   })
 
+  it('fails when the download stops sending data', async () => {
+    const stalled = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('partial'))
+      },
+    })
+    await expect(
+      downloadFile('https://example.com/file', join(dir, 'file.bin'), () => {}, serve(stalled), 50),
+    ).rejects.toThrow('다운로드가 멈춰서 중단했습니다')
+  })
+
   it('reports null progress without Content-Length', async () => {
     const progress: (number | null)[] = []
     await downloadFile('https://example.com/file', join(dir, 'file.bin'), (ratio) => progress.push(ratio), serve('hello'))
