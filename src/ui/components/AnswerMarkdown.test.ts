@@ -21,6 +21,13 @@ describe('AnswerMarkdown', () => {
     expect(render('```\nplain\n```')).toContain('<pre class="answer-code"><code>plain</code></pre>')
   })
 
+  it('renders a GFM table inside a scroll wrapper', () => {
+    const html = render('| 변경 전 | 변경 후 |\n|---|---|\n| `/callback` | `/(hidden)/callback` |')
+    expect(html).toContain('<div class="answer-table"><table>')
+    expect(html).toContain('<th>변경 전</th>')
+    expect(html).toContain('<td><code>/(hidden)/callback</code></td>')
+  })
+
   it('opens links in a new window', () => {
     const html = render('[문서](https://example.com)')
     expect(html).toContain('href="https://example.com"')
