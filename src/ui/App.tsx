@@ -349,6 +349,8 @@ export function App() {
     } else if (action.type === 'choose') {
       const version = action.version
       setPopover({ anchor, content: { type: 'choose', targets: action.targets, onPick: (t) => { setPopover(null); jumpTo(t, version, fromOverlay) } } })
+    } else if (action.type === 'references') {
+      setPopover({ anchor, content: { type: 'message', text: '이미 정의 위치입니다' } })
     } else {
       setPopover({ anchor, content: { type: 'message', text: action.text } })
     }
