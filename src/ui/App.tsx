@@ -91,7 +91,7 @@ export function App() {
     await fetchRemote()
     setDiffReloadToken((t) => t + 1)
   }, [fetchRemote])
-  const { patch, repoName, branch, binaryFiles, tabSizeMap, key, identical, loading, error, mr: diffMr } = useDiff(params, diffReloadToken)
+  const { patch, branch, binaryFiles, tabSizeMap, key, identical, loading, error, mr: diffMr } = useDiff(params, diffReloadToken)
   const [mrRefreshing, setMrRefreshing] = useState(false)
   const handleRefreshMr = useCallback(async () => {
     setMrRefreshing(true)
@@ -390,7 +390,6 @@ export function App() {
   return (
     <div className="app">
       <Toolbar
-        repoName={repoName || repo.name}
         branchPicker={(
           <BranchPicker
             comparison={comparison}
@@ -513,7 +512,6 @@ export function App() {
                 onStart={() => review.start('claude', excludedInDiff, reviewInstruction)}
                 onCancel={review.cancel}
                 onFindingClick={handleFindingClick}
-                onClose={() => updateReviewPanel({ ...reviewPanel, open: false })}
               />
               </div>
             </aside>
