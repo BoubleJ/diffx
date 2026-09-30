@@ -5,7 +5,7 @@ import { claudeProvider, describeTool } from './claude'
 import { validateResult } from '../schema'
 import type { ReviewContext } from '../types'
 
-const ctx: ReviewContext = { repoPath: '/repo', mode: 'worktree', sourceCheckedOut: true, files: [], patch: '' }
+const ctx: ReviewContext = { repoPath: '/repo', mode: 'branch', source: 'feature/x', target: 'main', mergeBase: 'abc123', sourceCheckedOut: true, files: [], patch: '' }
 
 describe('claudeProvider.buildCommand', () => {
   it('runs claude headless with read-only tools and the schema', () => {

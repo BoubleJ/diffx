@@ -9,7 +9,7 @@ import { ReviewFailure, type ReviewProvider, type ReviewContext } from './types'
 
 const FAKE = fileURLToPath(new URL('./__fixtures__/fake-cli.mjs', import.meta.url))
 
-const ctx: ReviewContext = { repoPath: tmpdir(), mode: 'worktree', sourceCheckedOut: true, files: ['a.ts'], patch: '+x' }
+const ctx: ReviewContext = { repoPath: tmpdir(), mode: 'branch', source: 'feature/x', target: 'main', mergeBase: 'abc123', sourceCheckedOut: true, files: ['a.ts'], patch: '+x' }
 
 function fakeProvider(overrides: Partial<ReviewProvider> = {}): ReviewProvider {
   return {

@@ -8,7 +8,7 @@ import { ReviewFailure, type ReviewContext } from './types'
 import { claudeProvider } from './providers/claude'
 import { STOP_IMMEDIATELY } from './runner'
 
-const ctx: ReviewContext = { repoPath: '/repo', mode: 'worktree', sourceCheckedOut: true, files: [], patch: '' }
+const ctx: ReviewContext = { repoPath: '/repo', mode: 'branch', source: 'feature/x', target: 'main', mergeBase: 'abc123', sourceCheckedOut: true, files: [], patch: '' }
 const newStore = () => new ReviewStore(mkdtempSync(join(tmpdir(), 'diffx-reviews-')))
 
 function deferredRun() {

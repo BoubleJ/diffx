@@ -18,7 +18,7 @@ export const STOP_IMMEDIATELY = 'diffx:stop-immediately'
 const DEFAULT_TIMEOUT = 600_000
 const MAX_STDOUT = 20 * 1024 * 1024
 
-const PROBE_CONTEXT: ReviewContext = { repoPath: process.cwd(), mode: 'worktree', sourceCheckedOut: true, files: [], patch: '' }
+const PROBE_CONTEXT: ReviewContext = { repoPath: process.cwd(), mode: 'branch', source: 'HEAD', target: 'HEAD', mergeBase: 'HEAD', sourceCheckedOut: true, files: [], patch: '' }
 
 export function detectProvider(provider: ReviewProvider): Promise<{ installed: boolean; version?: string }> {
   const command = provider.buildCommand(PROBE_CONTEXT, '')
