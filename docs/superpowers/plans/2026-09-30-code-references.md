@@ -372,7 +372,7 @@ git commit -m "feat: import를 따라가 함수와 파일의 사용처를 찾는
 - Consumes: `findSymbolReferences`, `findFileReferences`(Task 1), `readerFor(c, side)`(기존)
 - Produces:
   - `GET /api/references?<비교 조합>&path&side&line&col` → `{ kind: 'found', name, version: 'new' | 'old', references: [{ path, line, text }], truncated }` 또는 `{ kind: 'not_declaration' }`
-  - `GET /api/references?<비교 조합>&path&side&target=file` → 같은 형태
+  - `GET /api/references?<비교 조합>&path&side&scope=file` → 같은 형태
   - `/api/definition`의 `found` 응답 `targets` 항목에 `text: string`(그 줄의 코드, 읽지 못하면 `''`) 추가
 
 - [ ] **Step 1: 실패하는 테스트 작성**
@@ -408,7 +408,7 @@ describe('GET /api/references', () => {
 
   it('lists files that import a file', async () => {
     const app = setup()
-    const body = await (await app.request(`/api/references?${branch}&side=additions&path=src/a.ts&target=file`)).json()
+    const body = await (await app.request(`/api/references?${branch}&side=additions&path=src/a.ts&scope=file`)).json()
     expect(body).toEqual({ kind: 'found', name: 'a', version: 'new', truncated: false, references: [{ path: 'src/b.ts', line: 1, text: "import { greet } from './a'" }] })
   })
 
@@ -454,7 +454,7 @@ import { findSymbolReferences, findFileReferences } from './definition/reference
     const side = c.req.query('side')
     const line = c.req.query('line') ?? ''
     const col = c.req.query('col') ?? ''
-    const fileTarget = c.req.query('target') === 'file'
+    const fileTarget = c.req.query('scope') === 'file'
     if (!path || !isSafePath(path, repo) || (side !== 'additions' && side !== 'deletions')) {
       return c.json({ error: 'invalid_query' }, 400)
     }
@@ -499,7 +499,7 @@ git commit -m "feat: 사용처 조회 API 추가와 정의 후보에 코드 줄 
   - `DefinitionRequest`에 `name?: string` 추가 (Cmd+클릭한 토큰의 글자, 요청 쿼리에는 넣지 않는다)
   - `DefinitionTarget = { path: string; line: number; text?: string }`
   - `DefinitionAction`에 `{ type: 'references' }` 추가. `definitionAction({ kind: 'self' })`가 이것을 돌려준다
-  - `export type ReferencesRequest = { path: string; side: 'additions' | 'deletions'; line: number; col: number } | { path: string; side: 'additions' | 'deletions'; target: 'file' }`
+  - `export type ReferencesRequest = { path: string; side: 'additions' | 'deletions'; line: number; col: number } | { path: string; side: 'additions' | 'deletions'; scope: 'file' }`
   - `export type ReferencesResponse = { kind: 'found'; name: string; version: DefinitionVersion; references: { path: string; line: number; text: string }[]; truncated: boolean } | { kind: 'not_declaration' }`
   - `export async function fetchReferences(contentQuery: string, req: ReferencesRequest): Promise<ReferencesResponse>`
   - `export interface ExploreItem { path: string; line: number; text?: string }`
@@ -620,7 +620,7 @@ Expected: FAIL
 ```ts
 export type ReferencesRequest =
   | { path: string; side: 'additions' | 'deletions'; line: number; col: number }
-  | { path: string; side: 'additions' | 'deletions'; target: 'file' }
+  | { path: string; side: 'additions' | 'deletions'; scope: 'file' }
 
 export type ReferencesResponse =
   | { kind: 'found'; name: string; version: DefinitionVersion; references: { path: string; line: number; text: string }[]; truncated: boolean }
@@ -630,8 +630,8 @@ export async function fetchReferences(contentQuery: string, req: ReferencesReque
   const q = new URLSearchParams(contentQuery)
   q.set('path', req.path)
   q.set('side', req.side)
-  if ('target' in req) {
-    q.set('target', req.target)
+  if ('scope' in req) {
+    q.set('scope', req.scope)
   } else {
     q.set('line', String(req.line))
     q.set('col', String(req.col))
@@ -854,7 +854,7 @@ export function SidePanel({ tab, onTabChange, review, explore }: SidePanelProps)
 
   const openReferences = useCallback(async (req: ReferencesRequest, name: string) => {
     const id = exploreGate.current.next()
-    const title = 'target' in req ? exploreTitle.importers(name) : exploreTitle.references(name)
+    const title = 'scope' in req ? exploreTitle.importers(name) : exploreTitle.references(name)
     showExplore({ status: 'loading', title })
     try {
       const res = await fetchReferences(contentQuery, req)
@@ -1126,7 +1126,7 @@ export function findHeaderTitle(path: EventTarget[]): HTMLElement | null {
 
 ```tsx
   const handleFileReferences = useCallback((path: string, side: 'additions' | 'deletions') => {
-    void openReferences({ path, side, target: 'file' }, path.split('/').pop()!.replace(/\.[^.]+$/, ''))
+    void openReferences({ path, side, scope: 'file' }, path.split('/').pop()!.replace(/\.[^.]+$/, ''))
   }, [openReferences])
 ```
 
