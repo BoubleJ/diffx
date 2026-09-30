@@ -46,7 +46,7 @@
 ### API
 
 - `GET /api/references`
-  - 받는 값: 비교 조합(`mode`, `source`, `target` 또는 `iid`), `path`, `side`, 그리고 `line`, `col` 또는 `target=file`
+  - 받는 값: 비교 조합(`mode`, `source`, `target` 또는 `iid`), `path`, `side`, 그리고 `line`, `col` 또는 `scope=file`
   - 파일을 읽을 커밋은 `/api/definition`과 같게 정한다. `side=additions`이면 새 버전, `side=deletions`이면 이전 버전을 읽는다.
   - 응답
     - `{ kind: 'found', name, version, references: [{ path, line, text }], truncated }`
