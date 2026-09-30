@@ -38,19 +38,37 @@ export async function downloadFile(
   dest: string,
   onProgress: (ratio: number | null) => void,
   fetchFn: typeof fetch = fetch,
+  idleTimeoutMs = 30_000,
 ): Promise<void> {
-  const res = await fetchFn(url)
-  if (!res.ok || !res.body) throw new Error(`다운로드 응답 ${res.status}`)
-  const total = Number(res.headers.get('content-length')) || 0
-  let received = 0
-  const progress = new Transform({
-    transform(chunk: Buffer, _encoding, callback) {
-      received += chunk.length
-      onProgress(total ? Math.min(received / total, 1) : null)
-      callback(null, chunk)
-    },
-  })
-  await pipeline(Readable.fromWeb(res.body as unknown as NodeReadableStream), progress, createWriteStream(dest))
+  const controller = new AbortController()
+  let timer: NodeJS.Timeout | undefined
+  const resetTimer = () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => controller.abort(), idleTimeoutMs)
+  }
+  resetTimer()
+  try {
+    const res = await fetchFn(url, { signal: controller.signal })
+    if (!res.ok || !res.body) throw new Error(`다운로드 응답 ${res.status}`)
+    const total = Number(res.headers.get('content-length')) || 0
+    let received = 0
+    const progress = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        resetTimer()
+        received += chunk.length
+        onProgress(total ? Math.min(received / total, 1) : null)
+        callback(null, chunk)
+      },
+    })
+    await pipeline(Readable.fromWeb(res.body as unknown as NodeReadableStream), progress, createWriteStream(dest), {
+      signal: controller.signal,
+    })
+  } catch (err) {
+    if (controller.signal.aborted) throw new Error('다운로드가 멈춰서 중단했습니다')
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export async function prepareUpdate(opts: {
