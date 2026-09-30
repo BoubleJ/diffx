@@ -549,6 +549,9 @@ export function createApp(options: AppOptions) {
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
+    if (reviewJobs.runningFor(repo, resolved.key)) {
+      return c.json({ error: 'running', message: '진행 중인 질문이 끝난 뒤 다시 보내 주세요' }, 409)
+    }
     const exclude = kind === 'review' && Array.isArray(body.exclude) && body.exclude.every((p) => typeof p === 'string') ? (body.exclude as string[]) : []
     const patch = excludeFilesFromPatch(resolved.patch, exclude)
     const id = reviewJobs.start({

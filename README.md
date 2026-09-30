@@ -21,6 +21,8 @@ A local code review tool designed for the coding agent workflow. Review AI-gener
 - 저장소마다 창이 따로 열린다. `파일 > 저장소 열기`(`Cmd+O`)로 다른 저장소를 연다.
 - Finder에서 저장소 폴더를 Dock의 reviewHelper 아이콘으로 끌어다 놓아도 열린다.
 - AI 리뷰는 Claude Code(`claude`)로 실행된다. `claude`가 설치돼 있고 로그인돼 있어야 한다.
+- AI 리뷰 패널은 비교 단위로 질문과 답변을 저장하고 같은 Claude Code 세션을 이어서 사용한다. 그래서 저장소 경로에서 `claude --resume`을 실행하면 이 세션이 목록에 나타난다.
+- 취소하거나 실패한 질문은 패널에 표시되지 않지만 Claude 세션의 맥락에는 남아 있다.
 
 ### GitLab MR 리뷰
 

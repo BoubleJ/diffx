@@ -16,7 +16,7 @@ function deferredRun() {
   const calls: { request: ReviewRequest; resolve: (v: unknown) => void; reject: (e: unknown) => void; signal?: AbortSignal; onProgress?: (t: string) => void }[] = []
   const run: RunFn = (_p, _c, request, options) => new Promise((resolve, reject) => {
     calls.push({ request, resolve: resolve as (v: unknown) => void, reject, signal: options.signal, onProgress: options.onProgress })
-    options.signal?.addEventListener('abort', () => reject(new ReviewFailure('cancelled', '리뷰를 취소했습니다')))
+    options.signal?.addEventListener('abort', () => reject(new ReviewFailure('cancelled', '요청을 취소했습니다')))
   })
   return { run, calls }
 }

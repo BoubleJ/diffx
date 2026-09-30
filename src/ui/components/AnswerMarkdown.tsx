@@ -28,6 +28,7 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
 }
 
 const components: Components = {
+  a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer">{children}</a>,
   pre: ({ node }) => {
     const code = (node as unknown as HastNode | undefined)?.children?.[0]
     const text = hastText(code).replace(/\n$/, '')

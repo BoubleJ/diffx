@@ -21,6 +21,13 @@ describe('AnswerMarkdown', () => {
     expect(render('```\nplain\n```')).toContain('<pre class="answer-code"><code>plain</code></pre>')
   })
 
+  it('opens links in a new window', () => {
+    const html = render('[문서](https://example.com)')
+    expect(html).toContain('href="https://example.com"')
+    expect(html).toContain('target="_blank"')
+    expect(html).toContain('rel="noreferrer"')
+  })
+
   it('does not render raw HTML', () => {
     const html = render('<img src=x onerror="alert(1)"> 본문')
     expect(html).not.toContain('<img')

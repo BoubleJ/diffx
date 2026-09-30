@@ -97,6 +97,14 @@ describe('review API', () => {
     expect(await (await app.request(`/api/review/${id}`, { method: 'DELETE' })).json()).toEqual({ ok: true })
   })
 
+  it('rejects a new question with 409 while one is running for the same comparison', async () => {
+    const { app } = setup(() => new Promise(() => {}))
+    expect((await postReview(app, { kind: 'question', question: '첫 질문' })).status).toBe(200)
+    const res = await postReview(app, { kind: 'question', question: '다른 질문' })
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'running', message: '진행 중인 질문이 끝난 뒤 다시 보내 주세요' })
+  })
+
   it('rejects unknown providers', async () => {
     const { app } = setup(async () => ({ answer: 's', locations: [] }))
     const res = await app.request('/api/review', {

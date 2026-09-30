@@ -40,7 +40,7 @@ function toResult(final: FinalOutput | null, rawOutput: string): ReviewResult {
     const result = validateResult(c)
     if (result) return result
   }
-  throw new ReviewFailure('invalid_output', '리뷰 결과를 읽지 못했습니다', final?.text ?? rawOutput)
+  throw new ReviewFailure('invalid_output', '답변을 읽지 못했습니다', final?.text ?? rawOutput)
 }
 
 function tail(text: string, lines: number): string {
@@ -118,8 +118,8 @@ export function runReview(provider: ReviewProvider, ctx: ReviewContext, request:
     }
 
     const failureForStop = () => cancelled
-      ? new ReviewFailure('cancelled', '리뷰를 취소했습니다')
-      : new ReviewFailure('timeout', '10분 안에 리뷰가 끝나지 않아 중단했습니다')
+      ? new ReviewFailure('cancelled', '요청을 취소했습니다')
+      : new ReviewFailure('timeout', '10분 안에 답변이 끝나지 않아 중단했습니다')
 
     const timer = setTimeout(() => {
       timedOut = true
@@ -171,8 +171,8 @@ export function runReview(provider: ReviewProvider, ctx: ReviewContext, request:
     child.on('close', (code) => {
       rl.close()
       finish(() => {
-        if (cancelled) return reject(new ReviewFailure('cancelled', '리뷰를 취소했습니다'))
-        if (timedOut) return reject(new ReviewFailure('timeout', '10분 안에 리뷰가 끝나지 않아 중단했습니다'))
+        if (cancelled) return reject(new ReviewFailure('cancelled', '요청을 취소했습니다'))
+        if (timedOut) return reject(new ReviewFailure('timeout', '10분 안에 답변이 끝나지 않아 중단했습니다'))
 
         if (!final && command.outputFile && existsSync(command.outputFile)) {
           final = { text: readFileSync(command.outputFile, 'utf-8') }
