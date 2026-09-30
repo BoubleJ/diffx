@@ -95,6 +95,7 @@ export function FileViewerOverlay({ entries, contentQuery, onBack, onClose, onDe
                 themeType: 'system',
                 overflow: 'scroll',
                 ...(linkable ? {
+                  useTokenTransformer: true,
                   onTokenEnter: (props, event) => {
                     if (!event.metaKey) return
                     props.tokenElement.style.textDecoration = 'underline'

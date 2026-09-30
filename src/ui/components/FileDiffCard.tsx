@@ -110,6 +110,7 @@ export const FileDiffCard = memo(function FileDiffCard({
 
   const linkable = !!onDefinition && isSourceFile(filePath)
   const tokenHandlers = linkable ? {
+    useTokenTransformer: true,
     onTokenEnter: (props: { tokenElement: HTMLElement }, event: PointerEvent) => {
       if (!event.metaKey) return
       props.tokenElement.style.textDecoration = 'underline'
