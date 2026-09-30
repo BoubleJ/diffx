@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Check, GitCommitHorizontal, RefreshCw, Terminal, Trash2 } from 'lucide-react'
 import { useReviewWorktree } from '../hooks/useReviewWorktree'
-import { checkoutState } from '../reviewWorktree'
+import { checkoutOutcome, checkoutState } from '../reviewWorktree'
 
 type Busy = 'checkout' | 'terminal' | 'delete' | null
 type Popover = { kind: 'dirty' | 'delete'; files: string[] } | null
@@ -15,7 +15,7 @@ function FileList({ files }: { files: string[] }) {
   )
 }
 
-export function MrCheckout({ iid, headSha }: { iid: number; headSha: string }) {
+export function MrCheckout({ iid, headSha, onReloadDiff }: { iid: number; headSha: string; onReloadDiff: () => void }) {
   const { worktree, error: statusError, checkout, openTerminal, listChanges, remove } = useReviewWorktree()
   const [busy, setBusy] = useState<Busy>(null)
   const [popover, setPopover] = useState<Popover>(null)
@@ -45,8 +45,13 @@ export function MrCheckout({ iid, headSha }: { iid: number; headSha: string }) {
   const doCheckout = (force: boolean) => run('checkout', async () => {
     setPopover(null)
     const result = await checkout(iid, force)
-    if (result.kind === 'dirty') setPopover({ kind: 'dirty', files: result.files })
-    else if (result.copiedEnvFiles.length > 0) setNotice(`env 파일 ${result.copiedEnvFiles.length}개를 복사했습니다`)
+    if (result.kind === 'dirty') {
+      setPopover({ kind: 'dirty', files: result.files })
+      return
+    }
+    const outcome = checkoutOutcome(result, headSha)
+    setNotice(outcome.notice)
+    if (outcome.reloadDiff) onReloadDiff()
   })
   const askRemove = () => run('delete', async () => setPopover({ kind: 'delete', files: await listChanges() }))
   const doRemove = () => run('delete', async () => {

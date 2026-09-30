@@ -440,7 +440,7 @@ export function App() {
         reviewOpen={reviewPanel.open}
         onToggleReview={() => updateReviewPanel({ ...reviewPanel, open: !reviewPanel.open })}
         mrLink={comparison.mode === 'mr' && diffMr ? diffMr : undefined}
-        mrCheckout={comparison.mode === 'mr' && diffMr ? <MrCheckout key={diffMr.iid} iid={diffMr.iid} headSha={diffMr.headSha} /> : undefined}
+        mrCheckout={comparison.mode === 'mr' && diffMr ? <MrCheckout key={diffMr.iid} iid={diffMr.iid} headSha={diffMr.headSha} onReloadDiff={() => void handleRefreshMr()} /> : undefined}
         submitReview={isMr && mrIid !== null ? {
           count: mrComments.draftCount,
           submitting: mrComments.submitting,
