@@ -227,3 +227,17 @@ describe('a folder that is not a worktree', () => {
     expect(headOf(path)).toBe(head)
   })
 })
+
+describe('untracked files that the next commit adds', () => {
+  it('returns them as changes and overwrites them with force', async () => {
+    const { root, local, head, addMr, headOf } = setup()
+    const other = addMr(8, { 'c.txt': 'from mr\n' })
+    await checkoutReviewWorktree(root, local, head, { force: false })
+    const path = reviewWorktreePath(root, local)
+    writeFileSync(join(path, 'c.txt'), 'mine\n')
+    expect(await checkoutReviewWorktree(root, local, other, { force: false })).toEqual({ kind: 'dirty', files: ['c.txt'] })
+    expect(headOf(path)).toBe(head)
+    expect(await checkoutReviewWorktree(root, local, other, { force: true })).toMatchObject({ kind: 'done', headSha: other })
+    expect(readFileSync(join(path, 'c.txt'), 'utf-8')).toBe('from mr\n')
+  })
+})
