@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { git } from '../test/gitRepo'
 import { makeMrRepo, pushMrCommit } from '../test/mrRepo'
-import { checkoutReviewWorktree, getReviewWorktree, reviewWorktreePath, WorktreeGitError } from './reviewWorktree'
+import { checkoutReviewWorktree, getReviewWorktree, listChangedFiles, removeReviewWorktree, reviewWorktreePath, WorktreeGitError } from './reviewWorktree'
 
 function setup() {
   const repo = makeMrRepo()
@@ -149,5 +149,48 @@ describe('env files', () => {
     const result = await checkoutReviewWorktree(root, local, other, { force: false })
     expect(result).toMatchObject({ kind: 'done', copiedEnvFiles: [] })
     expect(readFileSync(join(path, '.env.local'), 'utf-8')).toBe('A=mine\n')
+  })
+})
+
+describe('listChangedFiles', () => {
+  it('lists edited tracked files and returns nothing without a worktree', async () => {
+    const { root, local, head } = setup()
+    expect(await listChangedFiles(root, local)).toEqual([])
+    await checkoutReviewWorktree(root, local, head, { force: false })
+    const path = reviewWorktreePath(root, local)
+    writeFileSync(join(path, 'a.txt'), 'edited\n')
+    writeFileSync(join(path, 'scratch.txt'), 'note\n')
+    expect(await listChangedFiles(root, local)).toEqual(['a.txt'])
+  })
+})
+
+describe('removeReviewWorktree', () => {
+  const registered = (local: string, path: string) => git(local, 'worktree', 'list', '--porcelain').includes(path)
+
+  it('removes a worktree that has ignored and untracked folders', async () => {
+    const { root, local, head } = setup()
+    await checkoutReviewWorktree(root, local, head, { force: false })
+    const path = reviewWorktreePath(root, local)
+    mkdirSync(join(path, 'node_modules', 'pkg'), { recursive: true })
+    writeFileSync(join(path, 'node_modules', 'pkg', 'index.js'), '\n')
+    writeFileSync(join(path, 'a.txt'), 'edited\n')
+    await removeReviewWorktree(root, local)
+    expect(existsSync(path)).toBe(false)
+    expect(registered(local, path)).toBe(false)
+    expect(await getReviewWorktree(root, local)).toEqual({ exists: false })
+  })
+
+  it('clears the registration when the folder was deleted by hand', async () => {
+    const { root, local, head } = setup()
+    await checkoutReviewWorktree(root, local, head, { force: false })
+    const path = reviewWorktreePath(root, local)
+    rmSync(path, { recursive: true, force: true })
+    await removeReviewWorktree(root, local)
+    expect(registered(local, path)).toBe(false)
+  })
+
+  it('does nothing when there is no worktree', async () => {
+    const { root, local } = setup()
+    await expect(removeReviewWorktree(root, local)).resolves.toBeUndefined()
   })
 })
