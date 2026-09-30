@@ -26,6 +26,7 @@ import { buildPosition } from './gitlab/position.js'
 import { buildThreads, type ApiDiscussion, type ApiDraftNote } from './gitlab/notes.js'
 import { commitReader, type SourceReader } from './definition/reader.js'
 import { resolveDefinition } from './definition/resolve.js'
+import { findSymbolReferences, findFileReferences } from './definition/references.js'
 
 export interface AppOptions {
   repoPath: string
@@ -289,7 +290,31 @@ export function createApp(options: AppOptions) {
       return comparisonErrorResponse(c, err)
     }
     const result = resolveDefinition(reader, path, Number(line), Number(col))
-    return c.json(result.kind === 'found' ? { kind: 'found', version: side === 'additions' ? 'new' : 'old', targets: result.targets } : result)
+    if (result.kind !== 'found') return c.json(result)
+    const targets = result.targets.map((t) => ({ ...t, text: reader.readFile(t.path)?.split('\n')[t.line - 1] ?? '' }))
+    return c.json({ kind: 'found', version: side === 'additions' ? 'new' : 'old', targets })
+  })
+
+  app.get('/api/references', async (c) => {
+    const path = c.req.query('path')
+    const side = c.req.query('side')
+    const line = c.req.query('line') ?? ''
+    const col = c.req.query('col') ?? ''
+    if (!path || !isSafePath(path, repo) || (side !== 'additions' && side !== 'deletions')) {
+      return c.json({ error: 'invalid_query' }, 400)
+    }
+    const fileTarget = !line && !col
+    if (!fileTarget && (!/^[1-9]\d*$/.test(line) || !/^\d+$/.test(col))) {
+      return c.json({ error: 'invalid_query' }, 400)
+    }
+    let reader: SourceReader
+    try {
+      reader = await readerFor(c, side)
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+    const result = fileTarget ? findFileReferences(reader, path) : findSymbolReferences(reader, path, Number(line), Number(col))
+    return c.json(result.kind === 'found' ? { ...result, version: side === 'additions' ? 'new' : 'old' } : result)
   })
 
   // Full old/new file contents for a diffed file, so the client can build a

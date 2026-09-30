@@ -27,13 +27,13 @@ describe('GET /api/definition', () => {
   it('resolves added lines against the source commit', async () => {
     const app = setup()
     const body = await (await app.request(`/api/definition?${branch}&side=additions&${click}`)).json()
-    expect(body).toEqual({ kind: 'found', version: 'new', targets: [{ path: 'src/a.ts', line: 2 }] })
+    expect(body).toEqual({ kind: 'found', version: 'new', targets: [{ path: 'src/a.ts', line: 2, text: 'export function greet() {}' }] })
   })
 
   it('resolves deleted lines against the merge-base', async () => {
     const app = setup()
     const body = await (await app.request(`/api/definition?${branch}&side=deletions&${click}`)).json()
-    expect(body).toEqual({ kind: 'found', version: 'old', targets: [{ path: 'src/a.ts', line: 1 }] })
+    expect(body).toEqual({ kind: 'found', version: 'old', targets: [{ path: 'src/a.ts', line: 1, text: 'export function greet() {}' }] })
   })
 
   it('returns other result kinds without a version', async () => {
@@ -50,6 +50,37 @@ describe('GET /api/definition', () => {
     for (const q of ['path=../x.ts&side=additions&line=1&col=0', 'path=src/b.ts&side=left&line=1&col=0', 'path=src/b.ts&side=additions&line=0&col=0', 'path=src/b.ts&side=additions&line=1&col=-1', 'side=additions&line=1&col=0']) {
       const res = await app.request(`/api/definition?${branch}&${q}`)
       expect(res.status).toBe(400)
+    }
+  })
+})
+
+describe('GET /api/references', () => {
+  it('lists uses of the declaration from the source commit', async () => {
+    const app = setup()
+    const body = await (await app.request(`/api/references?${branch}&side=additions&path=src/a.ts&line=2&col=16`)).json()
+    expect(body).toEqual({ kind: 'found', name: 'greet', version: 'new', truncated: false, references: [
+      { path: 'src/b.ts', line: 1, text: "import { greet } from './a'" },
+      { path: 'src/b.ts', line: 2, text: 'greet()' },
+    ] })
+  })
+
+  it('reads the merge-base for deleted lines', async () => {
+    const app = setup()
+    const body = await (await app.request(`/api/references?${branch}&side=deletions&path=src/a.ts&line=1&col=16`)).json()
+    expect(body).toMatchObject({ kind: 'found', version: 'old', references: [{ path: 'src/b.ts', line: 1 }, { path: 'src/b.ts', line: 2 }] })
+  })
+
+  it('lists files that import a file', async () => {
+    const app = setup()
+    const body = await (await app.request(`/api/references?${branch}&side=additions&path=src/a.ts&target=file`)).json()
+    expect(body).toEqual({ kind: 'found', name: 'a', version: 'new', truncated: false, references: [{ path: 'src/b.ts', line: 1, text: "import { greet } from './a'" }] })
+  })
+
+  it('returns not_declaration and rejects invalid queries', async () => {
+    const app = setup()
+    expect(await (await app.request(`/api/references?${branch}&side=additions&path=src/b.ts&line=2&col=0`)).json()).toEqual({ kind: 'not_declaration' })
+    for (const q of ['side=additions&path=src/a.ts&line=2&col=16', `${branch}&side=x&path=src/a.ts&line=2&col=16`, `${branch}&side=additions&path=../x&line=2&col=16`, `${branch}&side=additions&path=src/a.ts&line=0&col=0`]) {
+      expect((await app.request(`/api/references?${q}`)).status).toBe(400)
     }
   })
 })
