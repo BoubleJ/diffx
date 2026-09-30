@@ -442,7 +442,7 @@ export function createApp(options: AppOptions) {
       return c.json({ error: 'invalid_body' }, 400)
     }
     try {
-      const mr = await mrComparisons.prepare(parseIid(c.req.param('iid')), { refresh: true })
+      const mr = await mrComparisons.latest(parseIid(c.req.param('iid')))
       const result = await checkoutReviewWorktree(worktreeRoot, repo, mr.headSha, { force: body.force === true })
       if (result.kind === 'dirty') return c.json({ error: 'dirty', files: result.files }, 409)
       return c.json({ path: result.path, headSha: result.headSha, copiedEnvFiles: result.copiedEnvFiles })

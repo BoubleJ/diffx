@@ -31,14 +31,15 @@ export class MrComparisons {
     return mr
   }
 
-  async prepare(iid: number, options: { refresh: boolean }): Promise<MrDetail> {
-    const mr = await this.detail(iid, { refresh: options.refresh })
+  async latest(iid: number): Promise<MrDetail> {
+    const mr = await getMrDetail(this.glab, iid)
     await ensureMrCommits(this.repo, await this.remote(), mr)
     return mr
   }
 
   async resolve(iid: number, options: { refresh: boolean }): Promise<MrResolved> {
-    const mr = await this.prepare(iid, options)
+    const mr = await this.detail(iid, { refresh: options.refresh })
+    await ensureMrCommits(this.repo, await this.remote(), mr)
     return {
       key: `mr:${iid}`,
       mode: 'mr',

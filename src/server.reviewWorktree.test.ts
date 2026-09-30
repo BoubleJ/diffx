@@ -67,6 +67,15 @@ describe('review worktree APIs', () => {
     expect(await status()).toMatchObject({ headSha: next })
   })
 
+  it('keeps serving the displayed MR version after checking out newer commits', async () => {
+    const { app, remote, base, head, details, post } = await setup()
+    await app.request('/api/diff?mode=mr&iid=7')
+    const next = pushMrCommit(remote, 7, head, { 'c.txt': 'c\n' })
+    details[7] = apiMr(7, base, next)
+    expect(await (await post('/api/gitlab/mrs/7/checkout')).json()).toMatchObject({ headSha: next })
+    expect((await app.request('/api/file-content?mode=mr&iid=7&path=c.txt&version=new')).status).toBe(404)
+  })
+
   it('returns 409 with changed files and checks out with force', async () => {
     const { app, head, post } = await setup()
     const { path } = await (await post('/api/gitlab/mrs/7/checkout')).json()
