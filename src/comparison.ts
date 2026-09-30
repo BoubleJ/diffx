@@ -1,17 +1,15 @@
-import { getCustomGitDiff, getGitDiff, getMergeBase, getRangeDiff, resolveCommit } from './git.js'
+import { getMergeBase, getRangeDiff, resolveCommit } from './git.js'
 
 export interface ComparisonQuery {
   mode?: string
   source?: string
   target?: string
   iid?: string
-  staged?: boolean
-  untracked?: boolean
 }
 
 export interface ResolvedComparison {
   key: string
-  mode: 'worktree' | 'branch' | 'custom' | 'mr'
+  mode: 'branch' | 'mr'
   patch: string
   source?: string
   target?: string
@@ -21,15 +19,13 @@ export interface ResolvedComparison {
 }
 
 export class ComparisonError extends Error {
-  constructor(public code: 'unknown_ref' | 'no_merge_base' | 'missing_ref', message: string) {
+  constructor(public code: 'unknown_ref' | 'no_merge_base' | 'missing_ref' | 'missing_mode', message: string) {
     super(message)
   }
 }
 
-export function comparisonKey(q: { mode: 'worktree' | 'branch' | 'custom'; source?: string; target?: string; customArgs?: string[] }): string {
-  if (q.mode === 'custom') return `custom:${(q.customArgs ?? []).join(' ')}`
-  if (q.mode === 'branch') return `branch:${q.target}...${q.source}`
-  return 'worktree'
+export function comparisonKey(q: { source: string; target: string }): string {
+  return `branch:${q.target}...${q.source}`
 }
 
 export function queryFromSearch(get: (name: string) => string | undefined): ComparisonQuery {
@@ -38,8 +34,6 @@ export function queryFromSearch(get: (name: string) => string | undefined): Comp
     source: get('source'),
     target: get('target'),
     iid: get('iid'),
-    staged: get('staged') === 'true',
-    untracked: get('untracked') === 'true',
   }
 }
 
@@ -85,31 +79,15 @@ export function resolveBranchRefs(repo: string, q: { source?: string; target?: s
 }
 
 export interface ResolveOptions {
-  diffCwd?: string
   rangeDiff?: RangeDiff
 }
 
-export function resolveComparison(repo: string, customDiffArgs: string[] | undefined, q: ComparisonQuery, options: ResolveOptions = {}): ResolvedComparison {
-  if (customDiffArgs) {
-    return {
-      key: comparisonKey({ mode: 'custom', customArgs: customDiffArgs }),
-      mode: 'custom',
-      patch: getCustomGitDiff(options.diffCwd ?? repo, customDiffArgs),
-    }
-  }
-
-  if (q.mode !== 'branch') {
-    return {
-      key: comparisonKey({ mode: 'worktree' }),
-      mode: 'worktree',
-      patch: getGitDiff(repo, { staged: q.staged, untracked: q.untracked }),
-    }
-  }
-
+export function resolveComparison(repo: string, q: ComparisonQuery, options: ResolveOptions = {}): ResolvedComparison {
+  if (q.mode !== 'branch') throw new ComparisonError('missing_mode', '비교 방식을 선택해 주세요')
   const refs = resolveBranchRefs(repo, q)
   const rangeDiff = options.rangeDiff ?? getRangeDiff
   return {
-    key: comparisonKey({ mode: 'branch', source: refs.source, target: refs.target }),
+    key: comparisonKey({ source: refs.source, target: refs.target }),
     mode: 'branch',
     patch: rangeDiff(repo, refs.mergeBase, refs.sourceSha),
     ...refs,
