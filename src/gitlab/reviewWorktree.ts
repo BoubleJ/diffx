@@ -1,13 +1,13 @@
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, realpathSync, rmSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { getRepoName } from '../git.js'
 
 export const DEFAULT_WORKTREE_ROOT = join(homedir(), '.config', 'diffx', 'worktrees')
 
-export type ReviewWorktreeStatus = { exists: false } | { exists: true; path: string; headSha: string }
+export type ReviewWorktreeStatus = { exists: false } | { exists: true; path: string; headSha: string | null }
 
 export type CheckoutResult =
   | { kind: 'dirty'; files: string[] }
@@ -37,9 +37,18 @@ export function reviewWorktreePath(root: string, repo: string): string {
   return join(root, `${getRepoName(repo)}-${hash}`)
 }
 
+async function isWorktree(path: string): Promise<boolean> {
+  try {
+    return (await runGit(path, ['rev-parse', '--show-toplevel'])).trim() === realpathSync(path)
+  } catch {
+    return false
+  }
+}
+
 export async function getReviewWorktree(root: string, repo: string): Promise<ReviewWorktreeStatus> {
   const path = reviewWorktreePath(root, repo)
   if (!existsSync(path)) return { exists: false }
+  if (!(await isWorktree(path))) return { exists: true, path, headSha: null }
   return { exists: true, path, headSha: (await runGit(path, ['rev-parse', 'HEAD'])).trim() }
 }
 
@@ -58,7 +67,7 @@ function parseStatus(output: string): string[] {
 
 export async function listChangedFiles(root: string, repo: string): Promise<string[]> {
   const path = reviewWorktreePath(root, repo)
-  if (!existsSync(path)) return []
+  if (!existsSync(path) || !(await isWorktree(path))) return []
   return parseStatus(await runGit(path, ['status', '--porcelain', '-z', '--untracked-files=no']))
 }
 
@@ -86,6 +95,7 @@ export async function checkoutReviewWorktree(root: string, repo: string, headSha
     await runGit(repo, ['worktree', 'prune'])
     await runGit(repo, ['worktree', 'add', '--detach', path, headSha])
   } else {
+    if (!(await isWorktree(path))) throw new WorktreeGitError('리뷰용 worktree 폴더가 올바르지 않습니다. worktree 삭제 후 다시 체크아웃해 주세요')
     const files = await listChangedFiles(root, repo)
     if (files.length > 0 && !options.force) return { kind: 'dirty', files }
     await runGit(path, ['checkout', ...(files.length > 0 ? ['--force'] : []), '--detach', headSha])
@@ -96,8 +106,12 @@ export async function checkoutReviewWorktree(root: string, repo: string, headSha
 // node_modules처럼 git에 등록되지 않은 파일이 있으면 --force 없이는 git이 삭제를 거부한다.
 export async function removeReviewWorktree(root: string, repo: string): Promise<void> {
   const path = reviewWorktreePath(root, repo)
-  if (existsSync(path)) await runGit(repo, ['worktree', 'remove', '--force', path])
-  else await runGit(repo, ['worktree', 'prune'])
+  if (existsSync(path) && (await isWorktree(path))) {
+    await runGit(repo, ['worktree', 'remove', '--force', path])
+    return
+  }
+  rmSync(path, { recursive: true, force: true })
+  await runGit(repo, ['worktree', 'prune'])
 }
 
 // 앱을 찾지 못하면 open이 "Unable to find application named '<앱>'"을 stderr로 출력한다.

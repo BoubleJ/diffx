@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { git } from '../test/gitRepo'
+import { git, makeRepo } from '../test/gitRepo'
 import { makeMrRepo, pushMrCommit } from '../test/mrRepo'
 import { checkoutReviewWorktree, getReviewWorktree, listChangedFiles, removeReviewWorktree, reviewWorktreePath, WorktreeGitError } from './reviewWorktree'
 
@@ -192,5 +192,38 @@ describe('removeReviewWorktree', () => {
   it('does nothing when there is no worktree', async () => {
     const { root, local } = setup()
     await expect(removeReviewWorktree(root, local)).resolves.toBeUndefined()
+  })
+})
+
+describe('a folder that is not a worktree', () => {
+  function breakWorktree(root: string, local: string) {
+    const path = reviewWorktreePath(root, local)
+    mkdirSync(path, { recursive: true })
+    writeFileSync(join(path, 'leftover.txt'), 'x\n')
+    return path
+  }
+
+  it('reports the folder without a HEAD and lists no changes', async () => {
+    const { root, local } = setup()
+    const path = breakWorktree(root, local)
+    expect(await getReviewWorktree(root, local)).toEqual({ exists: true, path, headSha: null })
+    expect(await listChangedFiles(root, local)).toEqual([])
+  })
+
+  it('does not read a parent repository as the worktree', async () => {
+    const { local } = setup()
+    const root = makeRepo()
+    const path = breakWorktree(root, local)
+    expect(await getReviewWorktree(root, local)).toEqual({ exists: true, path, headSha: null })
+  })
+
+  it('asks to delete it before checking out, and deletes it', async () => {
+    const { root, local, head, headOf } = setup()
+    const path = breakWorktree(root, local)
+    await expect(checkoutReviewWorktree(root, local, head, { force: true })).rejects.toThrow('worktree 삭제 후 다시 체크아웃해 주세요')
+    await removeReviewWorktree(root, local)
+    expect(existsSync(path)).toBe(false)
+    await checkoutReviewWorktree(root, local, head, { force: false })
+    expect(headOf(path)).toBe(head)
   })
 })
