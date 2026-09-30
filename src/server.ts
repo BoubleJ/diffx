@@ -20,6 +20,8 @@ import type { ReviewProvider } from './review/types.js'
 import { createGlabClient, GlabError, type GlabClient } from './gitlab/glab.js'
 import { getGitlabStatus, listMrs, parseMrListQuery, MrFetchError, type GitlabStatus } from './gitlab/mr.js'
 import { MrComparisons, MrRequestError, parseIid, type MrResolved } from './gitlab/mrComparison.js'
+import { buildPosition } from './gitlab/position.js'
+import { buildThreads, type ApiDiscussion, type ApiDraftNote } from './gitlab/notes.js'
 
 export interface AppOptions {
   repoPath: string
@@ -320,6 +322,73 @@ export function createApp(options: AppOptions) {
     }
   })
 
+  const mrPath = (iid: number) => `projects/:fullpath/merge_requests/${iid}`
+
+  app.get('/api/gitlab/mrs/:iid/threads', async (c) => {
+    try {
+      const iid = parseIid(c.req.param('iid'))
+      const { mr } = await mrComparisons.resolve(iid, { refresh: false })
+      const [discussions, drafts] = await Promise.all([
+        glab(`${mrPath(iid)}/discussions?per_page=100`, { paginate: true }) as Promise<ApiDiscussion[]>,
+        glab(`${mrPath(iid)}/draft_notes?per_page=100`, { paginate: true }) as Promise<ApiDraftNote[]>,
+      ])
+      return c.json(buildThreads(`mr:${iid}`, mr.headSha, discussions, drafts))
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+  })
+
+  app.post('/api/gitlab/mrs/:iid/drafts', async (c) => {
+    let body: { filePath?: unknown; side?: unknown; lineNumber?: unknown; discussionId?: unknown; body?: unknown }
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'invalid_body' }, 400)
+    }
+    if (typeof body.body !== 'string' || !body.body.trim()) {
+      return c.json({ error: 'invalid_body', message: '코멘트 내용을 입력해 주세요' }, 400)
+    }
+    try {
+      const iid = parseIid(c.req.param('iid'))
+      const path = `${mrPath(iid)}/draft_notes`
+      if (typeof body.discussionId === 'string' && body.discussionId) {
+        await glab(path, { method: 'POST', body: { note: body.body, in_reply_to_discussion_id: body.discussionId } })
+        return c.json({ ok: true }, 201)
+      }
+      const resolved = await mrComparisons.resolve(iid, { refresh: false })
+      const position = typeof body.filePath === 'string' && (body.side === 'additions' || body.side === 'deletions') && Number.isInteger(body.lineNumber)
+        ? buildPosition(resolved.patch, body.filePath, body.side, body.lineNumber as number, resolved.mr)
+        : null
+      if (!position) {
+        return c.json({ error: 'invalid_position', message: '이 줄에는 GitLab 코멘트를 달 수 없습니다' }, 400)
+      }
+      await glab(path, { method: 'POST', body: { note: body.body, position } })
+      return c.json({ ok: true }, 201)
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+  })
+
+  app.delete('/api/gitlab/mrs/:iid/drafts/:id', async (c) => {
+    const id = c.req.param('id')
+    if (!/^\d+$/.test(id)) return c.json({ error: 'invalid_id' }, 400)
+    try {
+      await glab(`${mrPath(parseIid(c.req.param('iid')))}/draft_notes/${id}`, { method: 'DELETE' })
+      return c.json({ ok: true })
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+  })
+
+  app.post('/api/gitlab/mrs/:iid/publish', async (c) => {
+    try {
+      await glab(`${mrPath(parseIid(c.req.param('iid')))}/draft_notes/bulk_publish`, { method: 'POST' })
+      return c.json({ ok: true })
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+  })
+
   app.get('/api/review/providers', async (c) => {
     const list = await Promise.all(providers.map(async (p) => {
       const status = await detectProvider(p)
@@ -453,6 +522,7 @@ export function createApp(options: AppOptions) {
     const comment = {
       id: crypto.randomUUID(),
       key: keyFrom(body.key),
+      origin: 'local' as const,
       filePath: body.filePath,
       side: body.side,
       lineNumber: body.lineNumber,

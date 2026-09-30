@@ -140,3 +140,73 @@ describe('other APIs in mr mode', () => {
     expect(body.key).toBe('mr:7')
   })
 })
+
+function setupNotes(extra: Record<string, unknown> = {}) {
+  const ctx = setupMr()
+  const mrApi = 'projects/:fullpath/merge_requests/7'
+  const routes: Record<string, unknown> = {
+    'GET projects/:fullpath': PROJECT,
+    'GET user': { username: 'me' },
+    [`GET ${mrApi}`]: apiMr(7, ctx.base, ctx.head),
+    [`GET ${mrApi}/discussions`]: [],
+    [`GET ${mrApi}/draft_notes`]: [],
+    [`POST ${mrApi}/draft_notes`]: { id: 99 },
+    [`DELETE ${mrApi}/draft_notes/5`]: null,
+    [`POST ${mrApi}/draft_notes/bulk_publish`]: null,
+    ...extra,
+  }
+  const fake = fakeGlab(routes)
+  const app = createApp({ repoPath: ctx.local, clientDir: clientDir(), glab: fake.glab })
+  const post = (path: string, body: unknown) => app.request(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  return { ...ctx, app, calls: fake.calls, post, mrApi }
+}
+
+describe('MR comment APIs', () => {
+  it('returns threads from paginated discussions and drafts', async () => {
+    const { app, calls, mrApi } = setupNotes()
+    const res = await app.request('/api/gitlab/mrs/7/threads')
+    expect(await res.json()).toEqual({ comments: [], outdatedCount: 0, draftCount: 0 })
+    expect(calls.filter((c) => c.request.paginate).map((c) => c.path)).toEqual([`${mrApi}/discussions?per_page=100`, `${mrApi}/draft_notes?per_page=100`])
+  })
+
+  it('creates a line draft with the computed position', async () => {
+    const { post, calls, mrApi, head } = setupNotes()
+    const res = await post('/api/gitlab/mrs/7/drafts', { filePath: 'a.txt', side: 'additions', lineNumber: 2, body: '확인 부탁' })
+    expect(res.status).toBe(201)
+    const sent = calls.find((c) => c.path === `${mrApi}/draft_notes` && c.request.method === 'POST')!
+    expect(sent.request.body).toEqual({
+      note: '확인 부탁',
+      position: { position_type: 'text', base_sha: expect.any(String), start_sha: expect.any(String), head_sha: head, old_path: 'a.txt', new_path: 'a.txt', new_line: 2 },
+    })
+  })
+
+  it('creates a reply draft', async () => {
+    const { post, calls, mrApi } = setupNotes()
+    await post('/api/gitlab/mrs/7/drafts', { discussionId: 'abc', body: '동의합니다' })
+    const sent = calls.find((c) => c.path === `${mrApi}/draft_notes` && c.request.method === 'POST')!
+    expect(sent.request.body).toEqual({ note: '동의합니다', in_reply_to_discussion_id: 'abc' })
+  })
+
+  it('rejects empty bodies and lines outside the diff files', async () => {
+    const { post } = setupNotes()
+    expect((await post('/api/gitlab/mrs/7/drafts', { discussionId: 'abc', body: '  ' })).status).toBe(400)
+    const res = await post('/api/gitlab/mrs/7/drafts', { filePath: 'nope.txt', side: 'additions', lineNumber: 1, body: 'x' })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'invalid_position' })
+  })
+
+  it('deletes a draft and publishes all drafts', async () => {
+    const { app, post, calls, mrApi } = setupNotes()
+    expect((await app.request('/api/gitlab/mrs/7/drafts/5', { method: 'DELETE' })).status).toBe(200)
+    expect((await app.request('/api/gitlab/mrs/7/drafts/x', { method: 'DELETE' })).status).toBe(400)
+    expect((await post('/api/gitlab/mrs/7/publish', {})).status).toBe(200)
+    expect(calls.map((c) => `${c.request.method ?? 'GET'} ${c.path}`)).toContain(`POST ${mrApi}/draft_notes/bulk_publish`)
+  })
+
+  it('returns 502 when GitLab rejects the draft', async () => {
+    const { post } = setupNotes({ 'POST projects/:fullpath/merge_requests/7/draft_notes': new GlabError('api', 'glab: 400 Bad Request') })
+    const res = await post('/api/gitlab/mrs/7/drafts', { discussionId: 'abc', body: 'x' })
+    expect(res.status).toBe(502)
+    expect(await res.json()).toEqual({ error: 'api', message: 'glab: 400 Bad Request' })
+  })
+})
