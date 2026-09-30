@@ -6,6 +6,7 @@ import { fixPath } from './shellPath.js'
 import { RecentStore } from './recent.js'
 import { RepoWindows, type OpenResult } from './repoWindows.js'
 import { buildMenu } from './menu.js'
+import { checkForUpdates } from './updater/index.js'
 
 const pendingOpen: string[] = []
 let initialized = false
@@ -23,6 +24,7 @@ function refreshMenu() {
   Menu.setApplicationMenu(buildMenu({
     openFolder: () => void selectFolder({ fromMenu: true }),
     openRecent: (path) => void openAndReport(path),
+    checkForUpdates: () => void checkForUpdates({ manual: true }),
     recent: recent.list(),
   }))
 }
@@ -127,6 +129,7 @@ app.whenReady().then(async () => {
   const initialPaths = pendingOpen.splice(0)
   if (initialPaths.length === 0) showLauncher()
   for (const path of initialPaths) await openAndReport(path)
+  void checkForUpdates({ manual: false })
 })
 
 app.on('activate', () => {
