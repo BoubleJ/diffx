@@ -141,11 +141,12 @@ export function Toolbar({
           )}
         </div>
         <button
-          className={`btn btn-sm ${reviewOpen ? 'btn-active' : ''}`}
+          className={`btn btn-sm panel-toggle-btn ${reviewOpen ? 'btn-active' : ''}`}
           onClick={onToggleReview}
-          title="AI 리뷰 열기/닫기"
+          title="사이드 패널 열기/닫기"
+          aria-label="사이드 패널 열기/닫기"
         >
-          <PanelRight size={14} /> AI 리뷰
+          <PanelRight size={14} />
         </button>
         {submitReview && (
           <div className="toolbar-submit">
