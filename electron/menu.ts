@@ -1,13 +1,32 @@
-import { Menu, type MenuItemConstructorOptions } from 'electron'
+import { app, Menu, type MenuItemConstructorOptions } from 'electron'
 import type { RecentRepo } from './recent.js'
 
-export function buildMenu(deps: { openFolder: () => void; openRecent: (path: string) => void; recent: RecentRepo[] }): Menu {
+export function buildMenu(deps: {
+  openFolder: () => void
+  openRecent: (path: string) => void
+  checkForUpdates: () => void
+  recent: RecentRepo[]
+}): Menu {
   const recentItems: MenuItemConstructorOptions[] = deps.recent.length
     ? deps.recent.map((r) => ({ label: `${r.name}  ${r.path}`, click: () => deps.openRecent(r.path) }))
     : [{ label: '최근 저장소 없음', enabled: false }]
 
   const template: MenuItemConstructorOptions[] = [
-    { role: 'appMenu' },
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { label: '업데이트 확인...', click: deps.checkForUpdates },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
     {
       label: '파일',
       submenu: [

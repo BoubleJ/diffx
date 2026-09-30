@@ -27,7 +27,7 @@ function makeApp(path: string, version: string, marker: string) {
   writeFileSync(join(path, 'marker.txt'), marker)
 }
 
-function makeAppZip(version: string): Uint8Array {
+function makeAppZip(version: string): Uint8Array<ArrayBuffer> {
   const app = join(dir, 'build', 'reviewHelper.app')
   makeApp(app, version, 'new')
   const zip = join(dir, 'build', 'app.zip')
