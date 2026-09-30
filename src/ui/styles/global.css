@@ -1387,6 +1387,81 @@ body {
     text-decoration: underline;
 }
 
+.mr-checkout {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mr-checkout .btn {
+    gap: 4px;
+}
+
+.mr-checkout-done {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--success);
+}
+
+.mr-checkout-danger {
+    color: var(--danger);
+}
+
+.mr-checkout-popover,
+.mr-checkout-message {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    white-space: normal;
+}
+
+.mr-checkout-popover {
+    width: 360px;
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mr-checkout-popover p {
+    margin: 0;
+}
+
+.mr-checkout-files {
+    margin: 0;
+    padding-left: 16px;
+    max-height: 160px;
+    overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.mr-checkout-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.mr-checkout-message {
+    max-width: 360px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    z-index: 30;
+}
+
+.mr-checkout-error {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
 .spin {
     animation: spin 1s linear infinite;
 }
