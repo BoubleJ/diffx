@@ -1265,6 +1265,84 @@ body {
     background: var(--bg-secondary);
 }
 
+.mr-select-menu {
+    width: 420px;
+}
+
+.mr-select-filters {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.mr-select-mine {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.mr-select-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: 6px 10px;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.mr-select-item:hover {
+    background: var(--bg-secondary);
+}
+
+.mr-select-title {
+    font-size: 13px;
+    white-space: normal;
+}
+
+.mr-select-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.mr-select-error {
+    color: var(--danger);
+    white-space: normal;
+}
+
+.mr-badge {
+    margin-left: 6px;
+    padding: 0 6px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.toolbar-mr-link {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.toolbar-mr-link:hover {
+    text-decoration: underline;
+}
+
 .spin {
     animation: spin 1s linear infinite;
 }

@@ -25,6 +25,7 @@ interface ToolbarProps {
   onSoftWrapChange: (softWrap: boolean) => void
   onBrowserChange: (browser: string) => void
   onCopyComments: () => Promise<void>
+  mrLink?: { iid: number; title: string; webUrl: string }
 }
 
 export function Toolbar({
@@ -50,6 +51,7 @@ export function Toolbar({
   onSoftWrapChange,
   onBrowserChange,
   onCopyComments,
+  mrLink,
 }: ToolbarProps) {
   const [copied, setCopied] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -77,6 +79,11 @@ export function Toolbar({
     <div className="toolbar">
       <div className="toolbar-left">
         <h1 className="toolbar-title">{repoName}</h1>
+        {mrLink && (
+          <a className="toolbar-mr-link" href={mrLink.webUrl} target="_blank" rel="noreferrer" title="GitLab에서 열기">
+            !{mrLink.iid} {mrLink.title}
+          </a>
+        )}
         {branchPicker ?? (branch && (
           <span className="toolbar-branch">
             <GitBranch size={12} />

@@ -10,9 +10,9 @@ const branches = { local: ['feature/x', 'main'], remote: ['origin/main'], curren
 
 describe('comparisonParams', () => {
   it('builds worktree and branch params', () => {
-    expect(comparisonParams({ mode: 'worktree' }, { staged: true, untracked: false }).toString())
+    expect(comparisonParams({ mode: 'worktree' }, { staged: true, untracked: false })?.toString())
       .toBe('mode=worktree&staged=true&untracked=false')
-    expect(comparisonParams({ mode: 'branch', source: 'feature/x', target: 'origin/main' }, { staged: true, untracked: true }).toString())
+    expect(comparisonParams({ mode: 'branch', source: 'feature/x', target: 'origin/main' }, { staged: true, untracked: true })?.toString())
       .toBe('mode=branch&source=feature%2Fx&target=origin%2Fmain')
   })
 })
@@ -48,5 +48,24 @@ describe('reconcileComparison', () => {
       comparison: { mode: 'branch', source: 'feature/x', target: 'origin/main' },
       missing: ['deleted', 'origin/gone'],
     })
+  })
+})
+
+describe('mr comparison', () => {
+  it('builds params only when an MR is selected', () => {
+    expect(comparisonParams({ mode: 'mr', iid: 7 }, { staged: true, untracked: true })?.toString()).toBe('mode=mr&iid=7')
+    expect(comparisonParams({ mode: 'mr', iid: null }, { staged: true, untracked: true })).toBeNull()
+  })
+
+  it('saves and loads the selected MR', () => {
+    const s = memoryStorage()
+    saveComparison('/repo/a', { mode: 'mr', iid: 7 }, s)
+    expect(loadComparison('/repo/a', s)).toEqual({ mode: 'mr', iid: 7 })
+    s.setItem('diffx-comparison:/repo/a', JSON.stringify({ mode: 'mr', iid: 'x' }))
+    expect(loadComparison('/repo/a', s)).toEqual({ mode: 'mr', iid: null })
+  })
+
+  it('keeps a saved MR during branch reconciliation', () => {
+    expect(reconcileComparison({ mode: 'mr', iid: 7 }, branches)).toEqual({ comparison: { mode: 'mr', iid: 7 }, missing: [] })
   })
 })

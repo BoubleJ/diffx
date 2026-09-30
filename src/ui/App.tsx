@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Resizable } from 'react-resizable'
+import { useQueryClient } from '@tanstack/react-query'
 import { parsePatchFiles } from '@pierre/diffs'
 import { Virtualizer } from '@pierre/diffs/react'
 import type { FileDiffMetadata } from '@pierre/diffs'
@@ -7,6 +8,8 @@ import type { ReviewComment } from '../types'
 import { useDiff } from './hooks/useDiff'
 import { useRepo } from './hooks/useRepo'
 import { useBranches } from './hooks/useBranches'
+import { useGitlabStatus } from './hooks/useGitlab'
+import { reconcileMrAvailability } from './gitlab'
 import { useComments } from './hooks/useComments'
 import { useSettings } from './hooks/useSettings'
 import { useViewed } from './hooks/useViewed'
@@ -44,6 +47,8 @@ export function App() {
   const { repo, error: repoError } = useRepo()
   const branchMode = !!repo && !repo.customMode
   const { branches, branchesError, fetchRemote, fetching, fetchError } = useBranches(branchMode)
+  const gitlab = useGitlabStatus(branchMode)
+  const queryClient = useQueryClient()
   const [comparison, setComparison] = useState<Comparison | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -61,12 +66,14 @@ export function App() {
       return
     }
     const base = comparison ?? loadComparison(repo.root)
-    const { comparison: next, missing } = reconcileComparison(base, branches)
+    const { comparison: reconciled, missing } = reconcileComparison(base, branches)
+    const { comparison: next, notice: mrNotice } = reconcileMrAvailability(reconciled, gitlab.status)
     if (missing.length > 0) {
       setNotice(`저장된 브랜치 ${missing.join(', ')}을 찾지 못해 기본값으로 바꿨습니다`)
     }
+    if (mrNotice) setNotice(mrNotice)
     if (JSON.stringify(next) !== JSON.stringify(comparison)) setComparison(next)
-  }, [repo, branches, branchesError])
+  }, [repo, branches, branchesError, gitlab.status])
 
   const handleComparisonChange = useCallback((next: Comparison) => {
     setNotice(null)
@@ -83,7 +90,21 @@ export function App() {
     await fetchRemote()
     setDiffReloadToken((t) => t + 1)
   }, [fetchRemote])
-  const { patch, repoName, branch, binaryFiles, tabSizeMap, untrackedFiles, key, identical, loading, error } = useDiff(params, diffReloadToken)
+  const { patch, repoName, branch, binaryFiles, tabSizeMap, untrackedFiles, key, identical, loading, error, mr: diffMr } = useDiff(params, diffReloadToken)
+  const [mrRefreshing, setMrRefreshing] = useState(false)
+  const handleRefreshMr = useCallback(async () => {
+    setMrRefreshing(true)
+    try {
+      await gitlab.refresh()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['mr-list'] }),
+        queryClient.invalidateQueries({ queryKey: ['mr-threads'] }),
+      ])
+      setDiffReloadToken((t) => t + 1)
+    } finally {
+      setMrRefreshing(false)
+    }
+  }, [gitlab.refresh, queryClient])
   const repoRoot = repo?.root ?? null
   const [excludedEdit, setExcludedEdit] = useState<{ repoRoot: string; key: string; paths: string[] } | null>(null)
   const excluded = useMemo(() => {
@@ -296,6 +317,11 @@ export function App() {
             notice={notice}
             onChange={handleComparisonChange}
             onFetch={handleFetch}
+            repoRoot={repo.root}
+            gitlab={gitlab.status}
+            mrTitle={diffMr?.title ?? null}
+            mrRefreshing={mrRefreshing}
+            onRefreshMr={handleRefreshMr}
           />
         )}
         branch={branch}
@@ -317,6 +343,7 @@ export function App() {
         reviewOpen={reviewPanel.open}
         onToggleReview={() => updateReviewPanel({ ...reviewPanel, open: !reviewPanel.open })}
         onCopyComments={copyAllComments}
+        mrLink={comparison.mode === 'mr' && diffMr ? diffMr : undefined}
       />
       <div className="app-body">
         {sidebar.collapsed ? (
@@ -341,10 +368,17 @@ export function App() {
           </Resizable>
         )}
         <main className="main">
-          {loading ? (
-            <div className="loading"><p>Loading diff...</p></div>
+          {comparison.mode === 'mr' && comparison.iid === null ? (
+            <div className="empty-state"><p>MR을 선택해 주세요</p></div>
+          ) : loading ? (
+            <div className="loading"><p>{comparison.mode === 'mr' ? 'MR 커밋을 가져오는 중입니다' : 'Loading diff...'}</p></div>
           ) : error ? (
-            <div className="empty-state"><p>{error}</p></div>
+            <div className="empty-state">
+              <p>{error}</p>
+              {comparison.mode === 'mr' && (
+                <button className="btn btn-sm" onClick={() => setDiffReloadToken((t) => t + 1)}>다시 시도</button>
+              )}
+            </div>
           ) : identical ? (
             <div className="empty-state"><p>두 브랜치의 내용이 같습니다</p></div>
           ) : (
