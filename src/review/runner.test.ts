@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { mkdtempSync, rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { runReview, detectProvider, STOP_IMMEDIATELY } from './runner'
-import { buildPrompt } from './prompt'
+import { buildReviewPrompt } from './prompt'
 import { ReviewFailure, type ReviewProvider, type ReviewContext } from './types'
 
 const FAKE = fileURLToPath(new URL('./__fixtures__/fake-cli.mjs', import.meta.url))
@@ -54,7 +54,7 @@ describe('runReview', () => {
 
   it('passes the prompt on stdin', async () => {
     const result = await run('echo')
-    expect(result.answer).toBe(buildPrompt(ctx).slice(0, 20))
+    expect(result.answer).toBe(buildReviewPrompt(ctx).slice(0, 20))
   })
 
   it('extracts JSON from text output', async () => {

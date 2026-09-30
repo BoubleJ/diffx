@@ -1,7 +1,7 @@
 import { spawn, execFile } from 'node:child_process'
 import { readFileSync, existsSync, rmSync } from 'node:fs'
 import { createInterface } from 'node:readline'
-import { buildPrompt } from './prompt.js'
+import { buildReviewPrompt } from './prompt.js'
 import { extractJson, validateResult } from './schema.js'
 import { ReviewFailure, type Command, type FinalOutput, type ReviewContext, type ReviewProvider, type ReviewResult } from './types.js'
 
@@ -50,7 +50,7 @@ function tail(text: string, lines: number): string {
 export function runReview(provider: ReviewProvider, ctx: ReviewContext, options: RunOptions = {}): Promise<ReviewResult> {
   let command: Command
   try {
-    command = provider.buildCommand(ctx, buildPrompt(ctx))
+    command = provider.buildCommand(ctx, buildReviewPrompt(ctx))
   } catch (err) {
     return Promise.reject(new ReviewFailure('process', err instanceof Error ? err.message : String(err)))
   }
