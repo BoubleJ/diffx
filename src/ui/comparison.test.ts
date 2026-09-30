@@ -9,10 +9,8 @@ function memoryStorage() {
 const branches = { local: ['feature/x', 'main'], remote: ['origin/main'], current: 'feature/x', defaultTarget: 'origin/main' }
 
 describe('comparisonParams', () => {
-  it('builds worktree and branch params', () => {
-    expect(comparisonParams({ mode: 'worktree' }, { staged: true, untracked: false })?.toString())
-      .toBe('mode=worktree&staged=true&untracked=false')
-    expect(comparisonParams({ mode: 'branch', source: 'feature/x', target: 'origin/main' }, { staged: true, untracked: true })?.toString())
+  it('builds branch params', () => {
+    expect(comparisonParams({ mode: 'branch', source: 'feature/x', target: 'origin/main' })?.toString())
       .toBe('mode=branch&source=feature%2Fx&target=origin%2Fmain')
   })
 })
@@ -25,6 +23,12 @@ describe('load/saveComparison', () => {
     expect(loadComparison('/repo/b', s)).toBeNull()
   })
 
+  it('ignores a saved worktree comparison', () => {
+    const s = memoryStorage()
+    s.setItem('diffx-comparison:/repo/a', JSON.stringify({ mode: 'worktree' }))
+    expect(loadComparison('/repo/a', s)).toBeNull()
+  })
+
   it('ignores broken values', () => {
     const s = memoryStorage()
     s.setItem('diffx-comparison:/repo/a', '{bad json')
@@ -33,8 +37,8 @@ describe('load/saveComparison', () => {
 })
 
 describe('reconcileComparison', () => {
-  it('defaults to worktree when nothing is saved', () => {
-    expect(reconcileComparison(null, branches)).toEqual({ comparison: { mode: 'worktree' }, missing: [] })
+  it('defaults to the branch comparison when nothing is saved', () => {
+    expect(reconcileComparison(null, branches)).toEqual({ comparison: { mode: 'branch', source: 'feature/x', target: 'origin/main' }, missing: [] })
   })
 
   it('keeps saved branches that still exist', () => {
@@ -53,8 +57,8 @@ describe('reconcileComparison', () => {
 
 describe('mr comparison', () => {
   it('builds params only when an MR is selected', () => {
-    expect(comparisonParams({ mode: 'mr', iid: 7 }, { staged: true, untracked: true })?.toString()).toBe('mode=mr&iid=7')
-    expect(comparisonParams({ mode: 'mr', iid: null }, { staged: true, untracked: true })).toBeNull()
+    expect(comparisonParams({ mode: 'mr', iid: 7 })?.toString()).toBe('mode=mr&iid=7')
+    expect(comparisonParams({ mode: 'mr', iid: null })).toBeNull()
   })
 
   it('saves and loads the selected MR', () => {

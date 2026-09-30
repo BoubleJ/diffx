@@ -1,17 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 
 export interface Settings {
-  staged: boolean
-  untracked: boolean
   diffStyle: 'split' | 'unified'
   defaultTabSize: number
   softWrap: boolean
-  browser?: string
 }
 
 const DEFAULTS: Settings = {
-  staged: true,
-  untracked: true,
   diffStyle: 'split',
   defaultTabSize: 4,
   softWrap: false,

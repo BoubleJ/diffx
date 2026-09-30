@@ -3,29 +3,22 @@ import type { MrDetail } from '../../gitlab/mr'
 
 export interface BinaryFileInfo {
   path: string
-  type: 'added' | 'deleted' | 'changed' | 'untracked'
+  type: 'added' | 'deleted' | 'changed'
 }
 
 interface DiffData {
   patch: string
   repoName: string
   branch: string
-  customMode: boolean
   binaryFiles: BinaryFileInfo[]
   tabSizeMap: Record<string, number>
-  untrackedFiles: string[]
   key: string
-  mode: 'worktree' | 'branch' | 'custom' | 'mr'
+  mode: 'branch' | 'mr'
   sourceSha?: string
   targetSha?: string
   mergeBase?: string
   identical: boolean
   mr?: MrDetail
-}
-
-export interface DiffOptions {
-  staged: boolean
-  untracked: boolean
 }
 
 export function useDiff(params: URLSearchParams | null, reloadToken = 0) {
@@ -71,10 +64,8 @@ export function useDiff(params: URLSearchParams | null, reloadToken = 0) {
     patch: data?.patch ?? null,
     repoName: data?.repoName ?? '',
     branch: data?.branch ?? '',
-    customMode: data?.customMode ?? false,
     binaryFiles: data?.binaryFiles ?? [],
     tabSizeMap: data?.tabSizeMap ?? {},
-    untrackedFiles: data?.untrackedFiles ?? [],
     key: data?.key ?? null,
     mode: data?.mode ?? null,
     sourceSha: data?.sourceSha,

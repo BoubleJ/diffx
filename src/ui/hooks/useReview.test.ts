@@ -15,8 +15,7 @@ describe('fetchProviders', () => {
 })
 
 describe('savedReviewKey', () => {
-  it('differs when worktree options change for the same comparison key', () => {
-    expect(savedReviewKey('worktree', 'mode=worktree&staged=true')).not.toEqual(savedReviewKey('worktree', 'mode=worktree&staged=false'))
-    expect(savedReviewKey('worktree', 'mode=worktree')[0]).toBe('review')
+  it('is derived from the comparison key only', () => {
+    expect(savedReviewKey('branch-key')).toEqual(['review', 'branch-key'])
   })
 })

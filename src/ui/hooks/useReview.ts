@@ -52,9 +52,8 @@ export async function fetchProviders(fetchFn: typeof fetch = fetch): Promise<Pro
   return res.json()
 }
 
-// 작업 트리 모드는 staged, untracked 설정을 바꿔도 key가 같으므로 요청 파라미터까지 키에 넣어 stale을 다시 계산한다.
-export function savedReviewKey(key: string | null, query: string): [string, string | null, string] {
-  return ['review', key, query]
+export function savedReviewKey(key: string | null): [string, string | null] {
+  return ['review', key]
 }
 
 export function useReview(params: URLSearchParams | null, key: string | null) {
@@ -73,7 +72,7 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
   })
 
   const { data: saved, isFetching } = useQuery({
-    queryKey: savedReviewKey(key, query),
+    queryKey: savedReviewKey(key),
     queryFn: async (): Promise<SavedReview> => (await fetch(`/api/review?${query}`)).json(),
     enabled: key !== null && params !== null,
   })
@@ -134,7 +133,7 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
       const res = await fetch('/api/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, ...Object.fromEntries(params), staged: params.get('staged') === 'true', untracked: params.get('untracked') === 'true', exclude, instruction }),
+        body: JSON.stringify({ provider, ...Object.fromEntries(params), exclude, instruction }),
       })
       const body = await res.json()
       if (keyRef.current !== startKey) return

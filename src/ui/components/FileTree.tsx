@@ -9,7 +9,6 @@ import {
   FileDiff,
   FileEdit,
   FileCheck,
-  FileQuestion,
   MessageSquare,
   EyeOff,
   Search,
@@ -23,7 +22,6 @@ interface FileTreeProps {
   activeFile: string | null
   commentCounts: Record<string, number>
   viewedFiles: Set<string>
-  untrackedFiles: Set<string>
   onFileClick: (filePath: string) => void
   onExclude: (filePath: string) => void
   collapsed?: boolean
@@ -74,8 +72,7 @@ function buildTree(files: FileDiffMetadata[]): TreeNode[] {
   return root
 }
 
-function inferChangeType(file: FileDiffMetadata, untrackedFiles: Set<string>): string {
-  if (untrackedFiles.has(file.name)) return 'untracked'
+function inferChangeType(file: FileDiffMetadata): string {
   // parsePatchFiles doesn't always set changeType, infer from object IDs
   if (file.prevName) return 'rename-changed'
   const prev = file.prevObjectId
@@ -85,17 +82,15 @@ function inferChangeType(file: FileDiffMetadata, untrackedFiles: Set<string>): s
   return 'change'
 }
 
-function getFileIcon(file: FileDiffMetadata | undefined, viewed: boolean, untrackedFiles: Set<string>) {
+function getFileIcon(file: FileDiffMetadata | undefined, viewed: boolean) {
   const size = 16
   if (viewed) {
     return <FileCheck size={size} className="ft-icon icon-viewed" />
   }
-  const changeType = file ? inferChangeType(file, untrackedFiles) : 'change'
+  const changeType = file ? inferChangeType(file) : 'change'
   switch (changeType) {
     case 'new':
       return <FilePlus size={size} className="ft-icon icon-added" />
-    case 'untracked':
-      return <FileQuestion size={size} className="ft-icon icon-untracked" />
     case 'deleted':
       return <FileMinus size={size} className="ft-icon icon-deleted" />
     case 'rename-pure':
@@ -111,7 +106,6 @@ function TreeDir({
   activeFile,
   commentCounts,
   viewedFiles,
-  untrackedFiles,
   onFileClick,
   onExclude,
   depth,
@@ -121,7 +115,6 @@ function TreeDir({
   activeFile: string | null
   commentCounts: Record<string, number>
   viewedFiles: Set<string>
-  untrackedFiles: Set<string>
   onFileClick: (filePath: string) => void
   onExclude: (filePath: string) => void
   depth: number
@@ -157,7 +150,6 @@ function TreeDir({
                 activeFile={activeFile}
                 commentCounts={commentCounts}
                 viewedFiles={viewedFiles}
-                untrackedFiles={untrackedFiles}
                 onFileClick={onFileClick}
                 onExclude={onExclude}
                 depth={depth + 1}
@@ -170,7 +162,6 @@ function TreeDir({
                 activeFile={activeFile}
                 commentCount={commentCounts[child.file?.name ?? ''] ?? 0}
                 viewed={viewedFiles.has(child.file?.name ?? '')}
-                untrackedFiles={untrackedFiles}
                 onFileClick={onFileClick}
                 onExclude={onExclude}
                 depth={depth + 1}
@@ -188,7 +179,6 @@ function TreeFile({
   activeFile,
   commentCount,
   viewed,
-  untrackedFiles,
   onFileClick,
   onExclude,
   depth,
@@ -197,7 +187,6 @@ function TreeFile({
   activeFile: string | null
   commentCount: number
   viewed: boolean
-  untrackedFiles: Set<string>
   onFileClick: (filePath: string) => void
   onExclude: (filePath: string) => void
   depth: number
@@ -213,7 +202,7 @@ function TreeFile({
         onClick={() => onFileClick(filePath)}
         title={filePath}
       >
-        {getFileIcon(node.file, viewed, untrackedFiles)}
+        {getFileIcon(node.file, viewed)}
         <span className="ft-file-name">{node.name}</span>
         {commentCount > 0 && (
           <span className="ft-comment-count">
@@ -237,7 +226,7 @@ function TreeFile({
   )
 }
 
-export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrackedFiles, onFileClick, onExclude, collapsed, onToggleCollapse }: FileTreeProps) {
+export function FileTree({ files, activeFile, commentCounts, viewedFiles, onFileClick, onExclude, collapsed, onToggleCollapse }: FileTreeProps) {
   const [filter, setFilter] = useState('')
 
   const filteredFiles = useMemo(() => {
@@ -300,7 +289,6 @@ export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrac
               activeFile={activeFile}
               commentCounts={commentCounts}
               viewedFiles={viewedFiles}
-              untrackedFiles={untrackedFiles}
               onFileClick={onFileClick}
               onExclude={onExclude}
               depth={0}
@@ -313,7 +301,6 @@ export function FileTree({ files, activeFile, commentCounts, viewedFiles, untrac
               activeFile={activeFile}
               commentCount={commentCounts[node.file?.name ?? ''] ?? 0}
               viewed={viewedFiles.has(node.file?.name ?? '')}
-              untrackedFiles={untrackedFiles}
               onFileClick={onFileClick}
               onExclude={onExclude}
               depth={0}
