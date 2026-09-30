@@ -30,3 +30,11 @@ export function apiMr(iid: number, base: string, head: string, targetBranch = 'm
     diff_refs: { base_sha: base, start_sha: base, head_sha: head },
   }
 }
+
+export function pushMrCommit(remote: string, iid: number, parent: string, files: Record<string, string>): string {
+  git(remote, 'switch', '-q', '--detach', parent)
+  const sha = commit(remote, files, `mr ${iid}`)
+  git(remote, 'update-ref', `refs/merge-requests/${iid}/head`, sha)
+  git(remote, 'switch', '-q', 'main')
+  return sha
+}
