@@ -7,15 +7,6 @@ const oneIniWasm = createRequire(require.resolve('editorconfig')).resolve('@one-
 
 export default defineConfig([
   {
-    entry: ['src/cli.ts'],
-    format: 'esm',
-    outDir: 'dist',
-    clean: false,
-    deps: {
-      neverBundle: ['open', 'get-port'],
-    },
-  },
-  {
     entry: { main: 'electron/main.ts' },
     format: 'cjs',
     platform: 'node',
