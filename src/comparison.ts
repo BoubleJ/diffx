@@ -4,13 +4,14 @@ export interface ComparisonQuery {
   mode?: string
   source?: string
   target?: string
+  iid?: string
   staged?: boolean
   untracked?: boolean
 }
 
 export interface ResolvedComparison {
   key: string
-  mode: 'worktree' | 'branch' | 'custom'
+  mode: 'worktree' | 'branch' | 'custom' | 'mr'
   patch: string
   source?: string
   target?: string
@@ -36,6 +37,7 @@ export function queryFromSearch(get: (name: string) => string | undefined): Comp
     mode: get('mode'),
     source: get('source'),
     target: get('target'),
+    iid: get('iid'),
     staged: get('staged') === 'true',
     untracked: get('untracked') === 'true',
   }
