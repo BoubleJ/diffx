@@ -16,9 +16,9 @@ export function comparisonParams(c: Comparison): URLSearchParams | null {
   return new URLSearchParams({ mode: 'branch', source: c.source, target: c.target })
 }
 
-export function loadComparison(repoRoot: string, storage: Pick<Storage, 'getItem'> = localStorage): Comparison | null {
+function readComparison(storageKey: string, storage: Pick<Storage, 'getItem'>): Comparison | null {
   try {
-    const raw = storage.getItem(STORAGE_PREFIX + repoRoot)
+    const raw = storage.getItem(storageKey)
     if (!raw) return null
     const parsed = JSON.parse(raw)
     if (parsed?.mode === 'mr') {
@@ -31,10 +31,27 @@ export function loadComparison(repoRoot: string, storage: Pick<Storage, 'getItem
   return null
 }
 
+export function loadComparison(repoRoot: string, storage: Pick<Storage, 'getItem'> = localStorage): Comparison | null {
+  return readComparison(STORAGE_PREFIX + repoRoot, storage)
+}
+
 export function saveComparison(repoRoot: string, c: Comparison, storage: Pick<Storage, 'setItem'> = localStorage): void {
   try {
     storage.setItem(STORAGE_PREFIX + repoRoot, JSON.stringify(c))
+    storage.setItem(`${STORAGE_PREFIX}${repoRoot}:${c.mode}`, JSON.stringify(c))
   } catch {}
+}
+
+export function comparisonForMode(
+  repoRoot: string,
+  mode: Comparison['mode'],
+  branches: BranchInfo | undefined,
+  storage: Pick<Storage, 'getItem'> = localStorage,
+): { comparison: Comparison; missing: string[] } | null {
+  const last = readComparison(`${STORAGE_PREFIX}${repoRoot}:${mode}`, storage)
+  if (mode === 'mr') return { comparison: last?.mode === 'mr' ? last : { mode: 'mr', iid: null }, missing: [] }
+  if (!branches) return null
+  return reconcileComparison(last?.mode === 'branch' ? last : null, branches)
 }
 
 export function defaultBranchComparison(branches: BranchInfo): Extract<Comparison, { mode: 'branch' }> {
