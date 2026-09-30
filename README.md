@@ -4,12 +4,6 @@ A local code review tool designed for the coding agent workflow. Review AI-gener
 
 ![screenshot](https://raw.githubusercontent.com/wong2/diffx/main/screenshot.png)
 
-## Install
-
-```bash
-npm install -g diffx-cli
-```
-
 ## macOS 데스크톱 앱
 
 터미널 없이 diffx를 실행하는 앱(reviewHelper)이다. Apple Silicon(arm64) 맥에서 동작한다.
@@ -61,32 +55,17 @@ pnpm run build:app
 
 `release/reviewHelper-<버전>.zip`이 만들어진다. 버전은 `package.json`의 `version` 값이다.
 
-## Usage
+## 개발
 
-Run in any git repository:
+| 명령 | 용도 |
+|---|---|
+| `pnpm run dev:app` | UI와 Electron 코드를 빌드하고 데스크톱 앱을 띄운다. 코드를 고치면 앱을 다시 실행해야 반영된다 |
+| `pnpm run dev:server` | 현재 폴더의 저장소로 3433 포트에 개발용 서버를 띄운다. 브라우저는 열지 않는다 |
+| `pnpm run dev:client` | vite 개발 서버를 띄운다. `/api` 요청을 `dev:server`로 넘기며, UI 코드를 저장하면 브라우저에 바로 반영된다 |
+| `pnpm run build:app` | 배포용 `.app`과 zip을 만든다 |
+| `pnpm test` | 테스트를 실행한다 |
 
-```bash
-diffx
-```
-
-This starts a local server and opens your browser with a diff review UI.
-
-### Options
-
-```
-diffx [options] [-- <git-diff-args>]
-
-Options:
-  -p, --port <port>   Server port (default: 3433)
-  --no-open           Don't auto-open browser
-
-Examples:
-  diffx                          # Review working tree changes
-  diffx -p 8080                  # Use custom port
-  diffx -- HEAD~3                # Diff against 3 commits ago
-  diffx -- main..HEAD            # Diff between branches
-  diffx -- --cached -- src/      # Staged changes in src/
-```
+UI를 고칠 때는 터미널 두 개에서 `dev:server`와 `dev:client`를 함께 띄우고 vite가 출력한 주소를 브라우저로 연다.
 
 ## Features
 
@@ -99,8 +78,6 @@ Examples:
 - **Copy comments** — One-click copy all comments as structured XML for AI coding agents
 - **Image preview** — Side-by-side comparison for added, modified, and deleted images
 - **Viewed tracking** — Mark files as reviewed to track progress
-- **Staged / Untracked toggles** — Choose which changes to include
-- **Custom diff commands** — Pass any `git diff` arguments after `--`
 - **EditorConfig support** — Respects `.editorconfig` for per-file tab size
 - **Persistent settings** — Your preferences are saved across sessions
 
@@ -124,19 +101,6 @@ This null check removal may cause a bug when `input` is undefined.
 ```
 
 Each comment includes the commented code line with a `+`/`-` prefix indicating whether it's an added or removed line.
-
-## Agent Skills
-
-Install the diffx skills to use diffx directly from your AI coding agent:
-
-```bash
-npx skills add wong2/diffx
-```
-
-The review workflow uses two commands:
-
-1. **`/diffx-start-review`** — Launches the diffx server and opens the browser. Review your changes and leave inline comments.
-2. **`/diffx-finish-review`** — The agent fetches all comments from the running diffx server via API, applies the requested changes, and marks each comment as resolved. The browser UI updates in real time as comments are resolved.
 
 ## License
 
