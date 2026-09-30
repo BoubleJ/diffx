@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { GitBranch, PanelRight, RefreshCw, Settings } from 'lucide-react'
 
 interface ToolbarProps {
-  repoName: string
   branch: string
   fileCount: number
   excludedCount?: number
@@ -22,7 +21,6 @@ interface ToolbarProps {
 }
 
 export function Toolbar({
-  repoName,
   branch,
   fileCount,
   excludedCount = 0,
@@ -58,7 +56,6 @@ export function Toolbar({
   return (
     <div className="toolbar">
       <div className="toolbar-left">
-        <h1 className="toolbar-title">{repoName}</h1>
         {mrLink && (
           <a className="toolbar-mr-link" href={mrLink.webUrl} target="_blank" rel="noreferrer" title="GitLab에서 열기">
             !{mrLink.iid} {mrLink.title}

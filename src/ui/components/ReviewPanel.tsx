@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
 import type { Finding, ProviderInfo, ReviewRecord, ReviewState } from '../hooks/useReview'
 import { FindingItem } from './FindingItem'
 
@@ -15,7 +14,6 @@ interface ReviewPanelProps {
   onStart: () => void
   onCancel: () => void
   onFindingClick: (f: Finding) => void
-  onClose: () => void
 }
 
 function useElapsed(startedAt: number | null) {
@@ -36,7 +34,7 @@ function errorText(state: Extract<ReviewState, { status: 'error' }>, provider: P
 }
 
 export function ReviewPanel(props: ReviewPanelProps) {
-  const { provider, record, stale, state, instruction, onInstructionChange, onStart, onCancel, onFindingClick, onClose } = props
+  const { provider, record, stale, state, instruction, onInstructionChange, onStart, onCancel, onFindingClick } = props
   const elapsed = useElapsed(state.status === 'running' ? state.startedAt : null)
   const findings = useMemo(
     () => [...(record?.result.findings ?? [])].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]),
@@ -48,9 +46,6 @@ export function ReviewPanel(props: ReviewPanelProps) {
     <div className="review-panel">
       <div className="review-panel-header">
         <span className="review-panel-title">AI 리뷰</span>
-        <button className="btn btn-sm" onClick={onClose} title="닫기">
-          <X size={14} />
-        </button>
       </div>
 
       <textarea
