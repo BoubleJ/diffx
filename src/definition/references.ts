@@ -118,7 +118,8 @@ export function findSymbolReferences(reader: SourceReader, filePath: string, lin
   const name = token.name
 
   const found = matchingLines(filePath, text, wordRegex(name)).filter((r) => r.line !== line)
-  const exported = /^\s*export\s+default\b/.test(lineText)
+  const defaultExportLine = new RegExp(`^\\s*export\\s+default\\s+${escapeJs(name)}\\s*;?\\s*$`, 'm')
+  const exported = /^\s*export\s+default\b/.test(lineText) || defaultExportLine.test(text)
     ? 'default'
     : findExport(text, name).some((m) => m.kind === 'line') ? name : null
   if (!exported) return finish(name, found)

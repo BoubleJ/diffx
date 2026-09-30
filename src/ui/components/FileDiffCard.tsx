@@ -157,7 +157,7 @@ export const FileDiffCard = memo(function FileDiffCard({
     <div className={`file-diff-card ${viewed ? 'file-diff-viewed' : ''}`} id={id} ref={cardRef} {...headerHandlers}>
       {viewed ? (
         <div className="file-diff-viewed-header">
-          <span className="file-diff-viewed-name">{filePath}</span>
+          <span className="file-diff-viewed-name" data-title>{filePath}</span>
           <span className="file-header-actions">
             <ExcludeButton onClick={() => onExclude(filePath)} />
             <label className="viewed-label viewed-checked" onClick={(e) => e.stopPropagation()}>

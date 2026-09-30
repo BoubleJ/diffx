@@ -101,6 +101,17 @@ describe('findSymbolReferences', () => {
   })
 })
 
+describe('findSymbolReferences with a separate default export line', () => {
+  it('treats a declaration exported by `export default name` as exported', () => {
+    const a = 'function foo() {}\nexport default foo\n'
+    const b = "import bar from './a'\nbar()\n"
+    const reader = setup({ 'src/a.ts': a, 'src/b.ts': b })
+    const { line, col } = at(a, 1, 'foo')
+    const result = findSymbolReferences(reader, 'src/a.ts', line, col)
+    expect(refs(result)).toEqual(['src/a.ts:2', 'src/b.ts:1', 'src/b.ts:2'])
+  })
+})
+
 describe('findFileReferences', () => {
   it('lists lines that import the file', () => {
     const reader = setup({
