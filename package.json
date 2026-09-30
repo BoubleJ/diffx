@@ -21,38 +21,23 @@
     "cli"
   ],
   "main": "dist/electron/main.cjs",
-  "bin": {
-    "diffx": "./dist/cli.mjs"
-  },
-  "files": [
-    "dist"
-  ],
   "scripts": {
-    "build": "vite build && tsdown",
-    "build:electron": "vite build && tsdown",
     "dev:app": "pnpm run build:electron && electron .",
-    "build:app": "pnpm run build:electron && electron-builder --mac zip --arm64",
-    "changeset": "changeset",
+    "dev:server": "tsx src/devServer.ts",
     "dev:client": "vite",
-    "dev:server": "tsx src/cli.ts --no-open -p 3433",
-    "prepublishOnly": "pnpm run build",
-    "release": "pnpm run build && changeset publish",
+    "build:electron": "vite build && tsdown",
+    "build:app": "pnpm run build:electron && electron-builder --mac zip --arm64",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "version-packages": "changeset version"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.1",
     "@tanstack/react-query": "^5.96.2",
     "editorconfig": "^3.0.2",
-    "get-port": "^7.2.0",
     "hono": "^4.7.6",
-    "open": "^11.0.0",
     "react-resizable": "^4.0.1"
   },
   "devDependencies": {
-    "@changesets/changelog-git": "^0.2.1",
-    "@changesets/cli": "^2.30.0",
     "@pierre/diffs": "^1.2.9",
     "@types/node": "^25.5.2",
     "@types/react": "^19.1.2",
