@@ -117,7 +117,7 @@ export const FileDiffCard = memo(function FileDiffCard({
     onTokenClick: (props: { side: 'additions' | 'deletions'; lineNumber: number; lineCharStart: number; tokenElement: HTMLElement }, event: MouseEvent) => {
       if (!event.metaKey) return
       event.preventDefault()
-      onDefinition!({ path: filePath, side: props.side, line: props.lineNumber, col: props.lineCharStart }, props.tokenElement.getBoundingClientRect())
+      onDefinition!({ path: filePath, side: props.side, line: props.lineNumber, col: props.lineCharStart, name: props.tokenElement.textContent ?? '' }, props.tokenElement.getBoundingClientRect())
     },
   } : {}
 

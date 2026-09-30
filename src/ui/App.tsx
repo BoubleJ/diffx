@@ -14,7 +14,10 @@ import { useComments } from './hooks/useComments'
 import { useMrComments } from './hooks/useMrComments'
 import { DefinitionPopover, type PopoverContent } from './components/DefinitionPopover'
 import { FileViewerOverlay } from './components/FileViewerOverlay'
-import { definitionAction, fetchDefinition, type DefinitionAction, type DefinitionRequest, type DefinitionTarget, type DefinitionVersion } from './definition'
+import { SidePanel } from './components/SidePanel'
+import { ExplorePanel } from './components/ExplorePanel'
+import { createRequestGate } from './requestGate'
+import { definitionAction, fetchDefinition, fetchReferences, exploreTitle, type DefinitionAction, type DefinitionRequest, type DefinitionTarget, type DefinitionVersion, type ExploreState, type ExploreItem, type ReferencesRequest } from './definition'
 import { useSettings } from './hooks/useSettings'
 import { useViewed } from './hooks/useViewed'
 import { useFullDiffs, fileKey } from './hooks/useFullDiffs'
@@ -30,7 +33,7 @@ import { ReviewPanel } from './components/ReviewPanel'
 import { SidebarStorage } from './sidebarStorage'
 import { loadExcluded, saveExcluded } from './excludedStorage'
 import { excludeFilesFromPatch } from '../review/filterPatch'
-import { loadReviewPanel, saveReviewPanel, REVIEW_PANEL_MIN } from './reviewPanelStorage'
+import { loadReviewPanel, saveReviewPanel, nextOnReviewButton, openExploreTab, REVIEW_PANEL_MIN } from './reviewPanelStorage'
 import { loadReviewInstruction, saveReviewInstruction } from './reviewInstructionStorage'
 import { comparisonParams, loadComparison, saveComparison, reconcileComparison, comparisonForMode, type Comparison } from './comparison'
 
@@ -305,6 +308,9 @@ export function App() {
   const contentQuery = params?.toString() ?? ''
   const [popover, setPopover] = useState<{ anchor: DOMRect; content: PopoverContent } | null>(null)
   const closePopover = useCallback(() => setPopover(null), [])
+  const [explore, setExplore] = useState<ExploreState>({ status: 'idle' })
+  const [exploreSelected, setExploreSelected] = useState<string | null>(null)
+  const exploreGate = useRef(createRequestGate())
   const [overlayEntries, setOverlayEntries] = useState<{ path: string; line: number; version: DefinitionVersion }[]>([])
   const pendingJump = useRef<{ file: string; line: number; side: 'additions' | 'deletions'; version: DefinitionVersion } | null>(null)
 
@@ -334,6 +340,34 @@ export function App() {
     openOverlay({ path: file, line, version: pending.version })
   }, [openOverlay])
 
+  const showExplore = useCallback((next: ExploreState) => {
+    setExplore(next)
+    setExploreSelected(null)
+    updateReviewPanel(openExploreTab(reviewPanel))
+  }, [reviewPanel, updateReviewPanel])
+
+  const openReferences = useCallback(async (req: ReferencesRequest, name: string) => {
+    const id = exploreGate.current.next()
+    const title = 'scope' in req ? exploreTitle.importers(name) : exploreTitle.references(name)
+    showExplore({ status: 'loading', title })
+    try {
+      const res = await fetchReferences(contentQuery, req)
+      if (!exploreGate.current.isLatest(id)) return
+      if (res.kind === 'not_declaration') {
+        setExplore({ status: 'ready', title, items: [], truncated: false, version: req.side === 'additions' ? 'new' : 'old' })
+        return
+      }
+      setExplore({ status: 'ready', title, items: res.references, truncated: res.truncated, version: res.version })
+    } catch {
+      if (exploreGate.current.isLatest(id)) setExplore({ status: 'error', title })
+    }
+  }, [contentQuery, showExplore])
+
+  const handleExplorePick = useCallback((item: ExploreItem, version: DefinitionVersion) => {
+    setExploreSelected(`${item.path}:${item.line}`)
+    jumpTo({ path: item.path, line: item.line }, version, false)
+  }, [jumpTo])
+
   const handleDefinition = useCallback(async (req: DefinitionRequest, anchor: DOMRect, fromOverlay = false) => {
     document.body.classList.add('definition-loading')
     let action: DefinitionAction
@@ -347,14 +381,14 @@ export function App() {
     if (action.type === 'jump') {
       jumpTo(action.target, action.version, fromOverlay)
     } else if (action.type === 'choose') {
-      const version = action.version
-      setPopover({ anchor, content: { type: 'choose', targets: action.targets, onPick: (t) => { setPopover(null); jumpTo(t, version, fromOverlay) } } })
+      exploreGate.current.next()
+      showExplore({ status: 'ready', title: exploreTitle.candidates(req.name ?? ''), items: action.targets, truncated: false, version: action.version })
     } else if (action.type === 'references') {
-      setPopover({ anchor, content: { type: 'message', text: '이미 정의 위치입니다' } })
+      void openReferences({ path: req.path, side: req.side, line: req.line, col: req.col }, req.name ?? '')
     } else {
       setPopover({ anchor, content: { type: 'message', text: action.text } })
     }
-  }, [contentQuery, jumpTo])
+  }, [contentQuery, jumpTo, showExplore, openReferences])
 
   const closeOverlay = useCallback(() => setOverlayEntries([]), [])
   const backOverlay = useCallback(() => setOverlayEntries((prev) => prev.slice(0, -1)), [])
@@ -362,6 +396,11 @@ export function App() {
     void handleDefinition(req, anchor, true)
   }, [handleDefinition])
   useEffect(() => setOverlayEntries([]), [contentQuery])
+  useEffect(() => {
+    exploreGate.current.next()
+    setExplore({ status: 'idle' })
+    setExploreSelected(null)
+  }, [contentQuery])
 
   const handleViewedChange = useCallback((filePath: string, viewed: boolean) => {
     setViewed(filePath, viewed)
@@ -439,8 +478,8 @@ export function App() {
         onSoftWrapChange={(softWrap) => updateSettings({ softWrap })}
         terminalApp={settings.terminalApp}
         onTerminalAppChange={(terminalApp) => updateSettings({ terminalApp })}
-        reviewOpen={reviewPanel.open}
-        onToggleReview={() => updateReviewPanel({ ...reviewPanel, open: !reviewPanel.open })}
+        reviewOpen={reviewPanel.open && reviewPanel.tab === 'review'}
+        onToggleReview={() => updateReviewPanel(nextOnReviewButton(reviewPanel))}
         mrLink={comparison.mode === 'mr' && diffMr ? diffMr : undefined}
         mrCheckout={comparison.mode === 'mr' && diffMr ? <MrCheckout key={diffMr.iid} iid={diffMr.iid} headSha={diffMr.headSha} onReloadDiff={() => void handleRefreshMr()} /> : undefined}
         submitReview={isMr && mrIid !== null ? {
@@ -524,17 +563,24 @@ export function App() {
           >
             <aside className="review-aside" style={{ width: Math.min(reviewPanel.size, maxSidebarWidth) }}>
               <div className="review-aside-scroll">
-              <ReviewPanel
-                provider={claude}
-                record={review.record}
-                stale={review.stale}
-                state={review.state}
-                instruction={reviewInstruction}
-                onInstructionChange={handleInstructionChange}
-                onStart={() => review.start('claude', excludedInDiff, reviewInstruction)}
-                onCancel={review.cancel}
-                onFindingClick={handleFindingClick}
-              />
+                <SidePanel
+                  tab={reviewPanel.tab}
+                  onTabChange={(tab) => updateReviewPanel({ ...reviewPanel, tab })}
+                  review={(
+                    <ReviewPanel
+                      provider={claude}
+                      record={review.record}
+                      stale={review.stale}
+                      state={review.state}
+                      instruction={reviewInstruction}
+                      onInstructionChange={handleInstructionChange}
+                      onStart={() => review.start('claude', excludedInDiff, reviewInstruction)}
+                      onCancel={review.cancel}
+                      onFindingClick={handleFindingClick}
+                    />
+                  )}
+                  explore={<ExplorePanel state={explore} selected={exploreSelected} onPick={handleExplorePick} />}
+                />
               </div>
             </aside>
           </Resizable>

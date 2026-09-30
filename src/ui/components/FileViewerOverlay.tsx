@@ -102,7 +102,7 @@ export function FileViewerOverlay({ entries, contentQuery, onBack, onClose, onDe
                   onTokenClick: (props, event) => {
                     if (!event.metaKey) return
                     event.preventDefault()
-                    onDefinition({ path: current.path, side, line: props.lineNumber, col: props.lineCharStart }, props.tokenElement.getBoundingClientRect())
+                    onDefinition({ path: current.path, side, line: props.lineNumber, col: props.lineCharStart, name: props.tokenElement.textContent ?? '' }, props.tokenElement.getBoundingClientRect())
                   },
                 } : {}),
               }}
