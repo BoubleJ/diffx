@@ -126,6 +126,7 @@ interface ReviewConversation {
 ```
 
 - `load(repo, key)`: 파일이 없으면 null. `version`이 없고 `result`가 있으면 이전 형식으로 보고 바꾼다.
+  - `id`는 `legacy-<createdAt>`. 불러올 때마다 같은 id가 나와야 X 버튼으로 지울 수 있다
   - `kind`는 `instruction`이 있으면 `question`, 없으면 `review`. `question`은 `instruction` 값
   - `result.summary`를 `answer`로, `findings`에서 `severity`를 뺀 값을 `locations`로 옮긴다
   - `sessionId`는 null. 다음 질문은 새 세션으로 시작한다
@@ -157,7 +158,8 @@ interface ReviewConversation {
 ### `POST /api/review`
 
 - body: `{ provider, mode, source, target, iid, kind, question, exclude }`
-- `kind`가 `question`이면 `question`이 비어 있을 때 400 `{ error: 'empty_question' }`, 2000자를 넘으면 400 `{ error: 'question_too_long', message: '질문은 2000자까지 입력할 수 있습니다' }`
+- `kind`가 `question`, `review`가 아니면 400 `{ error: 'invalid_kind' }`
+- `kind`가 `question`이면 `question`이 비어 있을 때 400 `{ error: 'empty_question', message: '질문을 입력해 주세요' }`, 2000자를 넘으면 400 `{ error: 'question_too_long', message: '질문은 2000자까지 입력할 수 있습니다' }`
 - `kind`가 `review`면 `question`을 무시하고 `exclude`를 적용한다. `kind`가 `question`이면 `exclude`를 무시한다
 - 저장된 `sessionId`가 있으면 `--resume`, 없으면 새 uuid로 `--session-id`
 - 같은 key에 진행 중인 작업이 있으면 지금처럼 그 작업 id를 돌려준다
