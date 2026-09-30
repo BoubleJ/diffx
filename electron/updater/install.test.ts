@@ -3,7 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { appBundlePath, checkInstallable, downloadFile, prepareUpdate, SWAP_SCRIPT } from './install'
+import { appBundlePath, checkInstallable, downloadFile, prepareUpdate, startSwap, SWAP_SCRIPT } from './install'
 
 let dir: string
 
@@ -171,5 +171,18 @@ describe('SWAP_SCRIPT', () => {
     expect(status).toBe(1)
     expect(readFileSync(join(current, 'marker.txt'), 'utf8')).toBe('old')
     expect(opened).toBe(current)
+  })
+})
+
+describe('startSwap', () => {
+  const swapOpts = () => ({ pid: 1, currentAppPath: join(dir, 'a.app'), newAppPath: join(dir, 'b.app'), workDir: dir })
+
+  it('writes the swap script and resolves once the shell starts', async () => {
+    await startSwap({ ...swapOpts(), shell: '/usr/bin/true' })
+    expect(readFileSync(join(dir, 'swap.sh'), 'utf8')).toBe(SWAP_SCRIPT)
+  })
+
+  it('rejects when the shell cannot be started', async () => {
+    await expect(startSwap({ ...swapOpts(), shell: join(dir, 'missing-sh') })).rejects.toThrow('ENOENT')
   })
 })
