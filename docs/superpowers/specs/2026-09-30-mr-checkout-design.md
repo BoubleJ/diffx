@@ -27,7 +27,7 @@ MR 모드에서 리뷰어가 MR 코드를 로컬에서 실행해 볼 수 있게 
 src/
 ├─ gitlab/
 │  └─ reviewWorktree.ts   (신규) worktree 경로 계산, 생성, 체크아웃, env 복사, 삭제
-├─ settings.ts            terminalApp 추가
+├─ settings.ts            terminalApp 추가, pick()에 terminalApp 검사 추가
 ├─ server.ts              체크아웃, 터미널 열기, 삭제 API 추가
 └─ ui/
    ├─ components/MrCheckout.tsx   (신규) 체크아웃 영역
@@ -74,6 +74,7 @@ git 명령은 `GIT_TERMINAL_PROMPT=0`으로 실행하고 제한 시간은 60초�
 ## 3. 터미널 열기
 
 - `Settings`에 `terminalApp?: string`을 추가한다. 값이 없으면 `Terminal`을 쓴다.
+- `pick()`에 `terminalApp`이 문자열일 때만 받는 검사를 추가하고 앞뒤 공백을 제거해 저장한다. 리뷰어가 input을 비우면 빈 문자열이 저장되고, 터미널 열기 시 빈 문자열이면 `Terminal`을 쓴다.
 - `open -a <terminalApp> <worktree 경로>`를 `execFile`로 실행한다. macOS `open` 명령이 해당 터미널 앱을 새 창으로 열고 현재 폴더를 worktree 경로로 잡는다.
 - 앱을 찾지 못하면 `open`이 `Unable to find application named '<앱>'`을 stderr로 출력하고 실패한다. 이 메시지를 그대로 돌려준다.
 - worktree 폴더가 없으면 `open`을 실행하지 않고 오류를 돌려준다.
@@ -99,7 +100,7 @@ git 명령은 `GIT_TERMINAL_PROMPT=0`으로 실행하고 제한 시간은 60초�
 
 ### 체크아웃 영역 (`MrCheckout`)
 
-MR 모드 툴바의 MR 제목 옆에 둔다. 다른 모드에서는 그리지 않는다. MR diff 응답의 `mr.headSha`와 `GET /api/review-worktree`의 `headSha`를 비교해 상태를 정한다.
+MR 모드 툴바의 MR 제목 링크(`toolbar-mr-link`) 옆에 둔다. 브랜치 비교 모드에서는 그리지 않는다. MR diff 응답의 `mr.headSha`와 `GET /api/review-worktree`의 `headSha`를 비교해 상태를 정한다.
 
 | 상태 | 표시 |
 |---|---|
@@ -120,7 +121,7 @@ MR 모드 툴바의 MR 제목 옆에 둔다. 다른 모드에서는 그리지 �
 
 ### 설정
 
-툴바 설정 팝오버의 `Browser` 항목 아래에 `Terminal` input을 추가한다. placeholder는 `Terminal`이다. 입력값은 `PUT /api/settings`로 `terminalApp`에 저장한다. iTerm, Warp, Ghostty처럼 `/Applications`의 앱 이름을 넣는다.
+툴바 설정 팝오버의 `Default tab size` 항목 아래에 `Terminal` input을 추가한다. placeholder는 `Terminal`이다. 입력값은 `PUT /api/settings`로 `terminalApp`에 저장한다. iTerm, Warp, Ghostty처럼 `/Applications`의 앱 이름을 넣는다.
 
 ## 6. 테스트
 
