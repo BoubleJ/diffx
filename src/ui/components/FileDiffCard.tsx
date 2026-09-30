@@ -8,6 +8,7 @@ import { CommentBubble } from './CommentBubble'
 import { findLineElement } from '../findLine'
 import { isSourceFile } from '../../definition/sourceFiles'
 import type { DefinitionRequest } from '../definition'
+import { tokenLinkHover } from '../tokenLinkHover'
 
 interface PendingComment {
   side: AnnotationSide
@@ -111,15 +112,8 @@ export const FileDiffCard = memo(function FileDiffCard({
   const linkable = !!onDefinition && isSourceFile(filePath)
   const tokenHandlers = linkable ? {
     useTokenTransformer: true,
-    onTokenEnter: (props: { tokenElement: HTMLElement }, event: PointerEvent) => {
-      if (!event.metaKey) return
-      props.tokenElement.style.textDecoration = 'underline'
-      props.tokenElement.style.cursor = 'pointer'
-    },
-    onTokenLeave: (props: { tokenElement: HTMLElement }) => {
-      props.tokenElement.style.textDecoration = ''
-      props.tokenElement.style.cursor = ''
-    },
+    onTokenEnter: (props: { tokenElement: HTMLElement }, event: PointerEvent) => tokenLinkHover.enter(props.tokenElement, event.metaKey),
+    onTokenLeave: () => tokenLinkHover.leave(),
     onTokenClick: (props: { side: 'additions' | 'deletions'; lineNumber: number; lineCharStart: number; tokenElement: HTMLElement }, event: MouseEvent) => {
       if (!event.metaKey) return
       event.preventDefault()
