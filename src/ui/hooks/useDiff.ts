@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import type { MrDetail } from '../../gitlab/mr'
 
 export interface BinaryFileInfo {
   path: string
@@ -14,11 +15,12 @@ interface DiffData {
   tabSizeMap: Record<string, number>
   untrackedFiles: string[]
   key: string
-  mode: 'worktree' | 'branch' | 'custom'
+  mode: 'worktree' | 'branch' | 'custom' | 'mr'
   sourceSha?: string
   targetSha?: string
   mergeBase?: string
   identical: boolean
+  mr?: MrDetail
 }
 
 export interface DiffOptions {
@@ -34,7 +36,11 @@ export function useDiff(params: URLSearchParams | null, reloadToken = 0) {
   const query = params?.toString() ?? null
 
   useEffect(() => {
-    if (query === null) return
+    if (query === null) {
+      setData(null)
+      setLoading(false)
+      return
+    }
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -74,6 +80,7 @@ export function useDiff(params: URLSearchParams | null, reloadToken = 0) {
     sourceSha: data?.sourceSha,
     targetSha: data?.targetSha,
     identical: data?.identical ?? false,
+    mr: data?.mr,
     loading,
     error,
     errorCode,

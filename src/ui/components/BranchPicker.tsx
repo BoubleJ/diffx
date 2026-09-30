@@ -3,6 +3,9 @@ import type { Comparison } from '../comparison'
 import { defaultBranchComparison } from '../comparison'
 import type { BranchList } from '../hooks/useBranches'
 import { RefSelect } from './RefSelect'
+import type { GitlabStatus } from '../../gitlab/mr'
+import { gitlabUnavailableMessage } from '../gitlab'
+import { MrSelect } from './MrSelect'
 
 interface BranchPickerProps {
   comparison: Comparison
@@ -12,13 +15,20 @@ interface BranchPickerProps {
   notice: string | null
   onChange: (c: Comparison) => void
   onFetch: () => void
+  repoRoot: string
+  gitlab: GitlabStatus | undefined
+  mrTitle: string | null
+  mrRefreshing: boolean
+  onRefreshMr: () => void
 }
 
-export function BranchPicker({ comparison, branches, fetching, fetchError, notice, onChange, onFetch }: BranchPickerProps) {
+export function BranchPicker({ comparison, branches, fetching, fetchError, notice, onChange, onFetch, repoRoot, gitlab, mrTitle, mrRefreshing, onRefreshMr }: BranchPickerProps) {
   const switchToBranch = () => {
     if (comparison.mode === 'branch' || !branches) return
     onChange(defaultBranchComparison(branches))
   }
+
+  const mrUnavailable = gitlab && !gitlab.available ? gitlabUnavailableMessage(gitlab) : null
 
   return (
     <div className="branch-picker">
@@ -36,6 +46,15 @@ export function BranchPicker({ comparison, branches, fetching, fetchError, notic
         >
           브랜치 비교
         </button>
+        <span title={mrUnavailable ?? undefined}>
+          <button
+            className={`btn btn-sm ${comparison.mode === 'mr' ? 'btn-active' : ''}`}
+            onClick={() => comparison.mode !== 'mr' && onChange({ mode: 'mr', iid: null })}
+            disabled={!gitlab?.available}
+          >
+            MR
+          </button>
+        </span>
       </div>
       {comparison.mode === 'branch' && branches && (
         <div className="branch-picker-refs">
@@ -61,6 +80,24 @@ export function BranchPicker({ comparison, branches, fetching, fetchError, notic
             title="원격 브랜치 가져오기 (git fetch --all --prune)"
           >
             <RefreshCw size={14} className={fetching ? 'spin' : ''} />
+          </button>
+        </div>
+      )}
+      {comparison.mode === 'mr' && (
+        <div className="branch-picker-refs">
+          <MrSelect
+            repoRoot={repoRoot}
+            value={comparison.iid}
+            title={mrTitle}
+            onChange={(iid) => onChange({ mode: 'mr', iid })}
+          />
+          <button
+            className="btn btn-sm"
+            onClick={onRefreshMr}
+            disabled={mrRefreshing}
+            title="MR 목록, diff, 코멘트 새로고침"
+          >
+            <RefreshCw size={14} className={mrRefreshing ? 'spin' : ''} />
           </button>
         </div>
       )}
