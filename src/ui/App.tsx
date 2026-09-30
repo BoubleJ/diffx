@@ -343,8 +343,12 @@ export function App() {
   const showExplore = useCallback((next: ExploreState) => {
     setExplore(next)
     setExploreSelected(null)
-    updateReviewPanel(openExploreTab(reviewPanel))
-  }, [reviewPanel, updateReviewPanel])
+    setReviewPanel((prev) => {
+      const nextPanel = openExploreTab(prev)
+      saveReviewPanel(nextPanel)
+      return nextPanel
+    })
+  }, [])
 
   const openReferences = useCallback(async (req: ReferencesRequest, name: string) => {
     const id = exploreGate.current.next()
@@ -369,6 +373,7 @@ export function App() {
   }, [jumpTo])
 
   const handleDefinition = useCallback(async (req: DefinitionRequest, anchor: DOMRect, fromOverlay = false) => {
+    const requestId = exploreGate.current.next()
     document.body.classList.add('definition-loading')
     let action: DefinitionAction
     try {
@@ -378,10 +383,10 @@ export function App() {
     } finally {
       document.body.classList.remove('definition-loading')
     }
+    if (!exploreGate.current.isLatest(requestId)) return
     if (action.type === 'jump') {
       jumpTo(action.target, action.version, fromOverlay)
     } else if (action.type === 'choose') {
-      exploreGate.current.next()
       showExplore({ status: 'ready', title: exploreTitle.candidates(req.name ?? ''), items: action.targets, truncated: false, version: action.version })
     } else if (action.type === 'references') {
       void openReferences({ path: req.path, side: req.side, line: req.line, col: req.col }, req.name ?? '')
@@ -565,7 +570,11 @@ export function App() {
               <div className="review-aside-scroll">
                 <SidePanel
                   tab={reviewPanel.tab}
-                  onTabChange={(tab) => updateReviewPanel({ ...reviewPanel, tab })}
+                  onTabChange={(tab) => setReviewPanel((prev) => {
+                    const nextPanel = { ...prev, tab }
+                    saveReviewPanel(nextPanel)
+                    return nextPanel
+                  })}
                   review={(
                     <ReviewPanel
                       provider={claude}
