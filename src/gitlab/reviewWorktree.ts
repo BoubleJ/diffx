@@ -65,6 +65,11 @@ function parseStatus(output: string): string[] {
   return files
 }
 
+function untrackedOverwritten(message: string): string[] {
+  if (!message.includes('untracked working tree files would be overwritten')) return []
+  return message.split('\n').filter((line) => line.startsWith('\t')).map((line) => line.slice(1))
+}
+
 export async function listChangedFiles(root: string, repo: string): Promise<string[]> {
   const path = reviewWorktreePath(root, repo)
   if (!existsSync(path) || !(await isWorktree(path))) return []
@@ -98,7 +103,13 @@ export async function checkoutReviewWorktree(root: string, repo: string, headSha
     if (!(await isWorktree(path))) throw new WorktreeGitError('리뷰용 worktree 폴더가 올바르지 않습니다. worktree 삭제 후 다시 체크아웃해 주세요')
     const files = await listChangedFiles(root, repo)
     if (files.length > 0 && !options.force) return { kind: 'dirty', files }
-    await runGit(path, ['checkout', ...(files.length > 0 ? ['--force'] : []), '--detach', headSha])
+    try {
+      await runGit(path, ['checkout', ...(options.force ? ['--force'] : []), '--detach', headSha])
+    } catch (err) {
+      const blocking = err instanceof WorktreeGitError ? untrackedOverwritten(err.message) : []
+      if (blocking.length === 0) throw err
+      return { kind: 'dirty', files: blocking }
+    }
   }
   return { kind: 'done', path, headSha, copiedEnvFiles: await copyEnvFiles(repo, path) }
 }
