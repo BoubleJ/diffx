@@ -18,6 +18,7 @@ interface ToolbarProps {
   onDefaultTabSizeChange: (size: number) => void
   onSoftWrapChange: (softWrap: boolean) => void
   mrLink?: { iid: number; title: string; webUrl: string; state: string }
+  mrCheckout?: ReactNode
   submitReview?: { count: number; submitting: boolean; error: string | null; onSubmit: () => void }
 }
 
@@ -37,6 +38,7 @@ export function Toolbar({
   onDefaultTabSizeChange,
   onSoftWrapChange,
   mrLink,
+  mrCheckout,
   submitReview,
 }: ToolbarProps) {
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -63,6 +65,7 @@ export function Toolbar({
           </a>
         )}
         {mrLink && mrStateBadge(mrLink.state) && <span className="mr-badge">{mrStateBadge(mrLink.state)}</span>}
+        {mrCheckout}
         {branchPicker ?? (branch && (
           <span className="toolbar-branch">
             <GitBranch size={12} />

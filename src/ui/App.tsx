@@ -20,6 +20,7 @@ import { useViewed } from './hooks/useViewed'
 import { useFullDiffs, fileKey } from './hooks/useFullDiffs'
 import { useReview, type Finding } from './hooks/useReview'
 import { Toolbar } from './components/Toolbar'
+import { MrCheckout } from './components/MrCheckout'
 import { BranchPicker } from './components/BranchPicker'
 import { DiffViewer } from './components/DiffViewer'
 import { FileTree } from './components/FileTree'
@@ -437,6 +438,7 @@ export function App() {
         reviewOpen={reviewPanel.open}
         onToggleReview={() => updateReviewPanel({ ...reviewPanel, open: !reviewPanel.open })}
         mrLink={comparison.mode === 'mr' && diffMr ? diffMr : undefined}
+        mrCheckout={comparison.mode === 'mr' && diffMr ? <MrCheckout key={diffMr.iid} iid={diffMr.iid} headSha={diffMr.headSha} /> : undefined}
         submitReview={isMr && mrIid !== null ? {
           count: mrComments.draftCount,
           submitting: mrComments.submitting,
