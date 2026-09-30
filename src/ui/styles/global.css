@@ -1609,3 +1609,56 @@ body.definition-loading * {
 .definition-popover-item:hover {
     background: var(--bg-secondary);
 }
+
+.file-overlay-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.file-overlay {
+    display: flex;
+    flex-direction: column;
+    width: min(1100px, calc(100vw - 80px));
+    height: calc(100vh - 80px);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+.file-overlay-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+
+.file-overlay-path {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+}
+
+.file-overlay-version {
+    padding: 0 6px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.file-overlay-body {
+    flex: 1;
+    overflow: auto;
+}

@@ -13,6 +13,7 @@ import { reconcileMrAvailability, gitlabUnavailableMessage } from './gitlab'
 import { useComments, formatComments } from './hooks/useComments'
 import { useMrComments } from './hooks/useMrComments'
 import { DefinitionPopover, type PopoverContent } from './components/DefinitionPopover'
+import { FileViewerOverlay } from './components/FileViewerOverlay'
 import { definitionAction, fetchDefinition, type DefinitionAction, type DefinitionRequest, type DefinitionTarget, type DefinitionVersion } from './definition'
 import { useSettings } from './hooks/useSettings'
 import { useViewed } from './hooks/useViewed'
@@ -344,6 +345,13 @@ export function App() {
     }
   }, [contentQuery, jumpTo])
 
+  const closeOverlay = useCallback(() => setOverlayEntries([]), [])
+  const backOverlay = useCallback(() => setOverlayEntries((prev) => prev.slice(0, -1)), [])
+  const handleOverlayDefinition = useCallback((req: DefinitionRequest, anchor: DOMRect) => {
+    void handleDefinition(req, anchor, true)
+  }, [handleDefinition])
+  useEffect(() => setOverlayEntries([]), [contentQuery])
+
   const handleViewedChange = useCallback((filePath: string, viewed: boolean) => {
     setViewed(filePath, viewed)
   }, [setViewed])
@@ -527,6 +535,15 @@ export function App() {
           </Resizable>
         )}
       </div>
+      {overlayEntries.length > 0 && (
+        <FileViewerOverlay
+          entries={overlayEntries}
+          contentQuery={contentQuery}
+          onBack={backOverlay}
+          onClose={closeOverlay}
+          onDefinition={handleOverlayDefinition}
+        />
+      )}
       {popover && <DefinitionPopover anchor={popover.anchor} content={popover.content} onClose={closePopover} />}
     </div>
   )
