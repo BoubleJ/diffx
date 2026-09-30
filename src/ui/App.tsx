@@ -10,7 +10,7 @@ import { useRepo } from './hooks/useRepo'
 import { useBranches } from './hooks/useBranches'
 import { useGitlabStatus } from './hooks/useGitlab'
 import { reconcileMrAvailability, gitlabUnavailableMessage } from './gitlab'
-import { useComments, formatComments } from './hooks/useComments'
+import { useComments } from './hooks/useComments'
 import { useMrComments } from './hooks/useMrComments'
 import { DefinitionPopover, type PopoverContent } from './components/DefinitionPopover'
 import { FileViewerOverlay } from './components/FileViewerOverlay'
@@ -161,7 +161,6 @@ export function App() {
     if (!isMr) return localComments.removeComment(id)
     mrComments.deleteDraft(id).catch((err) => window.alert(`초안 삭제 실패: ${(err as Error).message}`))
   }, [isMr, localComments.removeComment, mrComments.deleteDraft])
-  const copyAllComments = useCallback(() => navigator.clipboard.writeText(formatComments(comments)), [comments])
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [sidebar, setSidebar] = useState(() => SidebarStorage.load())
   const maxSidebarWidth = Math.max(SidebarStorage.minSize, useWindowSize({ factor: 0.5 }))
@@ -414,7 +413,6 @@ export function App() {
         excludedCount={excludedInDiff.length}
         additions={diffStats.additions}
         deletions={diffStats.deletions}
-        commentCount={comments.length}
         diffStyle={settings.diffStyle}
         defaultTabSize={settings.defaultTabSize}
         softWrap={settings.softWrap}
@@ -423,7 +421,6 @@ export function App() {
         onSoftWrapChange={(softWrap) => updateSettings({ softWrap })}
         reviewOpen={reviewPanel.open}
         onToggleReview={() => updateReviewPanel({ ...reviewPanel, open: !reviewPanel.open })}
-        onCopyComments={copyAllComments}
         mrLink={comparison.mode === 'mr' && diffMr ? diffMr : undefined}
         submitReview={isMr && mrIid !== null ? {
           count: mrComments.draftCount,

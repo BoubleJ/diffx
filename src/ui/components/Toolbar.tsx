@@ -8,7 +8,6 @@ interface ToolbarProps {
   excludedCount?: number
   additions: number
   deletions: number
-  commentCount: number
   diffStyle: 'split' | 'unified'
   defaultTabSize: number
   softWrap: boolean
@@ -18,7 +17,6 @@ interface ToolbarProps {
   onDiffStyleChange: (style: 'split' | 'unified') => void
   onDefaultTabSizeChange: (size: number) => void
   onSoftWrapChange: (softWrap: boolean) => void
-  onCopyComments: () => Promise<void>
   mrLink?: { iid: number; title: string; webUrl: string }
   submitReview?: { count: number; submitting: boolean; error: string | null; onSubmit: () => void }
 }
@@ -30,7 +28,6 @@ export function Toolbar({
   excludedCount = 0,
   additions,
   deletions,
-  commentCount,
   diffStyle,
   defaultTabSize,
   softWrap,
@@ -40,19 +37,11 @@ export function Toolbar({
   onDiffStyleChange,
   onDefaultTabSizeChange,
   onSoftWrapChange,
-  onCopyComments,
   mrLink,
   submitReview,
 }: ToolbarProps) {
-  const [copied, setCopied] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
-
-  const handleCopy = async () => {
-    await onCopyComments()
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -156,13 +145,6 @@ export function Toolbar({
             {submitReview.error && <div className="toolbar-submit-error">{submitReview.error}</div>}
           </div>
         )}
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={handleCopy}
-          disabled={commentCount === 0}
-        >
-          {copied ? 'Copied!' : `Copy comments (${commentCount})`}
-        </button>
       </div>
     </div>
   )
