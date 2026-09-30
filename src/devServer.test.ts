@@ -10,7 +10,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 describe('devServer', () => {
   it('exits with 1 outside a git repository', () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'diffx-nogit-')))
-    const res = spawnSync(process.execPath, [join(ROOT, 'node_modules/tsx/dist/cli.mjs'), join(ROOT, 'src/devServer.ts')], { cwd: dir, encoding: 'utf-8' })
+    const res = spawnSync(process.execPath, [join(ROOT, 'node_modules/tsx/dist/cli.mjs'), join(ROOT, 'src/devServer.ts')], { cwd: dir, env: { ...process.env, INIT_CWD: dir }, encoding: 'utf-8' })
     expect(res.status).toBe(1)
     expect(res.stderr).toContain('git 저장소가 아닙니다')
   })

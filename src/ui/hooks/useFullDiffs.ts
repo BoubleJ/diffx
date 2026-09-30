@@ -17,8 +17,7 @@ function parseNewPath(chunk: string): string | null {
 }
 
 // Map each per-file patch chunk by name + blob oids so it can be re-processed
-// with full file contents. Keyed on oids too because the same file can appear
-// twice (staged + unstaged chunks).
+// with full file contents.
 function buildChunkMap(patch: string): Map<string, string> {
   const map = new Map<string, string>()
   for (const chunk of patch.split(/^(?=diff --git )/m)) {
@@ -31,10 +30,7 @@ function buildChunkMap(patch: string): Map<string, string> {
   return map
 }
 
-// The fetched contents can diverge from the patch (e.g. the worktree was
-// edited after the diff was captured — for unstaged changes the worktree blob
-// is usually not in the object database, so the server falls back to reading
-// the file from disk). Compare every hunk line from the patch against the
+// Compare every hunk line from the patch against the
 // full contents at the positions the hunk headers claim; reject on mismatch
 // so expansion never renders code the displayed patch wasn't built from.
 function contentsMatchHunks(partial: FileDiffMetadata, full: FileDiffMetadata): boolean {
