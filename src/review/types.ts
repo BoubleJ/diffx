@@ -22,7 +22,6 @@ export interface ReviewContext {
   sourceCheckedOut: boolean
   files: string[]
   patch: string
-  instruction?: string
 }
 
 export interface FinalOutput {
