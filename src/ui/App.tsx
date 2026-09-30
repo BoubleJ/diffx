@@ -12,6 +12,8 @@ import { useGitlabStatus } from './hooks/useGitlab'
 import { reconcileMrAvailability, gitlabUnavailableMessage } from './gitlab'
 import { useComments, formatComments } from './hooks/useComments'
 import { useMrComments } from './hooks/useMrComments'
+import { DefinitionPopover, type PopoverContent } from './components/DefinitionPopover'
+import { definitionAction, fetchDefinition, type DefinitionAction, type DefinitionRequest, type DefinitionTarget, type DefinitionVersion } from './definition'
 import { useSettings } from './hooks/useSettings'
 import { useViewed } from './hooks/useViewed'
 import { useFullDiffs, fileKey } from './hooks/useFullDiffs'
@@ -290,6 +292,58 @@ export function App() {
     }
   }, [handleFileClick])
 
+  const contentQuery = params?.toString() ?? ''
+  const [popover, setPopover] = useState<{ anchor: DOMRect; content: PopoverContent } | null>(null)
+  const closePopover = useCallback(() => setPopover(null), [])
+  const [overlayEntries, setOverlayEntries] = useState<{ path: string; line: number; version: DefinitionVersion }[]>([])
+  const pendingJump = useRef<{ file: string; line: number; side: 'additions' | 'deletions'; version: DefinitionVersion } | null>(null)
+
+  const openOverlay = useCallback((entry: { path: string; line: number; version: DefinitionVersion }) => {
+    setOverlayEntries((prev) => [...prev, entry])
+  }, [])
+
+  const visibleFileNames = useMemo(() => new Set(visibleFiles.map((f) => f.name)), [visibleFiles])
+
+  const jumpTo = useCallback((target: DefinitionTarget, version: DefinitionVersion, fromOverlay: boolean) => {
+    const side = version === 'new' ? 'additions' : 'deletions'
+    if (!fromOverlay && visibleFileNames.has(target.path)) {
+      pendingJump.current = { file: target.path, line: target.line, side, version }
+      handleFileClick(target.path)
+      setHighlight({ file: target.path, side, line: target.line })
+      if (highlightTimer.current) clearTimeout(highlightTimer.current)
+      highlightTimer.current = setTimeout(() => setHighlight(null), 2000)
+      return
+    }
+    openOverlay({ path: target.path, line: target.line, version })
+  }, [visibleFileNames, handleFileClick, openOverlay])
+
+  const handleHighlightMissing = useCallback((file: string, line: number, side: 'additions' | 'deletions') => {
+    const pending = pendingJump.current
+    if (!pending || pending.file !== file || pending.line !== line || pending.side !== side) return
+    pendingJump.current = null
+    openOverlay({ path: file, line, version: pending.version })
+  }, [openOverlay])
+
+  const handleDefinition = useCallback(async (req: DefinitionRequest, anchor: DOMRect, fromOverlay = false) => {
+    document.body.classList.add('definition-loading')
+    let action: DefinitionAction
+    try {
+      action = definitionAction(await fetchDefinition(contentQuery, req))
+    } catch {
+      action = definitionAction(null)
+    } finally {
+      document.body.classList.remove('definition-loading')
+    }
+    if (action.type === 'jump') {
+      jumpTo(action.target, action.version, fromOverlay)
+    } else if (action.type === 'choose') {
+      const version = action.version
+      setPopover({ anchor, content: { type: 'choose', targets: action.targets, onPick: (t) => { setPopover(null); jumpTo(t, version, fromOverlay) } } })
+    } else {
+      setPopover({ anchor, content: { type: 'message', text: action.text } })
+    }
+  }, [contentQuery, jumpTo])
+
   const handleViewedChange = useCallback((filePath: string, viewed: boolean) => {
     setViewed(filePath, viewed)
   }, [setViewed])
@@ -436,6 +490,8 @@ export function App() {
               onReplyComment={isMr ? mrComments.addReply : undefined}
               contentQuery={params?.toString() ?? ''}
               highlight={highlight}
+              onDefinition={handleDefinition}
+              onHighlightMissing={handleHighlightMissing}
             />
           </Virtualizer>
           )}
@@ -471,6 +527,7 @@ export function App() {
           </Resizable>
         )}
       </div>
+      {popover && <DefinitionPopover anchor={popover.anchor} content={popover.content} onClose={closePopover} />}
     </div>
   )
 }
