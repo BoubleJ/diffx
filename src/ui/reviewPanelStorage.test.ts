@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { loadReviewPanel, saveReviewPanel, nextOnReviewButton, openExploreTab, REVIEW_PANEL_MIN } from './reviewPanelStorage'
+import { loadReviewPanel, saveReviewPanel, togglePanel, openExploreTab, REVIEW_PANEL_MIN } from './reviewPanelStorage'
 
 function memoryStorage() {
   const data = new Map<string, string>()
@@ -26,10 +26,10 @@ describe('reviewPanelStorage', () => {
 
 describe('panel tab switching', () => {
   const base = { size: 400 }
-  it('opens, switches to, or closes the review tab from the toolbar button', () => {
-    expect(nextOnReviewButton({ ...base, open: false, tab: 'explore' })).toEqual({ ...base, open: true, tab: 'review' })
-    expect(nextOnReviewButton({ ...base, open: true, tab: 'explore' })).toEqual({ ...base, open: true, tab: 'review' })
-    expect(nextOnReviewButton({ ...base, open: true, tab: 'review' })).toEqual({ ...base, open: false, tab: 'review' })
+  it('opens and closes the panel from the toolbar button without changing the tab', () => {
+    expect(togglePanel({ ...base, open: false, tab: 'explore' })).toEqual({ ...base, open: true, tab: 'explore' })
+    expect(togglePanel({ ...base, open: true, tab: 'explore' })).toEqual({ ...base, open: false, tab: 'explore' })
+    expect(togglePanel({ ...base, open: true, tab: 'review' })).toEqual({ ...base, open: false, tab: 'review' })
   })
 
   it('opens the explore tab', () => {
