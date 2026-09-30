@@ -31,6 +31,7 @@ export class MrComparisons {
     return mr
   }
 
+  // 화면에 떠 있는 diff는 캐시된 상세를 기준으로 코멘트 위치를 계산하므로 캐시를 바꾸지 않는다.
   async latest(iid: number): Promise<MrDetail> {
     const mr = await getMrDetail(this.glab, iid)
     await ensureMrCommits(this.repo, await this.remote(), mr)
