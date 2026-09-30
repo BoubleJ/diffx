@@ -28,6 +28,21 @@ npm install -g diffx-cli
 - Finder에서 저장소 폴더를 Dock의 reviewHelper 아이콘으로 끌어다 놓아도 열린다.
 - AI 리뷰는 Claude Code(`claude`)로 실행된다. `claude`가 설치돼 있고 로그인돼 있어야 한다.
 
+### GitLab MR 리뷰
+
+`MR` 탭에서 현재 저장소의 GitLab MR을 골라 diff를 보고 코멘트를 남긴다.
+
+1. glab을 설치하고 사내 GitLab에 로그인한다.
+   ```bash
+   brew install glab
+   glab auth login --hostname gitlab.mrblue.com
+   ```
+2. 앱에서 저장소를 열고 툴바의 `MR` 탭을 클릭한다. 원격 저장소가 GitLab이 아니거나 glab 로그인이 안 되어 있으면 `MR` 버튼이 비활성으로 보이고 마우스를 올리면 이유가 나온다.
+3. MR 선택 드롭다운에서 MR을 고르면 그 MR의 diff가 열린다. 드롭다운의 `전체 / 열린 MR / 머지된 MR` 버튼과 `내가 올린 MR` 체크박스로 목록을 좁힌다.
+4. diff 줄에 남긴 코멘트와 기존 코멘트의 답글은 GitLab에 초안으로 저장된다. 툴바의 `리뷰 제출` 클릭 시 초안이 모두 공개된다.
+
+`브랜치 비교` 탭에서 남긴 코멘트는 GitLab에 보내지 않고 앱 안에서만 보인다.
+
 ### 직접 빌드
 
 ```bash
