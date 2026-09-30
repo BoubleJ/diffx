@@ -16,17 +16,17 @@ function postJson(payload: unknown): RequestInit {
   return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
 }
 
-export function useMrComments(iid: number | null) {
+export function useMrComments(iid: number | null, headSha: string | null) {
   const queryClient = useQueryClient()
   const { data = EMPTY } = useQuery({
-    queryKey: ['mr-threads', iid],
+    queryKey: ['mr-threads', iid, headSha],
     queryFn: async (): Promise<MrThreads> => {
-      const res = await fetch(`/api/gitlab/mrs/${iid}/threads`)
+      const res = await fetch(`/api/gitlab/mrs/${iid}/threads?head=${headSha}`)
       const body = await res.json()
       if (!res.ok) throw new Error(body.message ?? `HTTP ${res.status}`)
       return body
     },
-    enabled: iid !== null,
+    enabled: iid !== null && headSha !== null,
     refetchInterval: 30_000,
   })
   const [submitting, setSubmitting] = useState(false)

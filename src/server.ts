@@ -327,7 +327,7 @@ export function createApp(options: AppOptions) {
   app.get('/api/gitlab/mrs/:iid/threads', async (c) => {
     try {
       const iid = parseIid(c.req.param('iid'))
-      const { mr } = await mrComparisons.resolve(iid, { refresh: false })
+      const mr = await mrComparisons.detail(iid, { headSha: c.req.query('head') })
       const [discussions, drafts] = await Promise.all([
         glab(`${mrPath(iid)}/discussions?per_page=100`, { paginate: true }) as Promise<ApiDiscussion[]>,
         glab(`${mrPath(iid)}/draft_notes?per_page=100`, { paginate: true }) as Promise<ApiDraftNote[]>,

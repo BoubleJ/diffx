@@ -9,7 +9,7 @@ import { useDiff } from './hooks/useDiff'
 import { useRepo } from './hooks/useRepo'
 import { useBranches } from './hooks/useBranches'
 import { useGitlabStatus } from './hooks/useGitlab'
-import { reconcileMrAvailability } from './gitlab'
+import { reconcileMrAvailability, gitlabUnavailableMessage } from './gitlab'
 import { useComments, formatComments } from './hooks/useComments'
 import { useMrComments } from './hooks/useMrComments'
 import { useSettings } from './hooks/useSettings'
@@ -106,6 +106,11 @@ export function App() {
       setMrRefreshing(false)
     }
   }, [gitlab.refresh, queryClient])
+  const handleRecheckGitlab = useCallback(async () => {
+    const next = await gitlab.refresh()
+    if (next.available) handleComparisonChange({ mode: 'mr', iid: null })
+    else setNotice(gitlabUnavailableMessage(next))
+  }, [gitlab.refresh, handleComparisonChange])
   const repoRoot = repo?.root ?? null
   const [excludedEdit, setExcludedEdit] = useState<{ repoRoot: string; key: string; paths: string[] } | null>(null)
   const excluded = useMemo(() => {
@@ -141,7 +146,7 @@ export function App() {
   const isMr = comparison?.mode === 'mr'
   const mrIid = comparison?.mode === 'mr' ? comparison.iid : null
   const localComments = useComments(isMr ? null : key)
-  const mrComments = useMrComments(mrIid)
+  const mrComments = useMrComments(mrIid, diffMr && diffMr.iid === mrIid ? diffMr.headSha : null)
   const comments = isMr ? mrComments.comments : localComments.comments
   const addComment = isMr ? mrComments.addDraft : localComments.addComment
   const removeComment = useCallback((id: string) => {
@@ -338,6 +343,7 @@ export function App() {
             mrTitle={diffMr?.title ?? null}
             mrRefreshing={mrRefreshing}
             onRefreshMr={handleRefreshMr}
+            onRecheckGitlab={handleRecheckGitlab}
           />
         )}
         branch={branch}

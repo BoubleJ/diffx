@@ -23,12 +23,16 @@ export class MrComparisons {
     private rangeDiff: RangeDiff = getRangeDiff,
   ) {}
 
+  async detail(iid: number, options: { refresh?: boolean; headSha?: string } = {}): Promise<MrDetail> {
+    const cached = this.details.get(iid)
+    if (cached && !options.refresh && (!options.headSha || cached.headSha === options.headSha)) return cached
+    const mr = await getMrDetail(this.glab, iid)
+    this.details.set(iid, mr)
+    return mr
+  }
+
   async resolve(iid: number, options: { refresh: boolean }): Promise<MrResolved> {
-    let mr = options.refresh ? undefined : this.details.get(iid)
-    if (!mr) {
-      mr = await getMrDetail(this.glab, iid)
-      this.details.set(iid, mr)
-    }
+    const mr = await this.detail(iid, { refresh: options.refresh })
     await ensureMrCommits(this.repo, await this.remote(), mr)
     return {
       key: `mr:${iid}`,
