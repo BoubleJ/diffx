@@ -10,7 +10,7 @@ const record: ReviewRecord = {
   createdAt: 1,
   key: 'branch:origin/main...feature/x',
   fingerprint: 'a:b',
-  result: { summary: 's', findings: [] },
+  result: { answer: 's', locations: [] },
 }
 
 describe('ReviewStore', () => {

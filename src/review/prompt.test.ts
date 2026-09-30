@@ -21,7 +21,7 @@ describe('buildPrompt', () => {
     expect(p).toContain('- src/a.ts')
     expect(p).toContain('+hello')
     expect(p).toContain('한국어')
-    expect(p).toContain('"findings"')
+    expect(p).toContain('"locations"')
   })
 
   it('tells the reviewer to use git show when the source is not checked out', () => {

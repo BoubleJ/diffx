@@ -48,17 +48,17 @@ describe('runReview', () => {
   it('returns the validated result and reports progress', async () => {
     const progress: string[] = []
     const result = await run('ok', fakeProvider(), { onProgress: (t: string) => progress.push(t) })
-    expect(result.summary).toBe('요약')
+    expect(result.answer).toBe('요약')
     expect(progress).toEqual(['a.ts 읽는 중'])
   })
 
   it('passes the prompt on stdin', async () => {
     const result = await run('echo')
-    expect(result.summary).toBe(buildPrompt(ctx).slice(0, 20))
+    expect(result.answer).toBe(buildPrompt(ctx).slice(0, 20))
   })
 
   it('extracts JSON from text output', async () => {
-    expect((await run('text')).findings).toHaveLength(1)
+    expect((await run('text')).locations).toHaveLength(1)
   })
 
   it('reads the final answer from an output file', async () => {
@@ -67,7 +67,7 @@ describe('runReview', () => {
       buildCommand: (_c, prompt) => ({ bin: process.execPath, args: [FAKE], stdin: prompt, outputFile: out }),
     })
     const result = await runReview(provider, ctx, { env: { ...process.env, FAKE_MODE: 'outfile', FAKE_OUT: out } })
-    expect(result.summary).toBe('요약')
+    expect(result.answer).toBe('요약')
   })
 
   it('classifies unparsable output as invalid_output with raw output', async () => {
@@ -109,7 +109,7 @@ describe('runReview', () => {
 
   it('ignores a throwing onProgress listener', async () => {
     const result = await run('ok', fakeProvider(), { onProgress: () => { throw new Error('listener') } })
-    expect(result.summary).toBe('요약')
+    expect(result.answer).toBe('요약')
   })
 
   it('strips the repo path prefix from progress text', async () => {
@@ -131,7 +131,7 @@ describe('runReview', () => {
       }),
     })
     const result = await runReview(provider, ctx, { env: { ...process.env, FAKE_MODE: 'outfile', FAKE_OUT: out } })
-    expect(result.summary).toBe('요약')
+    expect(result.answer).toBe('요약')
     expect(existsSync(dir)).toBe(false)
   })
 

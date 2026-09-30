@@ -1,21 +1,18 @@
-import type { Finding, ReviewResult, Severity } from './types.js'
-
-const SEVERITIES: Severity[] = ['critical', 'major', 'minor', 'info']
+import type { ReviewLocation, ReviewResult } from './types.js'
 
 export const REVIEW_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['summary', 'findings'],
+  required: ['answer', 'locations'],
   properties: {
-    summary: { type: 'string' },
-    findings: {
+    answer: { type: 'string' },
+    locations: {
       type: 'array',
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['severity', 'file', 'line', 'side', 'title', 'body'],
+        required: ['file', 'line', 'side', 'title', 'body'],
         properties: {
-          severity: { type: 'string', enum: SEVERITIES },
           file: { type: 'string' },
           line: { type: ['integer', 'null'] },
           side: { type: 'string', enum: ['old', 'new'] },
@@ -27,27 +24,26 @@ export const REVIEW_JSON_SCHEMA = {
   },
 } as const
 
-function toFinding(value: unknown): Finding | null {
+function toLocation(value: unknown): ReviewLocation | null {
   if (!value || typeof value !== 'object') return null
   const v = value as Record<string, unknown>
-  if (!SEVERITIES.includes(v.severity as Severity)) return null
   if (typeof v.file !== 'string' || typeof v.title !== 'string' || typeof v.body !== 'string') return null
   if (v.side !== 'old' && v.side !== 'new') return null
   if (v.line !== null && !Number.isInteger(v.line)) return null
-  return { severity: v.severity as Severity, file: v.file, line: v.line as number | null, side: v.side, title: v.title, body: v.body }
+  return { file: v.file, line: v.line as number | null, side: v.side, title: v.title, body: v.body }
 }
 
 export function validateResult(value: unknown): ReviewResult | null {
   if (!value || typeof value !== 'object') return null
   const v = value as Record<string, unknown>
-  if (typeof v.summary !== 'string' || !Array.isArray(v.findings)) return null
-  const findings: Finding[] = []
-  for (const item of v.findings) {
-    const f = toFinding(item)
-    if (!f) return null
-    findings.push(f)
+  if (typeof v.answer !== 'string' || !Array.isArray(v.locations)) return null
+  const locations: ReviewLocation[] = []
+  for (const item of v.locations) {
+    const l = toLocation(item)
+    if (!l) return null
+    locations.push(l)
   }
-  return { summary: v.summary, findings }
+  return { answer: v.answer, locations }
 }
 
 function tryParse(text: string): unknown | undefined {

@@ -58,7 +58,7 @@ function postReview(app: ReturnType<typeof createApp>, overrides: Record<string,
 
 describe('review API', () => {
   it('lists providers with install status', async () => {
-    const { app } = setup(async () => ({ summary: 's', findings: [] }))
+    const { app } = setup(async () => ({ answer: 's', locations: [] }))
     const list = await (await app.request('/api/review/providers')).json()
     expect(list).toEqual([{ id: 'claude', label: 'Fake', installed: true, version: process.version, verified: true, installHint: 'x', loginHint: 'fake' }])
   })
@@ -68,7 +68,7 @@ describe('review API', () => {
     const { app, repo } = setup(async (_p, ctx, opts) => {
       receivedCtx = ctx
       opts.onProgress?.('a.txt 읽는 중')
-      return { summary: '요약', findings: [] }
+      return { answer: '요약', locations: [] }
     })
     const start = await app.request('/api/review', {
       method: 'POST',
@@ -83,7 +83,7 @@ describe('review API', () => {
     expect(receivedCtx).toMatchObject({ mode: 'branch', source: 'feature/x', target: 'main', sourceCheckedOut: true, files: ['a.txt'] })
 
     const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
-    expect(saved).toMatchObject({ key: 'branch:main...feature/x', stale: false, running: null, record: { result: { summary: '요약' } } })
+    expect(saved).toMatchObject({ key: 'branch:main...feature/x', stale: false, running: null, record: { result: { answer: '요약' } } })
 
     commit(repo, { 'a.txt': 'base\nfeature\nmore\n' }, 'more')
     const stale = await (await app.request(`/api/review?${branchQuery}`)).json()
@@ -105,7 +105,7 @@ describe('review API', () => {
   })
 
   it('rejects unknown providers', async () => {
-    const { app } = setup(async () => ({ summary: 's', findings: [] }))
+    const { app } = setup(async () => ({ answer: 's', locations: [] }))
     const res = await app.request('/api/review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -115,7 +115,7 @@ describe('review API', () => {
   })
 
   it('releases the listener after a terminal event', async () => {
-    const { app, jobs } = setup(async () => ({ summary: 's', findings: [] }))
+    const { app, jobs } = setup(async () => ({ answer: 's', locations: [] }))
     const { id } = await (await postReview(app)).json()
     await readSse(await app.request(`/api/review/${id}/events`))
     await vi.waitFor(() => expect(jobs.listenerCount(id)).toBe(0))
@@ -135,7 +135,7 @@ describe('review API', () => {
 
   it('aborts running jobs when the server closes', async () => {
     let signal: AbortSignal | undefined
-    const { repo, clientDir, store } = setup(async () => ({ summary: 's', findings: [] }))
+    const { repo, clientDir, store } = setup(async () => ({ answer: 's', locations: [] }))
     const jobs = new ReviewJobs(store, (_p, _c, opts) => new Promise((_resolve, reject) => {
       signal = opts.signal
       opts.signal?.addEventListener('abort', () => reject(new Error('aborted')))
@@ -157,7 +157,7 @@ describe('review API', () => {
     let receivedCtx: { files: string[]; patch: string } | undefined
     const { app, repo, store } = setup(async (_p, ctx) => {
       receivedCtx = ctx
-      return { summary: 's', findings: [] }
+      return { answer: 's', locations: [] }
     })
     git(repo, 'switch', '-q', 'feature/x')
     commit(repo, { 'b.txt': 'b\n' }, 'add b')
@@ -176,7 +176,7 @@ describe('review API', () => {
     let receivedCtx: { instruction?: string } | undefined
     const { app, repo, store } = setup(async (_p, ctx) => {
       receivedCtx = ctx
-      return { summary: 's', findings: [] }
+      return { answer: 's', locations: [] }
     })
     const { id } = await (await postReview(app, { instruction: '  타입 안정성만 확인해줘 ' })).json()
     await readSse(await app.request(`/api/review/${id}/events`))
@@ -190,7 +190,7 @@ describe('review API', () => {
     let receivedCtx: { instruction?: string } | undefined
     const { app } = setup(async (_p, ctx) => {
       receivedCtx = ctx
-      return { summary: 's', findings: [] }
+      return { answer: 's', locations: [] }
     })
     const { id } = await (await postReview(app, { instruction: '   ' })).json()
     await readSse(await app.request(`/api/review/${id}/events`))
@@ -200,7 +200,7 @@ describe('review API', () => {
   })
 
   it('rejects an instruction longer than 2000 characters', async () => {
-    const { app } = setup(async () => ({ summary: 's', findings: [] }))
+    const { app } = setup(async () => ({ answer: 's', locations: [] }))
     const res = await postReview(app, { instruction: 'a'.repeat(2001) })
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ error: 'instruction_too_long', message: '추가 지시는 2000자까지 입력할 수 있습니다' })
@@ -210,7 +210,7 @@ describe('review API', () => {
     let receivedCtx: { files: string[]; patch: string } | undefined
     const { app, repo } = setup(async (_p, ctx) => {
       receivedCtx = ctx
-      return { summary: 's', findings: [] }
+      return { answer: 's', locations: [] }
     })
     commit(repo, { '한글 파일.txt': 'x\n' }, 'add korean')
     const { id } = await (await postReview(app, { exclude: ['한글 파일.txt'] })).json()
@@ -223,7 +223,7 @@ describe('review API', () => {
     let receivedCtx: { files: string[] } | undefined
     const { app } = setup(async (_p, ctx) => {
       receivedCtx = ctx
-      return { summary: 's', findings: [] }
+      return { answer: 's', locations: [] }
     })
     const { id } = await (await postReview(app, { exclude: 'a.txt' })).json()
     await readSse(await app.request(`/api/review/${id}/events`))
@@ -234,7 +234,7 @@ describe('review API', () => {
     let receivedCtx: unknown
     const { app, repo } = setup(async (_p, ctx) => {
       receivedCtx = ctx
-      return { summary: 's', findings: [] }
+      return { answer: 's', locations: [] }
     })
     git(repo, 'switch', '-q', 'main')
     const { id } = await (await postReview(app)).json()
@@ -243,14 +243,14 @@ describe('review API', () => {
   })
 
   it('returns 400 unknown_ref for an unknown branch', async () => {
-    const { app } = setup(async () => ({ summary: 's', findings: [] }))
+    const { app } = setup(async () => ({ answer: 's', locations: [] }))
     const res = await postReview(app, { source: 'nope/none' })
     expect(res.status).toBe(400)
     expect(await res.json()).toMatchObject({ error: 'unknown_ref' })
   })
 
   it('returns 400 invalid_body for malformed JSON', async () => {
-    const { app } = setup(async () => ({ summary: 's', findings: [] }))
+    const { app } = setup(async () => ({ answer: 's', locations: [] }))
     const res = await app.request('/api/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' })
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ error: 'invalid_body' })

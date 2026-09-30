@@ -2,7 +2,7 @@
 import { writeFileSync } from 'node:fs'
 
 const mode = process.env.FAKE_MODE
-const result = { summary: '요약', findings: [{ severity: 'minor', file: 'a.ts', line: 1, side: 'new', title: 't', body: 'b' }] }
+const result = { answer: '요약', locations: [{ file: 'a.ts', line: 1, side: 'new', title: 't', body: 'b' }] }
 
 let stdin = ''
 process.stdin.setEncoding('utf8')
@@ -16,7 +16,7 @@ process.stdin.on('end', () => {
   } else if (mode === 'outfile') {
     writeFileSync(process.env.FAKE_OUT, JSON.stringify(result))
   } else if (mode === 'echo') {
-    console.log(JSON.stringify({ type: 'final', json: { summary: stdin.slice(0, 20), findings: [] } }))
+    console.log(JSON.stringify({ type: 'final', json: { answer: stdin.slice(0, 20), locations: [] } }))
   } else if (mode === 'garbage') {
     console.log(JSON.stringify({ type: 'final', text: '정리하면 문제 없습니다' }))
   } else if (mode === 'auth') {

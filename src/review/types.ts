@@ -1,8 +1,6 @@
 export type ProviderId = 'claude'
-export type Severity = 'critical' | 'major' | 'minor' | 'info'
 
-export interface Finding {
-  severity: Severity
+export interface ReviewLocation {
   file: string
   line: number | null
   side: 'old' | 'new'
@@ -11,8 +9,8 @@ export interface Finding {
 }
 
 export interface ReviewResult {
-  summary: string
-  findings: Finding[]
+  answer: string
+  locations: ReviewLocation[]
 }
 
 export interface ReviewContext {
