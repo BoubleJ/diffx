@@ -31,9 +31,14 @@ export class MrComparisons {
     return mr
   }
 
-  async resolve(iid: number, options: { refresh: boolean }): Promise<MrResolved> {
+  async prepare(iid: number, options: { refresh: boolean }): Promise<MrDetail> {
     const mr = await this.detail(iid, { refresh: options.refresh })
     await ensureMrCommits(this.repo, await this.remote(), mr)
+    return mr
+  }
+
+  async resolve(iid: number, options: { refresh: boolean }): Promise<MrResolved> {
+    const mr = await this.prepare(iid, options)
     return {
       key: `mr:${iid}`,
       mode: 'mr',
