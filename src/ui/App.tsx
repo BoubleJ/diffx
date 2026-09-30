@@ -10,7 +10,8 @@ import { useRepo } from './hooks/useRepo'
 import { useBranches } from './hooks/useBranches'
 import { useGitlabStatus } from './hooks/useGitlab'
 import { reconcileMrAvailability } from './gitlab'
-import { useComments } from './hooks/useComments'
+import { useComments, formatComments } from './hooks/useComments'
+import { useMrComments } from './hooks/useMrComments'
 import { useSettings } from './hooks/useSettings'
 import { useViewed } from './hooks/useViewed'
 import { useFullDiffs, fileKey } from './hooks/useFullDiffs'
@@ -137,7 +138,17 @@ export function App() {
   }, [])
   const claude = review.providers.find((p) => p.id === 'claude')
   const [highlight, setHighlight] = useState<{ file: string; side: 'additions' | 'deletions'; line: number } | null>(null)
-  const { comments, addComment, removeComment, copyAllComments } = useComments(key)
+  const isMr = comparison?.mode === 'mr'
+  const mrIid = comparison?.mode === 'mr' ? comparison.iid : null
+  const localComments = useComments(isMr ? null : key)
+  const mrComments = useMrComments(mrIid)
+  const comments = isMr ? mrComments.comments : localComments.comments
+  const addComment = isMr ? mrComments.addDraft : localComments.addComment
+  const removeComment = useCallback((id: string) => {
+    if (!isMr) return localComments.removeComment(id)
+    mrComments.deleteDraft(id).catch((err) => window.alert(`초안 삭제 실패: ${(err as Error).message}`))
+  }, [isMr, localComments.removeComment, mrComments.deleteDraft])
+  const copyAllComments = useCallback(() => navigator.clipboard.writeText(formatComments(comments)), [comments])
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [sidebar, setSidebar] = useState(() => SidebarStorage.load())
   const maxSidebarWidth = Math.max(SidebarStorage.minSize, useWindowSize({ factor: 0.5 }))
@@ -283,6 +294,11 @@ export function App() {
         onToggleCollapse={handleToggleCollapse}
       />
       {!sidebar.collapsed && <ExcludedFiles paths={excludedInDiff} onInclude={handleInclude} />}
+      {!sidebar.collapsed && isMr && diffMr && mrComments.outdatedCount > 0 && (
+        <div className="mr-outdated-notice">
+          이전 버전에 남은 코멘트 {mrComments.outdatedCount}개는 <a href={diffMr.webUrl} target="_blank" rel="noreferrer">GitLab</a>에서 확인해 주세요
+        </div>
+      )}
       {!sidebar.collapsed && <CommentTracker comments={comments} />}
     </div>
   )
@@ -344,6 +360,12 @@ export function App() {
         onToggleReview={() => updateReviewPanel({ ...reviewPanel, open: !reviewPanel.open })}
         onCopyComments={copyAllComments}
         mrLink={comparison.mode === 'mr' && diffMr ? diffMr : undefined}
+        submitReview={isMr && mrIid !== null ? {
+          count: mrComments.draftCount,
+          submitting: mrComments.submitting,
+          error: mrComments.submitError,
+          onSubmit: () => void mrComments.publish(),
+        } : undefined}
       />
       <div className="app-body">
         {sidebar.collapsed ? (
@@ -396,6 +418,7 @@ export function App() {
               fileAnnotationsMap={fileAnnotationsMap}
               onAddComment={addComment}
               onDeleteComment={removeComment}
+              onReplyComment={isMr ? mrComments.addReply : undefined}
               contentQuery={params?.toString() ?? ''}
               highlight={highlight}
             />

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react'
-import { GitBranch, PanelRight, Settings } from 'lucide-react'
+import { GitBranch, PanelRight, RefreshCw, Settings } from 'lucide-react'
 import type { DiffOptions } from '../hooks/useDiff'
 
 interface ToolbarProps {
@@ -26,6 +26,7 @@ interface ToolbarProps {
   onBrowserChange: (browser: string) => void
   onCopyComments: () => Promise<void>
   mrLink?: { iid: number; title: string; webUrl: string }
+  submitReview?: { count: number; submitting: boolean; error: string | null; onSubmit: () => void }
 }
 
 export function Toolbar({
@@ -52,6 +53,7 @@ export function Toolbar({
   onBrowserChange,
   onCopyComments,
   mrLink,
+  submitReview,
 }: ToolbarProps) {
   const [copied, setCopied] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -193,6 +195,19 @@ export function Toolbar({
         >
           <PanelRight size={14} /> AI 리뷰
         </button>
+        {submitReview && (
+          <div className="toolbar-submit">
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={submitReview.onSubmit}
+              disabled={submitReview.count === 0 || submitReview.submitting}
+            >
+              {submitReview.submitting && <RefreshCw size={14} className="spin" />}
+              리뷰 제출 ({submitReview.count})
+            </button>
+            {submitReview.error && <div className="toolbar-submit-error">{submitReview.error}</div>}
+          </div>
+        )}
         <button
           className="btn btn-primary btn-sm"
           onClick={handleCopy}

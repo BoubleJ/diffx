@@ -76,7 +76,7 @@ export function CommentTracker({ comments }: CommentTrackerProps) {
                   <span className="ct-item-file" title={comment.filePath}>
                     {fileName(comment.filePath)}:{comment.lineNumber}
                   </span>
-                  <span className="ct-item-time">{timeAgo(comment.createdAt)}</span>
+                  <span className="ct-item-time">{comment.origin === 'draft' ? '초안' : timeAgo(comment.createdAt)}</span>
                 </div>
                 <div className="ct-item-body">{truncate(comment.body, 80)}</div>
               </a>
