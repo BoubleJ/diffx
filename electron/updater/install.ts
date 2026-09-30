@@ -124,12 +124,23 @@ fi
 open "$current"
 `
 
-export async function startSwap(opts: { pid: number; currentAppPath: string; newAppPath: string; workDir: string }): Promise<void> {
+export async function startSwap(opts: {
+  pid: number
+  currentAppPath: string
+  newAppPath: string
+  workDir: string
+  shell?: string
+}): Promise<void> {
   const script = join(opts.workDir, 'swap.sh')
   await writeFile(script, SWAP_SCRIPT)
   const backup = join(opts.workDir, 'backup.app')
-  spawn('/bin/sh', [script, String(opts.pid), opts.currentAppPath, opts.newAppPath, backup], {
+  const child = spawn(opts.shell ?? '/bin/sh', [script, String(opts.pid), opts.currentAppPath, opts.newAppPath, backup], {
     detached: true,
     stdio: 'ignore',
-  }).unref()
+  })
+  await new Promise<void>((resolve, reject) => {
+    child.once('spawn', resolve)
+    child.once('error', reject)
+  })
+  child.unref()
 }
