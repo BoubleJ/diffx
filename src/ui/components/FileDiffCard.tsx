@@ -23,7 +23,8 @@ interface FileDiffCardProps {
   viewed: boolean
   onViewedChange: (filePath: string, viewed: boolean) => void
   onExclude: (filePath: string) => void
-  onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => void
+  onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => void | Promise<void>
+  onReplyComment?: (discussionId: string, body: string) => Promise<void>
   onDeleteComment: (id: string) => void
   highlightLine: { side: 'additions' | 'deletions'; line: number } | null
 }
@@ -41,9 +42,11 @@ export const FileDiffCard = memo(function FileDiffCard({
   onExclude,
   onAddComment,
   onDeleteComment,
+  onReplyComment,
   highlightLine,
 }: FileDiffCardProps) {
   const [pending, setPending] = useState<PendingComment | null>(null)
+  const [pendingError, setPendingError] = useState<string | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -144,14 +147,24 @@ export const FileDiffCard = memo(function FileDiffCard({
             )}
             renderAnnotation={(annotation) => {
               if ('_pending' in annotation.metadata) {
+                const target = pending!
                 return (
                   <CommentForm
-                    onSubmit={(body) => {
-                      const lineContent = getLineContent(pending!.side, pending!.lineNumber)
-                      onAddComment(filePath, pending!.side, pending!.lineNumber, lineContent, body)
-                      setPending(null)
+                    error={pendingError}
+                    onSubmit={async (body) => {
+                      const lineContent = getLineContent(target.side, target.lineNumber)
+                      try {
+                        await onAddComment(filePath, target.side, target.lineNumber, lineContent, body)
+                        setPending(null)
+                        setPendingError(null)
+                      } catch (err) {
+                        setPendingError((err as Error).message)
+                      }
                     }}
-                    onCancel={() => setPending(null)}
+                    onCancel={() => {
+                      setPending(null)
+                      setPendingError(null)
+                    }}
                   />
                 )
               }
@@ -159,6 +172,7 @@ export const FileDiffCard = memo(function FileDiffCard({
                 <CommentBubble
                   comment={annotation.metadata as ReviewComment}
                   onDelete={onDeleteComment}
+                  onReply={onReplyComment}
                 />
               )
             }}

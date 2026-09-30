@@ -16,8 +16,9 @@ interface DiffViewerProps {
   onViewedChange: (filePath: string, viewed: boolean) => void
   onExclude: (filePath: string) => void
   fileAnnotationsMap: Map<string, DiffLineAnnotation<ReviewComment>[]>
-  onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => void
+  onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => void | Promise<void>
   onDeleteComment: (id: string) => void
+  onReplyComment?: (discussionId: string, body: string) => Promise<void>
   contentQuery: string
   highlight: { file: string; side: 'additions' | 'deletions'; line: number } | null
 }
@@ -37,6 +38,7 @@ export const DiffViewer = memo(function DiffViewer({
   fileAnnotationsMap,
   onAddComment,
   onDeleteComment,
+  onReplyComment,
   contentQuery,
   highlight,
 }: DiffViewerProps) {
@@ -107,6 +109,7 @@ export const DiffViewer = memo(function DiffViewer({
             onExclude={onExclude}
             onAddComment={onAddComment}
             onDeleteComment={onDeleteComment}
+            onReplyComment={onReplyComment}
             highlightLine={highlight && highlight.file === filePath ? highlight : null}
           />
         )

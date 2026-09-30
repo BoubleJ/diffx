@@ -8,6 +8,33 @@ async function fetchComments(key: string): Promise<ReviewComment[]> {
   return res.json()
 }
 
+export function formatComments(comments: ReviewComment[]): string {
+  if (comments.length === 0) return ''
+
+  const grouped = new Map<string, ReviewComment[]>()
+  for (const comment of comments) {
+    const list = grouped.get(comment.filePath) ?? []
+    list.push(comment)
+    grouped.set(comment.filePath, list)
+  }
+
+  const lines: string[] = ['<code-review-comments>']
+  for (const [filePath, fileComments] of grouped) {
+    lines.push(`<file path="${filePath}">`)
+    for (const comment of fileComments) {
+      lines.push(`<comment line="${comment.lineNumber}">`)
+      const prefix = comment.side === 'additions' ? '+' : '-'
+      lines.push(`<code>${prefix} ${comment.lineContent}</code>`)
+      lines.push(comment.body)
+      lines.push('</comment>')
+    }
+    lines.push('</file>')
+  }
+  lines.push('</code-review-comments>')
+
+  return lines.join('\n')
+}
+
 export function useComments(key: string | null) {
   const queryClient = useQueryClient()
   const COMMENTS_KEY = ['comments', key]
@@ -59,8 +86,8 @@ export function useComments(key: string | null) {
   })
 
   const addComment = useCallback(
-    (filePath: string, side: 'deletions' | 'additions', lineNumber: number, lineContent: string, body: string) => {
-      addMutation.mutate({ filePath, side, lineNumber, lineContent, body })
+    async (filePath: string, side: 'deletions' | 'additions', lineNumber: number, lineContent: string, body: string) => {
+      await addMutation.mutateAsync({ filePath, side, lineNumber, lineContent, body })
     },
     [addMutation],
   )
@@ -86,32 +113,7 @@ export function useComments(key: string | null) {
     [editMutation],
   )
 
-  const formatAllComments = useCallback((): string => {
-    if (comments.length === 0) return ''
-
-    const grouped = new Map<string, ReviewComment[]>()
-    for (const comment of comments) {
-      const list = grouped.get(comment.filePath) ?? []
-      list.push(comment)
-      grouped.set(comment.filePath, list)
-    }
-
-    const lines: string[] = ['<code-review-comments>']
-    for (const [filePath, fileComments] of grouped) {
-      lines.push(`<file path="${filePath}">`)
-      for (const comment of fileComments) {
-        lines.push(`<comment line="${comment.lineNumber}">`)
-        const prefix = comment.side === 'additions' ? '+' : '-'
-        lines.push(`<code>${prefix} ${comment.lineContent}</code>`)
-        lines.push(comment.body)
-        lines.push('</comment>')
-      }
-      lines.push('</file>')
-    }
-    lines.push('</code-review-comments>')
-
-    return lines.join('\n')
-  }, [comments])
+  const formatAllComments = useCallback(() => formatComments(comments), [comments])
 
   const getAnnotationsForFile = useCallback(
     (filePath: string): DiffLineAnnotation<ReviewComment>[] => {

@@ -656,6 +656,58 @@ body {
     color: var(--text);
 }
 
+.comment-bubble-author {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.comment-badge-draft {
+    padding: 0 6px;
+    border: 1px solid var(--comment-border);
+    border-radius: 10px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.comment-reply-button {
+    margin-top: 8px;
+}
+
+.comment-form-error {
+    margin: 4px 0;
+    font-size: 12px;
+    color: var(--danger);
+}
+
+.toolbar-submit {
+    position: relative;
+}
+
+.toolbar-submit-error {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    max-width: 360px;
+    padding: 4px 8px;
+    background: var(--bg);
+    border: 1px solid var(--danger);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--danger);
+    white-space: normal;
+    z-index: 30;
+}
+
+.mr-outdated-notice {
+    margin: 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
 /* Binary file diff */
 .binary-diff-header {
     display: flex;
