@@ -17,8 +17,7 @@
   "keywords": [
     "git",
     "diff",
-    "code-review",
-    "cli"
+    "code-review"
   ],
   "main": "dist/electron/main.cjs",
   "scripts": {
