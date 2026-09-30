@@ -30,6 +30,7 @@ src/
 ├─ gitlab/            (신규)
 │  ├─ glab.ts         glab api 실행과 오류 분류
 │  ├─ mr.ts           MR 목록, MR 상세, 커밋 fetch
+│  ├─ mrComparison.ts iid별 MR 상세 캐시와 mr 비교 조합 생성
 │  ├─ notes.ts        discussion 조회, draft note 생성과 삭제, 공개
 │  └─ position.ts     diff 줄을 GitLab position으로 변환
 ├─ comparison.ts      mr 모드 추가
@@ -83,7 +84,7 @@ src/
 1. `projects/:fullpath/merge_requests/<iid>`로 `diff_refs`(`base_sha`, `start_sha`, `head_sha`), `source_branch`, `target_branch`, `title`, `web_url`을 읽는다.
 2. `git cat-file -e <sha>^{commit}`로 `base_sha`와 `head_sha`가 로컬에 있는지 확인한다.
 3. 하나라도 없으면 `GIT_TERMINAL_PROMPT=0`으로 `git fetch --no-tags <원격> refs/merge-requests/<iid>/head refs/heads/<target_branch>`를 실행한다. 제한 시간은 60초다. 로컬에 ref를 새로 만들지 않는다.
-   - 머지되어 타겟 브랜치가 삭제된 경우를 대비해 타겟 브랜치 fetch가 실패하면 `refs/merge-requests/<iid>/head`만 다시 fetch한다.
+   - 머지되어 타겟 브랜치가 삭제된 경우를 대비해 타겟 브랜치 fetch가 실패하면 `refs/merge-requests/<iid>/head`와 `base_sha`를 다시 fetch한다.
 4. fetch 후에도 커밋이 없으면 `{ error: 'mr_fetch_failed', message }`와 502를 돌려준다.
 
 `<원격>`은 `git remote -v`의 원격 중 URL의 호스트와 경로(끝의 `.git` 제외)가 status의 `host`, `project`와 같은 첫 번째다. 없으면 `origin`을 쓴다.
@@ -211,7 +212,7 @@ interface ReviewComment {
 
 - `position.ts`: 추가 줄, 삭제 줄, 변경되지 않은 줄, hunk 밖의 줄, 파일 이름 변경의 position 계산을 단위테스트로 확인한다.
 - `glab.ts`: 가짜 glab 스크립트로 오류 종류 판별, `--input -` 본문 전달, JSON 파싱을 확인한다. `src/review/__fixtures__/fake-cli.mjs` 방식을 따른다.
-- `notes.ts`: discussion과 draft note 응답 예시를 `src/gitlab/__fixtures__/`에 두고 `ReviewComment` 변환, 이전 버전 discussion 개수, 답글 draft 병합을 확인한다.
+- `notes.ts`: discussion과 draft note 응답 예시 객체로 `ReviewComment` 변환, 이전 버전 discussion 개수, 답글 draft 병합을 확인한다.
 - 서버 API: 가짜 glab 실행부를 주입해 MR 목록 쿼리 구성, draft 생성 요청 본문, publish 호출을 확인한다. `mode=mr` diff는 임시 저장소에 `refs/merge-requests/1/head`를 만들고 가짜 MR 상세가 그 sha를 돌려주게 해서 확인한다.
 - 실제 확인: 사내 GitLab MR 하나로 목록 조회, 필터, diff 열기, 초안 작성, 답글 초안, 리뷰 제출을 직접 실행한다. 실제 MR에 코멘트가 등록되므로 사용할 MR을 사용자에게 먼저 확인한다.
 
