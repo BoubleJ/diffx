@@ -163,4 +163,22 @@ describe('comparison mode is required', () => {
     const { app } = setupApp()
     expect(await (await app.request('/api/comments')).json()).toEqual([])
   })
+
+  it('rejects writes without a key before any diff', async () => {
+    const { app } = setupApp()
+    const post = await app.request('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filePath: 'a.txt', side: 'additions', lineNumber: 1, lineContent: 'x', body: 'c' }),
+    })
+    expect(post.status).toBe(400)
+    expect(await post.json()).toEqual({ error: 'missing_key' })
+    const put = await app.request('/api/viewed', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filePath: 'a.txt', viewed: true, contentHash: 'abc' }),
+    })
+    expect(put.status).toBe(400)
+    expect(await put.json()).toEqual({ error: 'missing_key' })
+  })
 })

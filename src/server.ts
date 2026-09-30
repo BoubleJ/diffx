@@ -251,13 +251,6 @@ export function createApp(options: AppOptions) {
     })
   })
 
-  // Full old/new file contents for a diffed file, so the client can build a
-  // non-partial diff that supports expanding context around hunks.
-  // `oldOid`/`newOid` are blob ids from the patch's `index` line. The diff is
-  // regenerated and the requested oids must match its `index` line for the
-  // requested path: this keeps arbitrary repository blobs unreachable, and
-  // rejects requests whose patch no longer matches the worktree (git recomputes
-  // the worktree blob hash on every diff, so any edit changes the new oid).
   const readerFor = async (c: Context, side: 'additions' | 'deletions'): Promise<SourceReader> => {
     const mode = c.req.query('mode')
     if (mode === 'branch') {
@@ -289,6 +282,11 @@ export function createApp(options: AppOptions) {
     return c.json(result.kind === 'found' ? { kind: 'found', version: side === 'additions' ? 'new' : 'old', targets: result.targets } : result)
   })
 
+  // Full old/new file contents for a diffed file, so the client can build a
+  // non-partial diff that supports expanding context around hunks.
+  // `oldOid`/`newOid` are blob ids from the patch's `index` line. The diff is
+  // regenerated and the requested oids must match its `index` line for the
+  // requested path: this keeps arbitrary repository blobs unreachable.
   app.get('/api/file-versions', async (c) => {
     const path = c.req.query('path')
     const oldOid = c.req.query('oldOid')
@@ -306,9 +304,7 @@ export function createApp(options: AppOptions) {
       return c.json({ error: 'File version not in current diff' }, 404)
     }
     // A zero oid is git's `/dev/null` — an absent side (creation/deletion), so
-    // its content is empty. A non-zero oid that is missing from the object
-    // database is the worktree blob of an unstaged change (git computes its
-    // hash without storing it), so fall back to reading the worktree.
+    // its content is empty.
     const oldContent = /^0+$/.test(oldOid) ? '' : getBlobContent(repo, oldOid)
     const newContent = /^0+$/.test(newOid) ? '' : getBlobContent(repo, newOid)
     if (oldContent == null || newContent == null) {
