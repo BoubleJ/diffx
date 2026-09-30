@@ -41,12 +41,6 @@ export function BranchPicker({ comparison, branches, fetching, fetchError, notic
     <div className="branch-picker">
       <div className="toolbar-toggle">
         <button
-          className={`btn btn-sm ${comparison.mode === 'worktree' ? 'btn-active' : ''}`}
-          onClick={() => onChange({ mode: 'worktree' })}
-        >
-          작업 중 변경사항
-        </button>
-        <button
           className={`btn btn-sm ${comparison.mode === 'branch' ? 'btn-active' : ''}`}
           onClick={switchToBranch}
           disabled={!branches}

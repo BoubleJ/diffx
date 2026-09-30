@@ -50,7 +50,7 @@ function useWindowSize({ factor }: { factor: number }) {
 export function App() {
   const { settings, loaded, updateSettings } = useSettings()
   const { repo, error: repoError } = useRepo()
-  const branchMode = !!repo && !repo.customMode
+  const branchMode = !!repo
   const { branches, branchesError, fetchRemote, fetching, fetchError } = useBranches(branchMode)
   const gitlab = useGitlabStatus(branchMode)
   const queryClient = useQueryClient()
@@ -59,20 +59,16 @@ export function App() {
 
   useEffect(() => {
     if (!repo) return
-    if (repo.customMode) {
-      setComparison({ mode: 'worktree' })
-      return
-    }
     if (!branches) {
       if (branchesError) {
         setNotice(`브랜치 목록을 불러오지 못했습니다: ${branchesError}`)
-        if (comparison?.mode !== 'worktree') setComparison({ mode: 'worktree' })
+        if (!comparison) setComparison({ mode: 'mr', iid: null })
       }
       return
     }
     const base = comparison ?? loadComparison(repo.root)
     const { comparison: reconciled, missing } = reconcileComparison(base, branches)
-    const { comparison: next, notice: mrNotice } = reconcileMrAvailability(reconciled, gitlab.status)
+    const { comparison: next, notice: mrNotice } = reconcileMrAvailability(reconciled, gitlab.status, branches)
     if (missing.length > 0) {
       setNotice(`저장된 브랜치 ${missing.join(', ')}을 찾지 못해 기본값으로 바꿨습니다`)
     }
@@ -87,15 +83,15 @@ export function App() {
   }, [repo])
 
   const params = useMemo(
-    () => (comparison ? comparisonParams(comparison, { staged: settings.staged, untracked: settings.untracked }) : null),
-    [comparison, settings.staged, settings.untracked],
+    () => (comparison ? comparisonParams(comparison) : null),
+    [comparison],
   )
   const [diffReloadToken, setDiffReloadToken] = useState(0)
   const handleFetch = useCallback(async () => {
     await fetchRemote()
     setDiffReloadToken((t) => t + 1)
   }, [fetchRemote])
-  const { patch, repoName, branch, binaryFiles, tabSizeMap, untrackedFiles, key, identical, loading, error, mr: diffMr } = useDiff(params, diffReloadToken)
+  const { patch, repoName, branch, binaryFiles, tabSizeMap, key, identical, loading, error, mr: diffMr } = useDiff(params, diffReloadToken)
   const [mrRefreshing, setMrRefreshing] = useState(false)
   const handleRefreshMr = useCallback(async () => {
     setMrRefreshing(true)
@@ -182,8 +178,6 @@ export function App() {
     setSidebar((prev) => prev.withCollapsed(!prev.collapsed).save())
   }, [])
 
-  const untrackedSet = useMemo(() => new Set(untrackedFiles), [untrackedFiles])
-
   const files = useMemo(() => {
     if (!patch) return []
     try {
@@ -195,7 +189,7 @@ export function App() {
         if (!existingNames.has(bf.path)) {
           const syntheticFile: FileDiffMetadata = {
             name: bf.path,
-            type: bf.type === 'added' || bf.type === 'untracked' ? 'new' : bf.type === 'deleted' ? 'deleted' : 'change',
+            type: bf.type === 'added' ? 'new' : bf.type === 'deleted' ? 'deleted' : 'change',
             hunks: [],
             splitLineCount: 0,
             unifiedLineCount: 0,
@@ -363,7 +357,6 @@ export function App() {
         activeFile={activeFile}
         commentCounts={commentCounts}
         viewedFiles={viewedFiles}
-        untrackedFiles={untrackedSet}
         onFileClick={handleFileClick}
         onExclude={handleExclude}
         collapsed={sidebar.collapsed}
@@ -399,8 +392,7 @@ export function App() {
     <div className="app">
       <Toolbar
         repoName={repoName || repo.name}
-        showWorktreeOptions={!repo.customMode && comparison.mode === 'worktree'}
-        branchPicker={repo.customMode ? undefined : (
+        branchPicker={(
           <BranchPicker
             comparison={comparison}
             branches={branches}
@@ -424,15 +416,11 @@ export function App() {
         deletions={diffStats.deletions}
         commentCount={comments.length}
         diffStyle={settings.diffStyle}
-        diffOptions={{ staged: settings.staged, untracked: settings.untracked }}
         defaultTabSize={settings.defaultTabSize}
         softWrap={settings.softWrap}
-        browser={settings.browser}
         onDiffStyleChange={(style) => updateSettings({ diffStyle: style })}
-        onDiffOptionsChange={(options) => updateSettings(options)}
         onDefaultTabSizeChange={(size) => updateSettings({ defaultTabSize: size })}
         onSoftWrapChange={(softWrap) => updateSettings({ softWrap })}
-        onBrowserChange={(browser) => updateSettings({ browser })}
         reviewOpen={reviewPanel.open}
         onToggleReview={() => updateReviewPanel({ ...reviewPanel, open: !reviewPanel.open })}
         onCopyComments={copyAllComments}

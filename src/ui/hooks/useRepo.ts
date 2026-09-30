@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 export interface RepoInfo {
   root: string
   name: string
-  customMode: boolean
 }
 
 export function useRepo() {

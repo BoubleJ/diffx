@@ -1,5 +1,5 @@
 import type { GitlabStatus } from '../gitlab/mr'
-import type { Comparison } from './comparison'
+import { defaultBranchComparison, type BranchInfo, type Comparison } from './comparison'
 
 export function gitlabUnavailableMessage(status: Extract<GitlabStatus, { available: false }>): string {
   switch (status.reason) {
@@ -14,9 +14,9 @@ export function gitlabUnavailableMessage(status: Extract<GitlabStatus, { availab
   }
 }
 
-export function reconcileMrAvailability(c: Comparison, status: GitlabStatus | undefined): { comparison: Comparison; notice: string | null } {
+export function reconcileMrAvailability(c: Comparison, status: GitlabStatus | undefined, branches: BranchInfo): { comparison: Comparison; notice: string | null } {
   if (c.mode !== 'mr' || !status || status.available) return { comparison: c, notice: null }
-  return { comparison: { mode: 'worktree' }, notice: gitlabUnavailableMessage(status) }
+  return { comparison: defaultBranchComparison(branches), notice: gitlabUnavailableMessage(status) }
 }
 
 export function mrTabAction(status: GitlabStatus | undefined): 'open' | 'recheck' | 'none' {

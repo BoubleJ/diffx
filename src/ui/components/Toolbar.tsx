@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { GitBranch, PanelRight, RefreshCw, Settings } from 'lucide-react'
-import type { DiffOptions } from '../hooks/useDiff'
 
 interface ToolbarProps {
   repoName: string
@@ -11,19 +10,14 @@ interface ToolbarProps {
   deletions: number
   commentCount: number
   diffStyle: 'split' | 'unified'
-  diffOptions: DiffOptions
   defaultTabSize: number
   softWrap: boolean
-  browser?: string
-  showWorktreeOptions: boolean
   branchPicker?: ReactNode
   reviewOpen: boolean
   onToggleReview: () => void
   onDiffStyleChange: (style: 'split' | 'unified') => void
-  onDiffOptionsChange: (options: DiffOptions) => void
   onDefaultTabSizeChange: (size: number) => void
   onSoftWrapChange: (softWrap: boolean) => void
-  onBrowserChange: (browser: string) => void
   onCopyComments: () => Promise<void>
   mrLink?: { iid: number; title: string; webUrl: string }
   submitReview?: { count: number; submitting: boolean; error: string | null; onSubmit: () => void }
@@ -38,19 +32,14 @@ export function Toolbar({
   deletions,
   commentCount,
   diffStyle,
-  diffOptions,
   defaultTabSize,
   softWrap,
-  browser,
-  showWorktreeOptions,
   branchPicker,
   reviewOpen,
   onToggleReview,
   onDiffStyleChange,
-  onDiffOptionsChange,
   onDefaultTabSizeChange,
   onSoftWrapChange,
-  onBrowserChange,
   onCopyComments,
   mrLink,
   submitReview,
@@ -124,30 +113,6 @@ export function Toolbar({
           </button>
           {settingsOpen && (
             <div className="settings-menu">
-              {showWorktreeOptions && (
-                <>
-                  <label className="settings-item">
-                    <input
-                      type="checkbox"
-                      checked={diffOptions.staged}
-                      onChange={(e) =>
-                        onDiffOptionsChange({ ...diffOptions, staged: e.target.checked })
-                      }
-                    />
-                    Show staged
-                  </label>
-                  <label className="settings-item">
-                    <input
-                      type="checkbox"
-                      checked={diffOptions.untracked}
-                      onChange={(e) =>
-                        onDiffOptionsChange({ ...diffOptions, untracked: e.target.checked })
-                      }
-                    />
-                    Show untracked
-                  </label>
-                </>
-              )}
               <label className="settings-item">
                 <input
                   type="checkbox"
@@ -166,23 +131,6 @@ export function Toolbar({
                   <option value={2}>2</option>
                   <option value={4}>4</option>
                   <option value={8}>8</option>
-                </select>
-              </div>
-              <div className="settings-item settings-item-spaced">
-                <span>Browser</span>
-                <select
-                  className="settings-select"
-                  value={browser || ''}
-                  onChange={(e) => {
-                    onBrowserChange(e.target.value)
-                    setSettingsOpen(false)
-                  }}
-                >
-                  <option value="">Default</option>
-                  <option value="chrome">Chrome</option>
-                  <option value="firefox">Firefox</option>
-                  <option value="edge">Edge</option>
-                  <option value="brave">Brave</option>
                 </select>
               </div>
             </div>

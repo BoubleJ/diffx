@@ -14,21 +14,23 @@ describe('gitlabUnavailableMessage', () => {
 })
 
 describe('reconcileMrAvailability', () => {
+  const branches = { local: ['feature/x', 'main'], remote: ['origin/main'], current: 'feature/x', defaultTarget: 'origin/main' }
+  const branchComparison = { mode: 'branch' as const, source: 'feature/x', target: 'origin/main' }
   const ok = { available: true as const, host: 'h', project: 'p', webUrl: 'w', username: 'u' }
 
   it('keeps the MR while the status is loading or available', () => {
-    expect(reconcileMrAvailability({ mode: 'mr', iid: 7 }, undefined)).toEqual({ comparison: { mode: 'mr', iid: 7 }, notice: null })
-    expect(reconcileMrAvailability({ mode: 'mr', iid: 7 }, ok)).toEqual({ comparison: { mode: 'mr', iid: 7 }, notice: null })
+    expect(reconcileMrAvailability({ mode: 'mr', iid: 7 }, undefined, branches)).toEqual({ comparison: { mode: 'mr', iid: 7 }, notice: null })
+    expect(reconcileMrAvailability({ mode: 'mr', iid: 7 }, ok, branches)).toEqual({ comparison: { mode: 'mr', iid: 7 }, notice: null })
   })
 
-  it('returns to worktree with the reason when glab is unavailable', () => {
-    expect(reconcileMrAvailability({ mode: 'mr', iid: 7 }, { available: false, reason: 'not_gitlab', message: '' }))
-      .toEqual({ comparison: { mode: 'worktree' }, notice: '원격 저장소가 GitLab이 아닙니다' })
+  it('returns to the branch comparison with the reason when glab is unavailable', () => {
+    expect(reconcileMrAvailability({ mode: 'mr', iid: 7 }, { available: false, reason: 'not_gitlab', message: '' }, branches))
+      .toEqual({ comparison: branchComparison, notice: '원격 저장소가 GitLab이 아닙니다' })
   })
 
   it('ignores other modes', () => {
-    expect(reconcileMrAvailability({ mode: 'worktree' }, { available: false, reason: 'auth', message: '' }))
-      .toEqual({ comparison: { mode: 'worktree' }, notice: null })
+    expect(reconcileMrAvailability(branchComparison, { available: false, reason: 'auth', message: '' }, branches))
+      .toEqual({ comparison: branchComparison, notice: null })
   })
 })
 
