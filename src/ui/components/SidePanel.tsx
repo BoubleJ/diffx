@@ -14,8 +14,8 @@ export function SidePanel({ tab, onTabChange, review, explore }: SidePanelProps)
         <button className={`btn btn-sm ${tab === 'review' ? 'btn-active' : ''}`} onClick={() => onTabChange('review')}>AI 리뷰</button>
         <button className={`btn btn-sm ${tab === 'explore' ? 'btn-active' : ''}`} onClick={() => onTabChange('explore')}>코드 탐색</button>
       </div>
-      <div style={{ display: tab === 'review' ? 'block' : 'none' }}>{review}</div>
-      <div style={{ display: tab === 'explore' ? 'block' : 'none' }}>{explore}</div>
+      <div className="side-panel-body" style={{ display: tab === 'review' ? 'flex' : 'none' }}>{review}</div>
+      <div className="side-panel-body" style={{ display: tab === 'explore' ? 'flex' : 'none' }}>{explore}</div>
     </div>
   )
 }
