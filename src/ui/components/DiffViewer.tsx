@@ -24,6 +24,7 @@ interface DiffViewerProps {
   highlight: { file: string; side: 'additions' | 'deletions'; line: number } | null
   onDefinition?: (req: DefinitionRequest, anchor: DOMRect) => void
   onHighlightMissing?: (filePath: string, line: number, side: 'additions' | 'deletions') => void
+  onFileReferences?: (path: string, side: 'additions' | 'deletions') => void
 }
 
 const emptyAnnotations: DiffLineAnnotation<ReviewComment>[] = []
@@ -46,6 +47,7 @@ export const DiffViewer = memo(function DiffViewer({
   highlight,
   onDefinition,
   onHighlightMissing,
+  onFileReferences,
 }: DiffViewerProps) {
   const sortedFiles = useMemo(() => {
     return [...files].sort((a, b) => {
@@ -118,6 +120,7 @@ export const DiffViewer = memo(function DiffViewer({
             highlightLine={highlight && highlight.file === filePath ? highlight : null}
             onDefinition={onDefinition}
             onHighlightMissing={onHighlightMissing}
+            onFileReferences={onFileReferences}
           />
         )
       })}

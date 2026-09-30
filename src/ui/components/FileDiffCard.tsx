@@ -9,6 +9,7 @@ import { findLineElement } from '../findLine'
 import { isSourceFile } from '../../definition/sourceFiles'
 import type { DefinitionRequest } from '../definition'
 import { tokenLinkHover } from '../tokenLinkHover'
+import { findHeaderTitle } from '../headerTitle'
 
 interface PendingComment {
   side: AnnotationSide
@@ -32,6 +33,7 @@ interface FileDiffCardProps {
   highlightLine: { side: 'additions' | 'deletions'; line: number } | null
   onDefinition?: (req: DefinitionRequest, anchor: DOMRect) => void
   onHighlightMissing?: (filePath: string, line: number, side: 'additions' | 'deletions') => void
+  onFileReferences?: (path: string, side: 'additions' | 'deletions') => void
 }
 
 function scrollToEstimatedLine(card: HTMLElement, line: number, total: number): void {
@@ -59,6 +61,7 @@ export const FileDiffCard = memo(function FileDiffCard({
   highlightLine,
   onDefinition,
   onHighlightMissing,
+  onFileReferences,
 }: FileDiffCardProps) {
   const [pending, setPending] = useState<PendingComment | null>(null)
   const [pendingError, setPendingError] = useState<string | null>(null)
@@ -121,6 +124,22 @@ export const FileDiffCard = memo(function FileDiffCard({
     },
   } : {}
 
+  const headerHandlers = linkable && onFileReferences ? {
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!e.metaKey || !findHeaderTitle(e.nativeEvent.composedPath())) return
+      e.preventDefault()
+      e.stopPropagation()
+      onFileReferences(filePath, fileDiff.type === 'deleted' ? 'deletions' : 'additions')
+    },
+    onPointerOver: (e: React.PointerEvent) => {
+      const title = findHeaderTitle(e.nativeEvent.composedPath())
+      if (title) tokenLinkHover.enter(title, e.metaKey)
+    },
+    onPointerOut: (e: React.PointerEvent) => {
+      if (findHeaderTitle(e.nativeEvent.composedPath())) tokenLinkHover.leave()
+    },
+  } : {}
+
   const allAnnotations: DiffLineAnnotation<ReviewComment | { _pending: true }>[] = [
     ...annotations,
     ...(pending
@@ -135,7 +154,7 @@ export const FileDiffCard = memo(function FileDiffCard({
   ]
 
   return (
-    <div className={`file-diff-card ${viewed ? 'file-diff-viewed' : ''}`} id={id} ref={cardRef}>
+    <div className={`file-diff-card ${viewed ? 'file-diff-viewed' : ''}`} id={id} ref={cardRef} {...headerHandlers}>
       {viewed ? (
         <div className="file-diff-viewed-header">
           <span className="file-diff-viewed-name">{filePath}</span>

@@ -395,6 +395,10 @@ export function App() {
     }
   }, [contentQuery, jumpTo, showExplore, openReferences])
 
+  const handleFileReferences = useCallback((path: string, side: 'additions' | 'deletions') => {
+    void openReferences({ path, side, scope: 'file' }, path.split('/').pop()!.replace(/\.[^.]+$/, ''))
+  }, [openReferences])
+
   const closeOverlay = useCallback(() => setOverlayEntries([]), [])
   const backOverlay = useCallback(() => setOverlayEntries((prev) => prev.slice(0, -1)), [])
   const handleOverlayDefinition = useCallback((req: DefinitionRequest, anchor: DOMRect) => {
@@ -550,6 +554,7 @@ export function App() {
               highlight={highlight}
               onDefinition={handleDefinition}
               onHighlightMissing={handleHighlightMissing}
+              onFileReferences={handleFileReferences}
             />
           </Virtualizer>
           )}
@@ -602,6 +607,7 @@ export function App() {
           onBack={backOverlay}
           onClose={closeOverlay}
           onDefinition={handleOverlayDefinition}
+          onFileReferences={handleFileReferences}
         />
       )}
       {popover && <DefinitionPopover anchor={popover.anchor} content={popover.content} onClose={closePopover} />}
