@@ -4,6 +4,7 @@ import { File as CodeFile } from '@pierre/diffs/react'
 import { findLineElement } from '../findLine'
 import { isSourceFile } from '../../definition/sourceFiles'
 import type { DefinitionRequest, DefinitionVersion } from '../definition'
+import { tokenLinkHover } from '../tokenLinkHover'
 
 interface OverlayEntry {
   path: string
@@ -96,15 +97,8 @@ export function FileViewerOverlay({ entries, contentQuery, onBack, onClose, onDe
                 overflow: 'scroll',
                 ...(linkable ? {
                   useTokenTransformer: true,
-                  onTokenEnter: (props, event) => {
-                    if (!event.metaKey) return
-                    props.tokenElement.style.textDecoration = 'underline'
-                    props.tokenElement.style.cursor = 'pointer'
-                  },
-                  onTokenLeave: (props) => {
-                    props.tokenElement.style.textDecoration = ''
-                    props.tokenElement.style.cursor = ''
-                  },
+                  onTokenEnter: (props, event) => tokenLinkHover.enter(props.tokenElement, event.metaKey),
+                  onTokenLeave: () => tokenLinkHover.leave(),
                   onTokenClick: (props, event) => {
                     if (!event.metaKey) return
                     event.preventDefault()
