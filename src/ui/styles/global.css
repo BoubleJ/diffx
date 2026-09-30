@@ -1644,10 +1644,60 @@ body {
     color: var(--text);
 }
 
-.review-panel-summary {
-    margin: 4px 0;
+.answer-markdown {
     line-height: 1.6;
-    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.answer-markdown > :first-child {
+    margin-top: 0;
+}
+
+.answer-markdown > :last-child {
+    margin-bottom: 0;
+}
+
+.answer-markdown p,
+.answer-markdown ul,
+.answer-markdown ol {
+    margin: 6px 0;
+}
+
+.answer-markdown ul,
+.answer-markdown ol {
+    padding-left: 20px;
+}
+
+.answer-markdown :not(pre) > code {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+}
+
+.answer-code,
+.answer-code-highlighted pre {
+    margin: 6px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.answer-code {
+    background: var(--bg-secondary);
+}
+
+@media (prefers-color-scheme: dark) {
+    .answer-code-highlighted .shiki,
+    .answer-code-highlighted .shiki span {
+        color: var(--shiki-dark) !important;
+        background-color: var(--shiki-dark-bg) !important;
+    }
 }
 
 .finding-item {
