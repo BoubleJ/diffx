@@ -172,6 +172,40 @@ describe('review API', () => {
     expect(store.load(repo, saved.key)?.excluded).toEqual(['a.txt'])
   })
 
+  it('passes the trimmed instruction to the review context and stores it on the record', async () => {
+    let receivedCtx: { instruction?: string } | undefined
+    const { app, repo, store } = setup(async (_p, ctx) => {
+      receivedCtx = ctx
+      return { summary: 's', findings: [] }
+    })
+    const { id } = await (await postReview(app, { instruction: '  타입 안정성만 확인해줘 ' })).json()
+    await readSse(await app.request(`/api/review/${id}/events`))
+    expect(receivedCtx!.instruction).toBe('타입 안정성만 확인해줘')
+    const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
+    expect(saved.record.instruction).toBe('타입 안정성만 확인해줘')
+    expect(store.load(repo, saved.key)?.instruction).toBe('타입 안정성만 확인해줘')
+  })
+
+  it('omits a blank instruction', async () => {
+    let receivedCtx: { instruction?: string } | undefined
+    const { app } = setup(async (_p, ctx) => {
+      receivedCtx = ctx
+      return { summary: 's', findings: [] }
+    })
+    const { id } = await (await postReview(app, { instruction: '   ' })).json()
+    await readSse(await app.request(`/api/review/${id}/events`))
+    expect(receivedCtx!.instruction).toBeUndefined()
+    const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
+    expect(saved.record.instruction).toBeUndefined()
+  })
+
+  it('rejects an instruction longer than 2000 characters', async () => {
+    const { app } = setup(async () => ({ summary: 's', findings: [] }))
+    const res = await postReview(app, { instruction: 'a'.repeat(2001) })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'instruction_too_long', message: '추가 지시는 2000자까지 입력할 수 있습니다' })
+  })
+
   it('excludes files with non-ASCII names', async () => {
     let receivedCtx: { files: string[]; patch: string } | undefined
     const { app, repo } = setup(async (_p, ctx) => {

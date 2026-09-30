@@ -12,6 +12,7 @@ export interface ReviewRecord {
   fingerprint: string
   result: ReviewResult
   excluded?: string[]
+  instruction?: string
 }
 
 const sha1 = (value: string) => createHash('sha1').update(value).digest('hex')

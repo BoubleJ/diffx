@@ -414,7 +414,7 @@ export function createApp(options: AppOptions) {
   })
 
   app.post('/api/review', async (c) => {
-    let body: { provider: string; mode?: string; source?: string; target?: string; iid?: unknown; staged?: boolean; untracked?: boolean; exclude?: unknown }
+    let body: { provider: string; mode?: string; source?: string; target?: string; iid?: unknown; staged?: boolean; untracked?: boolean; exclude?: unknown; instruction?: unknown }
     try {
       body = await c.req.json()
     } catch {
@@ -422,6 +422,10 @@ export function createApp(options: AppOptions) {
     }
     const provider = providers.find((p) => p.id === body.provider)
     if (!provider) return c.json({ error: 'unknown_provider' }, 400)
+    const instruction = typeof body.instruction === 'string' && body.instruction.trim() ? body.instruction.trim() : undefined
+    if (instruction && instruction.length > 2000) {
+      return c.json({ error: 'instruction_too_long', message: '추가 지시는 2000자까지 입력할 수 있습니다' }, 400)
+    }
     let resolved: ResolvedComparison
     try {
       resolved = body.mode === 'mr' && !isCustomMode
@@ -436,6 +440,7 @@ export function createApp(options: AppOptions) {
       provider,
       key: resolved.key,
       excluded: exclude,
+      instruction,
       fingerprint: fingerprint(resolved),
       ctx: {
         repoPath: repo,
@@ -448,6 +453,7 @@ export function createApp(options: AppOptions) {
         sourceCheckedOut: (resolved.mode !== 'branch' && resolved.mode !== 'mr') || getHeadSha(repo) === resolved.sourceSha,
         files: parseFilePaths(patch),
         patch,
+        instruction,
       },
     })
     return c.json({ id })

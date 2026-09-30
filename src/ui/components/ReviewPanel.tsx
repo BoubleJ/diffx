@@ -10,6 +10,8 @@ interface ReviewPanelProps {
   record: ReviewRecord | null
   stale: boolean
   state: ReviewState
+  instruction: string
+  onInstructionChange: (value: string) => void
   onStart: () => void
   onCancel: () => void
   onFindingClick: (f: Finding) => void
@@ -34,7 +36,7 @@ function errorText(state: Extract<ReviewState, { status: 'error' }>, provider: P
 }
 
 export function ReviewPanel(props: ReviewPanelProps) {
-  const { provider, record, stale, state, onStart, onCancel, onFindingClick, onClose } = props
+  const { provider, record, stale, state, instruction, onInstructionChange, onStart, onCancel, onFindingClick, onClose } = props
   const elapsed = useElapsed(state.status === 'running' ? state.startedAt : null)
   const findings = useMemo(
     () => [...(record?.result.findings ?? [])].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]),
@@ -50,6 +52,16 @@ export function ReviewPanel(props: ReviewPanelProps) {
           <X size={14} />
         </button>
       </div>
+
+      <textarea
+        className="review-panel-instruction"
+        value={instruction}
+        onChange={(e) => onInstructionChange(e.target.value)}
+        placeholder="리뷰 방향을 적어 주세요 (예: 성능 문제 위주로 봐줘)"
+        rows={3}
+        maxLength={2000}
+        disabled={running}
+      />
 
       <div className="review-panel-controls">
         <span className="review-panel-meta">
@@ -90,6 +102,7 @@ export function ReviewPanel(props: ReviewPanelProps) {
           {record.excluded && record.excluded.length > 0 && (
             <div className="review-panel-meta">제외한 파일 {record.excluded.length}개를 빼고 리뷰</div>
           )}
+          {record.instruction && <div className="review-panel-meta review-panel-instruction-used">추가 지시: {record.instruction}</div>}
           {stale && <div className="review-panel-stale">리뷰 이후 코드가 바뀌었습니다</div>}
           <p className="review-panel-summary">{record.result.summary}</p>
           <div className="review-panel-count">지적 사항 {findings.length}건</div>
