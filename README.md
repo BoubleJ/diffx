@@ -75,32 +75,10 @@ UI를 고칠 때는 터미널 두 개에서 `dev:server`와 `dev:client`를 함�
 - **Inline comments** — Click the `+` button on any line to add a review comment
 - **Comment replies** — AI agents can reply to comments via API, displayed with bot avatar in the UI
 - **Comment status tracker** — Sidebar widget showing open, replied, and resolved comment counts with click-to-navigate links
-- **Copy comments** — One-click copy all comments as structured XML for AI coding agents
 - **Image preview** — Side-by-side comparison for added, modified, and deleted images
 - **Viewed tracking** — Mark files as reviewed to track progress
 - **EditorConfig support** — Respects `.editorconfig` for per-file tab size
 - **Persistent settings** — Your preferences are saved across sessions
-
-## Comment Output Format
-
-When you click "Copy comments", the output is structured XML optimized for AI agents:
-
-```xml
-<code-review-comments>
-<file path="src/utils/parser.ts">
-<comment line="42">
-<code>+ const parsedToken = tokenize(input)</code>
-Rename `x` to `parsedToken` for clarity.
-</comment>
-<comment line="15">
-<code>- if (input != null) {</code>
-This null check removal may cause a bug when `input` is undefined.
-</comment>
-</file>
-</code-review-comments>
-```
-
-Each comment includes the commented code line with a `+`/`-` prefix indicating whether it's an added or removed line.
 
 ## License
 

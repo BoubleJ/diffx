@@ -8,33 +8,6 @@ async function fetchComments(key: string): Promise<ReviewComment[]> {
   return res.json()
 }
 
-export function formatComments(comments: ReviewComment[]): string {
-  if (comments.length === 0) return ''
-
-  const grouped = new Map<string, ReviewComment[]>()
-  for (const comment of comments) {
-    const list = grouped.get(comment.filePath) ?? []
-    list.push(comment)
-    grouped.set(comment.filePath, list)
-  }
-
-  const lines: string[] = ['<code-review-comments>']
-  for (const [filePath, fileComments] of grouped) {
-    lines.push(`<file path="${filePath}">`)
-    for (const comment of fileComments) {
-      lines.push(`<comment line="${comment.lineNumber}">`)
-      const prefix = comment.side === 'additions' ? '+' : '-'
-      lines.push(`<code>${prefix} ${comment.lineContent}</code>`)
-      lines.push(comment.body)
-      lines.push('</comment>')
-    }
-    lines.push('</file>')
-  }
-  lines.push('</code-review-comments>')
-
-  return lines.join('\n')
-}
-
 export function useComments(key: string | null) {
   const queryClient = useQueryClient()
   const COMMENTS_KEY = ['comments', key]
@@ -113,8 +86,6 @@ export function useComments(key: string | null) {
     [editMutation],
   )
 
-  const formatAllComments = useCallback(() => formatComments(comments), [comments])
-
   const getAnnotationsForFile = useCallback(
     (filePath: string): DiffLineAnnotation<ReviewComment>[] => {
       return comments
@@ -128,11 +99,6 @@ export function useComments(key: string | null) {
     [comments],
   )
 
-  const copyAllComments = useCallback(async () => {
-    const text = formatAllComments()
-    await navigator.clipboard.writeText(text)
-  }, [formatAllComments])
-
   return {
     comments,
     addComment,
@@ -140,7 +106,5 @@ export function useComments(key: string | null) {
     editComment,
     resolveComment,
     getAnnotationsForFile,
-    formatAllComments,
-    copyAllComments,
   }
 }
