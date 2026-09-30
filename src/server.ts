@@ -3,7 +3,7 @@ import { join, extname, resolve } from 'node:path'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { serve } from '@hono/node-server'
-import { getRepoName, getBranchName, getFileContent, getBlobContent, getWorktreeFileContent, getTabSizeForFiles, getUntrackedFilePaths, listBranches, fetchAll, getFileAtCommit, getHeadSha } from './git.js'
+import { getRepoName, getBranchName, getFileContent, getBlobContent, getWorktreeFileContent, getTabSizeForFiles, getUntrackedFilePaths, listBranches, fetchAll, getFileAtCommit, getHeadSha, listRemotes } from './git.js'
 import { resolveComparison, resolveBranchRefs, createRangeDiffCache, comparisonKey, queryFromSearch, ComparisonError, type ResolvedComparison, type BranchRefs } from './comparison.js'
 import type { Context } from 'hono'
 import { loadSettings, saveSettings } from './settings.js'
@@ -17,6 +17,8 @@ import { detectProvider } from './review/runner.js'
 import { fingerprint } from './review/fingerprint.js'
 import { excludeFilesFromPatch } from './review/filterPatch.js'
 import type { ReviewProvider } from './review/types.js'
+import { createGlabClient, GlabError, type GlabClient } from './gitlab/glab.js'
+import { getGitlabStatus, listMrs, parseMrListQuery, type GitlabStatus } from './gitlab/mr.js'
 
 export interface AppOptions {
   repoPath: string
@@ -29,6 +31,7 @@ export interface AppOptions {
   reviewStore?: ReviewStore
   providers?: ReviewProvider[]
   token?: string
+  glab?: GlabClient
 }
 
 export interface StartOptions extends AppOptions {
@@ -166,12 +169,21 @@ export function createApp(options: AppOptions) {
     if (err instanceof ComparisonError) {
       return c.json({ error: err.code, message: err.message }, err.code === 'no_merge_base' ? 422 : 400)
     }
+    if (err instanceof GlabError) {
+      return c.json({ error: err.kind, message: err.message }, 502)
+    }
     throw err
   }
 
   const reviewStore = options.reviewStore ?? new ReviewStore()
   const reviewJobs = options.reviewJobs ?? new ReviewJobs(reviewStore)
   const providers = options.providers ?? PROVIDERS
+  const glab = options.glab ?? createGlabClient(repo)
+  let gitlabStatus: Promise<GitlabStatus> | null = null
+  const getStatus = (refresh = false) => {
+    if (refresh || !gitlabStatus) gitlabStatus = getGitlabStatus(glab, listRemotes(repo))
+    return gitlabStatus
+  }
 
   app.get('/api/diff', (c) => {
     let resolved: ResolvedComparison
@@ -277,6 +289,18 @@ export function createApp(options: AppOptions) {
   app.post('/api/fetch', async (c) => {
     const result = await fetchAll(repo)
     return c.json(result, result.ok ? 200 : 500)
+  })
+
+  app.get('/api/gitlab/status', async (c) => {
+    return c.json(await getStatus(c.req.query('refresh') === 'true'))
+  })
+
+  app.get('/api/gitlab/mrs', async (c) => {
+    try {
+      return c.json(await listMrs(glab, parseMrListQuery((name) => c.req.query(name))))
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
   })
 
   app.get('/api/review/providers', async (c) => {
