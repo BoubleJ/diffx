@@ -22,6 +22,9 @@ process.stdin.on('end', () => {
   } else if (mode === 'auth') {
     console.error('Error: Please log in first. Run login.')
     process.exit(1)
+  } else if (mode === 'no-session') {
+    console.error('No conversation found with session ID: 3f0c6d1e')
+    process.exit(1)
   } else if (mode === 'crash') {
     console.error('boom')
     process.exit(3)

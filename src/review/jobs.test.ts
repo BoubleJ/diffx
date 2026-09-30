@@ -13,7 +13,7 @@ const newStore = () => new ReviewStore(mkdtempSync(join(tmpdir(), 'diffx-reviews
 
 function deferredRun() {
   const calls: { resolve: (v: unknown) => void; reject: (e: unknown) => void; signal?: AbortSignal; onProgress?: (t: string) => void }[] = []
-  const run: RunFn = (_p, _c, options) => new Promise((resolve, reject) => {
+  const run: RunFn = (_p, _c, _r, options) => new Promise((resolve, reject) => {
     calls.push({ resolve: resolve as (v: unknown) => void, reject, signal: options.signal, onProgress: options.onProgress })
     options.signal?.addEventListener('abort', () => reject(new ReviewFailure('cancelled', '리뷰를 취소했습니다')))
   })

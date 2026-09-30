@@ -65,7 +65,7 @@ describe('review API', () => {
 
   it('runs a review, streams events, stores it and reports staleness', async () => {
     let receivedCtx: unknown
-    const { app, repo } = setup(async (_p, ctx, opts) => {
+    const { app, repo } = setup(async (_p, ctx, _r, opts) => {
       receivedCtx = ctx
       opts.onProgress?.('a.txt 읽는 중')
       return { answer: '요약', locations: [] }
@@ -91,7 +91,7 @@ describe('review API', () => {
   })
 
   it('reports a running review for the key and cancels it', async () => {
-    const { app } = setup((_p, _c, opts) => new Promise((_resolve, reject) => {
+    const { app } = setup((_p, _c, _r, opts) => new Promise((_resolve, reject) => {
       opts.signal?.addEventListener('abort', () => reject(new Error('aborted')))
     }))
     const { id } = await (await app.request('/api/review', {
@@ -136,7 +136,7 @@ describe('review API', () => {
   it('aborts running jobs when the server closes', async () => {
     let signal: AbortSignal | undefined
     const { repo, clientDir, store } = setup(async () => ({ answer: 's', locations: [] }))
-    const jobs = new ReviewJobs(store, (_p, _c, opts) => new Promise((_resolve, reject) => {
+    const jobs = new ReviewJobs(store, (_p, _c, _r, opts) => new Promise((_resolve, reject) => {
       signal = opts.signal
       opts.signal?.addEventListener('abort', () => reject(new Error('aborted')))
     }))

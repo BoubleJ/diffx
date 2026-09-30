@@ -4,12 +4,12 @@ import { tmpdir } from 'node:os'
 import { mkdtempSync, rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { runReview, detectProvider, STOP_IMMEDIATELY } from './runner'
-import { buildReviewPrompt } from './prompt'
-import { ReviewFailure, type ReviewProvider, type ReviewContext } from './types'
+import { ReviewFailure, type ReviewProvider, type ReviewContext, type ReviewRequest } from './types'
 
 const FAKE = fileURLToPath(new URL('./__fixtures__/fake-cli.mjs', import.meta.url))
 
 const ctx: ReviewContext = { repoPath: tmpdir(), mode: 'branch', source: 'feature/x', target: 'main', mergeBase: 'abc123', sourceCheckedOut: true, files: ['a.ts'], patch: '+x' }
+const request: ReviewRequest = { prompt: 'PROMPT 본문입니다 가나다라마바사아자차', systemPrompt: 'SYSTEM', session: { id: 's-1', resume: false } }
 
 function fakeProvider(overrides: Partial<ReviewProvider> = {}): ReviewProvider {
   return {
@@ -20,7 +20,7 @@ function fakeProvider(overrides: Partial<ReviewProvider> = {}): ReviewProvider {
     loginHint: 'fake login',
     authPattern: /log ?in/i,
     versionArgs: ['--version'],
-    buildCommand: (_ctx, prompt) => ({ bin: process.execPath, args: [FAKE], stdin: prompt }),
+    buildCommand: (_ctx, request) => ({ bin: process.execPath, args: [FAKE], stdin: request.prompt }),
     parseLine: (line) => {
       const ev = JSON.parse(line)
       if (ev.type === 'progress') return { progress: ev.text }
@@ -32,7 +32,7 @@ function fakeProvider(overrides: Partial<ReviewProvider> = {}): ReviewProvider {
 }
 
 const run = (mode: string, provider = fakeProvider(), opts = {}) =>
-  runReview(provider, ctx, { env: { ...process.env, FAKE_MODE: mode }, ...opts })
+  runReview(provider, ctx, request, { env: { ...process.env, FAKE_MODE: mode }, ...opts })
 
 async function failure(p: Promise<unknown>): Promise<ReviewFailure> {
   try {
@@ -54,7 +54,14 @@ describe('runReview', () => {
 
   it('passes the prompt on stdin', async () => {
     const result = await run('echo')
-    expect(result.answer).toBe(buildReviewPrompt(ctx).slice(0, 20))
+    expect(result.answer).toBe(request.prompt.slice(0, 20))
+  })
+
+  it('classifies a missing session as session_missing', async () => {
+    const provider = fakeProvider({ sessionMissingPattern: /No conversation found/ })
+    const err = await failure(run('no-session', provider))
+    expect(err.kind).toBe('session_missing')
+    expect(err.message).toBe('이어갈 Claude 세션을 찾지 못했습니다')
   })
 
   it('extracts JSON from text output', async () => {
@@ -64,9 +71,9 @@ describe('runReview', () => {
   it('reads the final answer from an output file', async () => {
     const out = join(tmpdir(), `diffx-out-${Date.now()}.json`)
     const provider = fakeProvider({
-      buildCommand: (_c, prompt) => ({ bin: process.execPath, args: [FAKE], stdin: prompt, outputFile: out }),
+      buildCommand: (_c, request) => ({ bin: process.execPath, args: [FAKE], stdin: request.prompt, outputFile: out }),
     })
-    const result = await runReview(provider, ctx, { env: { ...process.env, FAKE_MODE: 'outfile', FAKE_OUT: out } })
+    const result = await runReview(provider, ctx, request, { env: { ...process.env, FAKE_MODE: 'outfile', FAKE_OUT: out } })
     expect(result.answer).toBe('요약')
   })
 
@@ -114,7 +121,7 @@ describe('runReview', () => {
 
   it('strips the repo path prefix from progress text', async () => {
     const progress: string[] = []
-    await runReview(fakeProvider(), ctx, {
+    await runReview(fakeProvider(), ctx, request, {
       env: { ...process.env, FAKE_MODE: 'progress-path', FAKE_PROGRESS: `${ctx.repoPath}/src/a.ts 읽는 중` },
       onProgress: (t) => progress.push(t),
     })
@@ -125,26 +132,26 @@ describe('runReview', () => {
     const dir = mkdtempSync(join(tmpdir(), 'diffx-clean-'))
     const out = join(dir, 'out.json')
     const provider = fakeProvider({
-      buildCommand: (_c, prompt) => ({
-        bin: process.execPath, args: [FAKE], stdin: prompt, outputFile: out,
+      buildCommand: (_c, request) => ({
+        bin: process.execPath, args: [FAKE], stdin: request.prompt, outputFile: out,
         cleanup: () => rmSync(dir, { recursive: true, force: true }),
       }),
     })
-    const result = await runReview(provider, ctx, { env: { ...process.env, FAKE_MODE: 'outfile', FAKE_OUT: out } })
+    const result = await runReview(provider, ctx, request, { env: { ...process.env, FAKE_MODE: 'outfile', FAKE_OUT: out } })
     expect(result.answer).toBe('요약')
     expect(existsSync(dir)).toBe(false)
   })
 
   it('times out and runs cleanup', async () => {
     let cleaned = 0
-    const provider = fakeProvider({ buildCommand: (_c, prompt) => ({ bin: process.execPath, args: [FAKE], stdin: prompt, cleanup: () => { cleaned++ } }) })
+    const provider = fakeProvider({ buildCommand: (_c, request) => ({ bin: process.execPath, args: [FAKE], stdin: request.prompt, cleanup: () => { cleaned++ } }) })
     expect((await failure(run('hang', provider, { timeoutMs: 300 }))).kind).toBe('timeout')
     expect(cleaned).toBe(1)
   })
 
   it('cancels and runs cleanup', async () => {
     let cleaned = 0
-    const provider = fakeProvider({ buildCommand: (_c, prompt) => ({ bin: process.execPath, args: [FAKE], stdin: prompt, cleanup: () => { cleaned++ } }) })
+    const provider = fakeProvider({ buildCommand: (_c, request) => ({ bin: process.execPath, args: [FAKE], stdin: request.prompt, cleanup: () => { cleaned++ } }) })
     const controller = new AbortController()
     const p = run('hang', provider, { signal: controller.signal })
     setTimeout(() => controller.abort(), 100)

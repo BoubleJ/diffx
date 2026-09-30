@@ -29,15 +29,17 @@ export const claudeProvider: ReviewProvider = {
   installHint: 'https://docs.anthropic.com/claude-code',
   loginHint: 'claude',
   authPattern: /\/login|log ?in|invalid api key|authenticat|unauthori[sz]ed/i,
+  sessionMissingPattern: /No conversation found with session ID/,
   versionArgs: ['--version'],
-  buildCommand(ctx, prompt) {
+  buildCommand(_ctx, request) {
     return {
       bin: 'claude',
       args: [
         '-p',
         '--output-format', 'stream-json',
         '--verbose',
-        '--no-session-persistence',
+        ...(request.session.resume ? ['--resume', request.session.id] : ['--session-id', request.session.id]),
+        '--append-system-prompt', request.systemPrompt,
         '--restricted',
         '--strict-mcp-config',
         '--permission-mode', 'dontAsk',
@@ -46,7 +48,7 @@ export const claudeProvider: ReviewProvider = {
         '--allowedTools', 'Read', 'Grep', 'Glob', 'Bash(git show:*)', 'Bash(git log:*)', 'Bash(git diff:*)',
         '--disallowedTools', 'Edit', 'Write', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Bash(git * --output*)', 'Bash(git * --no-index*)',
       ],
-      stdin: prompt,
+      stdin: request.prompt,
     }
   },
   parseLine(line) {

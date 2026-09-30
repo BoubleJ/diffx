@@ -7,18 +7,32 @@ import type { ReviewContext } from '../types'
 
 const ctx: ReviewContext = { repoPath: '/repo', mode: 'branch', source: 'feature/x', target: 'main', mergeBase: 'abc123', sourceCheckedOut: true, files: [], patch: '' }
 
+const request = { prompt: 'PROMPT', systemPrompt: 'SYSTEM', session: { id: 's-1', resume: false } }
+
 describe('claudeProvider.buildCommand', () => {
-  it('runs claude headless with read-only tools and the schema', () => {
-    const cmd = claudeProvider.buildCommand(ctx, 'PROMPT')
+  it('runs claude headless with a new session, the system prompt, read-only tools and the schema', () => {
+    const cmd = claudeProvider.buildCommand(ctx, request)
     expect(cmd.bin).toBe('claude')
     expect(cmd.stdin).toBe('PROMPT')
-    expect(cmd.args.slice(0, 9)).toEqual(['-p', '--output-format', 'stream-json', '--verbose', '--no-session-persistence', '--restricted', '--strict-mcp-config', '--permission-mode', 'dontAsk'])
+    expect(cmd.args.slice(0, 13)).toEqual(['-p', '--output-format', 'stream-json', '--verbose', '--session-id', 's-1', '--append-system-prompt', 'SYSTEM', '--restricted', '--strict-mcp-config', '--permission-mode', 'dontAsk', '--tools'])
+    expect(cmd.args).not.toContain('--no-session-persistence')
+    expect(cmd.args).not.toContain('--resume')
     expect(cmd.args.slice(cmd.args.indexOf('--tools') + 1, cmd.args.indexOf('--json-schema'))).toEqual(['Read', 'Grep', 'Glob', 'Bash'])
     const allowed = cmd.args.slice(cmd.args.indexOf('--allowedTools') + 1, cmd.args.indexOf('--disallowedTools'))
     expect(allowed).toEqual(['Read', 'Grep', 'Glob', 'Bash(git show:*)', 'Bash(git log:*)', 'Bash(git diff:*)'])
     const denied = cmd.args.slice(cmd.args.indexOf('--disallowedTools') + 1)
     expect(denied).toEqual(['Edit', 'Write', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Bash(git * --output*)', 'Bash(git * --no-index*)'])
     expect(JSON.parse(cmd.args[cmd.args.indexOf('--json-schema') + 1]).required).toEqual(['answer', 'locations'])
+  })
+
+  it('resumes an existing session', () => {
+    const cmd = claudeProvider.buildCommand(ctx, { ...request, session: { id: 's-1', resume: true } })
+    expect(cmd.args.slice(4, 6)).toEqual(['--resume', 's-1'])
+    expect(cmd.args).not.toContain('--session-id')
+  })
+
+  it('recognizes the missing session message', () => {
+    expect(claudeProvider.sessionMissingPattern!.test('No conversation found with session ID: 3f0c6d1e')).toBe(true)
   })
 })
 
