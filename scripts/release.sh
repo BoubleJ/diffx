@@ -50,4 +50,5 @@ if ! gh release create "$tag" "$zip" --repo BoubleJ/diffx --title "$tag" --notes
   exit 1
 fi
 
+rm -rf release
 echo "$tag 릴리스를 올렸습니다"
