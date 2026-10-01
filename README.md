@@ -106,7 +106,6 @@ pnpm run build:app
    - 테스트와 `build:app`을 실행한다. 실패하면 버전업 커밋과 태그를 되돌린다.
    - 커밋과 태그를 push한다.
    - 이전 태그 이후의 커밋 제목으로 Release 노트를 만들고 `v1.0.1` Release에 `reviewHelper-1.0.1.zip`을 올린다.
-   - zip을 바탕화면에 복사한다.
 
 ## 개발
 
