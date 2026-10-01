@@ -29,13 +29,14 @@ import { DiffViewer } from './components/DiffViewer'
 import { FileTree } from './components/FileTree'
 import { CommentTracker } from './components/CommentTracker'
 import { ExcludedFiles } from './components/ExcludedFiles'
+import { ConversationList } from './components/ConversationList'
 import { FileKindPopover } from './components/FileKindPopover'
 import { ReviewPanel } from './components/ReviewPanel'
 import { SidebarStorage } from './sidebarStorage'
 import { loadExcluded, saveExcluded } from './excludedStorage'
 import { excludeFilesFromPatch } from '../review/filterPatch'
 import { loadReviewPanel, saveReviewPanel, togglePanel, openExploreTab, REVIEW_PANEL_MIN } from './reviewPanelStorage'
-import { comparisonParams, loadComparison, saveComparison, reconcileComparison, comparisonForMode, type Comparison } from './comparison'
+import { comparisonParams, loadComparison, saveComparison, reconcileComparison, comparisonForMode, comparisonFromKey, type Comparison } from './comparison'
 
 function useWindowSize({ factor }: { factor: number }) {
   const compute = () => Math.round(window.innerWidth * factor)
@@ -93,6 +94,17 @@ export function App() {
     handleComparisonChange(next.comparison)
     if (next.missing.length > 0) setNotice(`저장된 브랜치 ${next.missing.join(', ')}을 찾지 못해 기본값으로 바꿨습니다`)
   }, [repo, branches, handleComparisonChange])
+
+  const handleOpenConversation = useCallback((conversationKey: string) => {
+    const next = comparisonFromKey(conversationKey)
+    if (!next) return
+    handleComparisonChange(next)
+    setReviewPanel((prev) => {
+      const nextPanel = { ...prev, tab: 'review' as const }
+      saveReviewPanel(nextPanel)
+      return nextPanel
+    })
+  }, [handleComparisonChange])
 
   const params = useMemo(
     () => (comparison ? comparisonParams(comparison) : null),
@@ -501,6 +513,11 @@ export function App() {
         onSoftWrapChange={(softWrap) => updateSettings({ softWrap })}
         terminalApp={settings.terminalApp}
         onTerminalAppChange={(terminalApp) => updateSettings({ terminalApp })}
+        reviewRetentionDays={settings.reviewRetentionDays}
+        onReviewRetentionDaysChange={async (days) => {
+          await updateSettings({ reviewRetentionDays: days })
+          queryClient.invalidateQueries({ queryKey: ['review'] })
+        }}
         panelOpen={reviewPanel.open}
         onTogglePanel={() => updateReviewPanel(togglePanel(reviewPanel))}
         mrLink={comparison.mode === 'mr' && diffMr ? diffMr : undefined}
@@ -608,6 +625,13 @@ export function App() {
                     />
                   )}
                   explore={<ExplorePanel state={explore} selected={exploreSelected} onPick={handleExplorePick} />}
+                  conversations={(
+                    <ConversationList
+                      active={reviewPanel.open && reviewPanel.tab === 'conversations'}
+                      currentKey={key}
+                      onOpen={handleOpenConversation}
+                    />
+                  )}
                 />
               </div>
             </aside>
