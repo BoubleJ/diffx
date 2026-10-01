@@ -212,8 +212,8 @@ function TreeFile({
         )}
         <button
           className="ft-exclude-btn"
-          title="제외"
-          aria-label="제외"
+          title="리뷰 제외"
+          aria-label="리뷰 제외"
           onClick={(e) => {
             e.stopPropagation()
             onExclude(filePath)

@@ -5,14 +5,14 @@ export function ExcludeButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       className="exclude-btn"
-      title="제외"
+      title="리뷰 제외"
       onClick={(e) => {
         e.stopPropagation()
         onClick()
       }}
     >
       <EyeOff size={14} />
-      제외
+      리뷰 제외
     </button>
   )
 }
