@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { comparisonParams, loadComparison, saveComparison, reconcileComparison, comparisonForMode } from './comparison'
+import { comparisonParams, loadComparison, saveComparison, reconcileComparison, comparisonForMode, comparisonFromKey } from './comparison'
 
 function memoryStorage() {
   const data = new Map<string, string>()
@@ -103,5 +103,21 @@ describe('comparisonForMode', () => {
 
   it('cannot open the branch tab without a branch list', () => {
     expect(comparisonForMode('/repo/a', 'branch', undefined, memoryStorage())).toBeNull()
+  })
+})
+
+describe('comparisonFromKey', () => {
+  it('parses branch and MR keys', () => {
+    expect(comparisonFromKey('branch:develop...feature/login')).toEqual({ mode: 'branch', source: 'feature/login', target: 'develop' })
+    expect(comparisonFromKey('branch:origin/main...feature/a/b')).toEqual({ mode: 'branch', source: 'feature/a/b', target: 'origin/main' })
+    expect(comparisonFromKey('mr:128')).toEqual({ mode: 'mr', iid: 128 })
+  })
+
+  it('returns null for malformed keys', () => {
+    expect(comparisonFromKey('branch:develop')).toBeNull()
+    expect(comparisonFromKey('branch:...feature')).toBeNull()
+    expect(comparisonFromKey('mr:0')).toBeNull()
+    expect(comparisonFromKey('mr:abc')).toBeNull()
+    expect(comparisonFromKey('worktree')).toBeNull()
   })
 })

@@ -76,3 +76,19 @@ export function reconcileComparison(saved: Comparison | null, branches: BranchIn
     missing,
   }
 }
+
+export function comparisonFromKey(key: string): Comparison | null {
+  if (key.startsWith('branch:')) {
+    const rest = key.slice('branch:'.length)
+    const at = rest.indexOf('...')
+    if (at < 0) return null
+    const target = rest.slice(0, at)
+    const source = rest.slice(at + 3)
+    return target && source ? { mode: 'branch', source, target } : null
+  }
+  if (key.startsWith('mr:')) {
+    const rest = key.slice('mr:'.length)
+    return /^[1-9]\d*$/.test(rest) ? { mode: 'mr', iid: Number(rest) } : null
+  }
+  return null
+}

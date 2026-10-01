@@ -1,9 +1,11 @@
 const STORAGE_KEY = 'diffx-review-panel'
 
+export type ReviewPanelTab = 'review' | 'explore' | 'conversations'
+
 export interface ReviewPanelPrefs {
   open: boolean
   size: number
-  tab: 'review' | 'explore'
+  tab: ReviewPanelTab
 }
 
 export const REVIEW_PANEL_MIN = 280
@@ -13,7 +15,8 @@ export function loadReviewPanel(storage: Pick<Storage, 'getItem'> = localStorage
   try {
     const parsed = JSON.parse(storage.getItem(STORAGE_KEY) ?? 'null')
     if (typeof parsed?.open === 'boolean' && typeof parsed?.size === 'number') {
-      return { open: parsed.open, size: Math.max(REVIEW_PANEL_MIN, parsed.size), tab: parsed.tab === 'explore' ? 'explore' : 'review' }
+      const tab: ReviewPanelTab = parsed.tab === 'explore' || parsed.tab === 'conversations' ? parsed.tab : 'review'
+      return { open: parsed.open, size: Math.max(REVIEW_PANEL_MIN, parsed.size), tab }
     }
   } catch {}
   return { ...DEFAULTS }
