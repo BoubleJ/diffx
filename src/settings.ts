@@ -10,11 +10,13 @@ export interface Settings {
   defaultTabSize: number
   softWrap?: boolean
   terminalApp?: string
+  reviewRetentionDays: number | null
 }
 
 const DEFAULTS: Settings = {
   diffStyle: 'split',
   defaultTabSize: 4,
+  reviewRetentionDays: 30,
 }
 
 function pick(value: Record<string, unknown>): Partial<Settings> {
@@ -23,6 +25,9 @@ function pick(value: Record<string, unknown>): Partial<Settings> {
   if (typeof value.defaultTabSize === 'number') out.defaultTabSize = value.defaultTabSize
   if (typeof value.softWrap === 'boolean') out.softWrap = value.softWrap
   if (typeof value.terminalApp === 'string') out.terminalApp = value.terminalApp.trim()
+  const days = value.reviewRetentionDays
+  if (days === null || days === 0) out.reviewRetentionDays = null
+  else if (typeof days === 'number' && Number.isInteger(days) && days > 0) out.reviewRetentionDays = days
   return out
 }
 
