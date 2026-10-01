@@ -29,6 +29,7 @@ import { DiffViewer } from './components/DiffViewer'
 import { FileTree } from './components/FileTree'
 import { CommentTracker } from './components/CommentTracker'
 import { ExcludedFiles } from './components/ExcludedFiles'
+import { FileKindPopover } from './components/FileKindPopover'
 import { ReviewPanel } from './components/ReviewPanel'
 import { SidebarStorage } from './sidebarStorage'
 import { loadExcluded, saveExcluded } from './excludedStorage'
@@ -139,20 +140,23 @@ export function App() {
   useEffect(() => {
     if (excludedEdit) saveExcluded(excludedEdit.repoRoot, excludedEdit.key, excludedEdit.paths)
   }, [excludedEdit])
-  const handleExclude = useCallback((filePath: string) => {
+  const handleExcludeMany = useCallback((paths: string[]) => {
     if (!repoRoot || !key) return
     setExcludedEdit((prev) => {
       const current = prev && prev.repoRoot === repoRoot && prev.key === key ? prev.paths : loadExcluded(repoRoot, key)
-      return { repoRoot, key, paths: [...new Set([...current, filePath])] }
+      return { repoRoot, key, paths: [...new Set([...current, ...paths])] }
     })
   }, [repoRoot, key])
-  const handleInclude = useCallback((filePath: string) => {
+  const handleIncludeMany = useCallback((paths: string[]) => {
     if (!repoRoot || !key) return
+    const removing = new Set(paths)
     setExcludedEdit((prev) => {
       const current = prev && prev.repoRoot === repoRoot && prev.key === key ? prev.paths : loadExcluded(repoRoot, key)
-      return { repoRoot, key, paths: current.filter((p) => p !== filePath) }
+      return { repoRoot, key, paths: current.filter((p) => !removing.has(p)) }
     })
   }, [repoRoot, key])
+  const handleExclude = useCallback((filePath: string) => handleExcludeMany([filePath]), [handleExcludeMany])
+  const handleInclude = useCallback((filePath: string) => handleIncludeMany([filePath]), [handleIncludeMany])
   const review = useReview(params, key)
   const [reviewPanel, setReviewPanel] = useState(() => loadReviewPanel())
   const updateReviewPanel = useCallback((next: typeof reviewPanel) => {
@@ -409,6 +413,12 @@ export function App() {
     setViewed(filePath, viewed)
   }, [setViewed])
 
+  const handleViewedMany = useCallback((paths: string[], viewed: boolean) => {
+    for (const path of paths) void setViewed(path, viewed)
+  }, [setViewed])
+
+  const allPaths = useMemo(() => files.map((f) => f.name), [files])
+
   const sidebarContent = (
     <div className="sidebar-content">
       <FileTree
@@ -420,6 +430,16 @@ export function App() {
         onExclude={handleExclude}
         collapsed={sidebar.collapsed}
         onToggleCollapse={handleToggleCollapse}
+        searchAction={
+          <FileKindPopover
+            paths={allPaths}
+            excluded={excludedSet}
+            viewed={viewedFiles}
+            onExcludeMany={handleExcludeMany}
+            onIncludeMany={handleIncludeMany}
+            onViewedMany={handleViewedMany}
+          />
+        }
       />
       {!sidebar.collapsed && <ExcludedFiles paths={excludedInDiff} onInclude={handleInclude} />}
       {!sidebar.collapsed && isMr && diffMr && mrComments.outdatedCount > 0 && (
