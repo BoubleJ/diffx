@@ -22,6 +22,12 @@ describe('reviewPanelStorage', () => {
     s.setItem('diffx-review-panel', JSON.stringify({ open: true, size: 500 }))
     expect(loadReviewPanel(s)).toEqual({ open: true, size: 500, tab: 'review' })
   })
+
+  it('keeps the conversations tab', () => {
+    const s = memoryStorage()
+    saveReviewPanel({ open: true, size: 500, tab: 'conversations' }, s)
+    expect(loadReviewPanel(s).tab).toBe('conversations')
+  })
 })
 
 describe('panel tab switching', () => {
