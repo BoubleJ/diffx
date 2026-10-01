@@ -587,15 +587,23 @@ export function createApp(options: AppOptions) {
       : c.json({ error: 'not_found' }, 404)
   })
 
+  app.get('/api/review/conversations', (c) => {
+    return c.json(reviewStore.list(repo).map((summary) => ({ ...summary, running: reviewJobs.runningFor(repo, summary.key) !== null })))
+  })
+
   app.delete('/api/review/conversation', async (c) => {
-    let resolved: ResolvedComparison
-    try {
-      resolved = await resolveFromRequest(c)
-    } catch (err) {
-      return comparisonErrorResponse(c, err)
+    let key = c.req.query('key')
+    if (key !== undefined) {
+      if (!/^(branch|mr):./.test(key)) return c.json({ error: 'invalid_key' }, 400)
+    } else {
+      try {
+        key = (await resolveFromRequest(c)).key
+      } catch (err) {
+        return comparisonErrorResponse(c, err)
+      }
     }
-    if (reviewJobs.runningFor(repo, resolved.key)) return c.json({ error: 'running' }, 409)
-    reviewStore.clear(repo, resolved.key)
+    if (reviewJobs.runningFor(repo, key)) return c.json({ error: 'running' }, 409)
+    reviewStore.clear(repo, key)
     return c.json({ ok: true })
   })
 
@@ -637,6 +645,7 @@ export function createApp(options: AppOptions) {
   app.put('/api/settings', async (c) => {
     const body = await c.req.json()
     const settings = saveSettings(body)
+    if (body && typeof body === 'object' && 'reviewRetentionDays' in body) reviewStore.prune(settings.reviewRetentionDays)
     return c.json(settings)
   })
 
@@ -749,6 +758,7 @@ export function startServer(options: StartOptions): Promise<{ port: number; clos
   const reviewStore = options.reviewStore ?? new ReviewStore()
   const reviewJobs = options.reviewJobs ?? new ReviewJobs(reviewStore)
   const app = createApp({ ...options, reviewStore, reviewJobs })
+  reviewStore.prune(loadSettings().reviewRetentionDays)
 
   return new Promise((resolve, reject) => {
     const server = serve({

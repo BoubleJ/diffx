@@ -310,4 +310,39 @@ describe('review API', () => {
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ error: 'invalid_body' })
   })
+
+  it('lists conversations of this repository with running state', async () => {
+    const { app, repo, store } = setup(() => new Promise(() => {}))
+    const saved = (id: string, createdAt: number) => ({ provider: 'claude' as const, providerLabel: 'Fake', sessionId: 's-1', message: { id, createdAt, kind: 'review' as const, question: null, fingerprint: 'x', result: { answer: 's', locations: [] } } })
+    store.append(repo, 'mr:3', saved('m1', 10))
+    store.append(repo, 'branch:main...feature/x', saved('m2', 5))
+    await postReview(app, { kind: 'question', question: '진행 중' })
+    expect(await (await app.request('/api/review/conversations')).json()).toEqual([
+      { key: 'mr:3', questionCount: 1, lastAt: 10, running: false },
+      { key: 'branch:main...feature/x', questionCount: 1, lastAt: 5, running: true },
+    ])
+  })
+
+  it('deletes a conversation by key', async () => {
+    const { app, repo, store } = setup(async () => ({ answer: 's', locations: [] }))
+    store.append(repo, 'mr:3', { provider: 'claude', providerLabel: 'Fake', sessionId: 's-1', message: { id: 'm1', createdAt: 1, kind: 'review', question: null, fingerprint: 'x', result: { answer: 's', locations: [] } } })
+    const res = await app.request(`/api/review/conversation?key=${encodeURIComponent('mr:3')}`, { method: 'DELETE' })
+    expect(await res.json()).toEqual({ ok: true })
+    expect(store.load(repo, 'mr:3')).toBeNull()
+  })
+
+  it('rejects an invalid conversation key', async () => {
+    const { app } = setup(async () => ({ answer: 's', locations: [] }))
+    const res = await app.request('/api/review/conversation?key=foo', { method: 'DELETE' })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'invalid_key' })
+  })
+
+  it('refuses to delete a running conversation by key', async () => {
+    const { app } = setup(() => new Promise(() => {}))
+    await postReview(app, { kind: 'question', question: '진행 중' })
+    const res = await app.request(`/api/review/conversation?key=${encodeURIComponent('branch:main...feature/x')}`, { method: 'DELETE' })
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'running' })
+  })
 })
