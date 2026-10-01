@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, utimesSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -111,5 +111,86 @@ describe('ReviewStore', () => {
     const dir = mkdtempSync(join(tmpdir(), 'diffx-reviews-'))
     writeLegacy(dir, '/repo', { something: 'else' })
     expect(new ReviewStore(dir).load('/repo', key)).toBeNull()
+  })
+})
+
+const DAY = 24 * 60 * 60 * 1000
+const NOW = 100 * DAY
+
+describe('ReviewStore.prune', () => {
+  const setupStore = () => {
+    const dir = mkdtempSync(join(tmpdir(), 'diffx-reviews-'))
+    return { dir, store: new ReviewStore(dir) }
+  }
+
+  it('removes conversations whose last question is older than the retention days', () => {
+    const { store } = setupStore()
+    store.append('/repo', 'mr:1', appendInput(message('m1', { createdAt: NOW - 10 * DAY })))
+    store.append('/repo', 'mr:2', appendInput(message('m2', { createdAt: NOW - DAY })))
+    expect(store.prune(7, NOW)).toBe(1)
+    expect(store.load('/repo', 'mr:1')).toBeNull()
+    expect(store.load('/repo', 'mr:2')).not.toBeNull()
+  })
+
+  it('uses the last question time of the conversation', () => {
+    const { store } = setupStore()
+    store.append('/repo', 'mr:1', appendInput(message('m1', { createdAt: NOW - 30 * DAY })))
+    store.append('/repo', 'mr:1', appendInput(message('m2', { createdAt: NOW - DAY })))
+    expect(store.prune(7, NOW)).toBe(0)
+    expect(store.load('/repo', 'mr:1')?.messages).toHaveLength(2)
+  })
+
+  it('removes nothing when retention is null', () => {
+    const { store } = setupStore()
+    store.append('/repo', 'mr:1', appendInput(message('m1', { createdAt: 0 })))
+    expect(store.prune(null, NOW)).toBe(0)
+    expect(store.load('/repo', 'mr:1')).not.toBeNull()
+  })
+
+  it('prunes other repositories and removes empty repository folders', () => {
+    const { dir, store } = setupStore()
+    store.append('/other', 'mr:1', appendInput(message('m1', { createdAt: NOW - 10 * DAY })))
+    expect(store.prune(7, NOW)).toBe(1)
+    expect(existsSync(join(dir, sha1('/other')))).toBe(false)
+  })
+
+  it('uses createdAt for legacy files', () => {
+    const { dir, store } = setupStore()
+    writeLegacy(dir, '/repo', { ...legacy, createdAt: NOW - 10 * DAY })
+    expect(store.prune(7, NOW)).toBe(1)
+    expect(store.load('/repo', key)).toBeNull()
+  })
+
+  it('skips unreadable files in list and prunes them by modification time', () => {
+    const { dir, store } = setupStore()
+    const broken = join(dir, sha1('/repo'), `${sha1('mr:9')}.json`)
+    mkdirSync(join(dir, sha1('/repo')), { recursive: true })
+    writeFileSync(broken, '{not json')
+    const old = (NOW - 10 * DAY) / 1000
+    utimesSync(broken, old, old)
+    expect(store.list('/repo')).toEqual([])
+    expect(store.prune(7, NOW)).toBe(1)
+    expect(existsSync(broken)).toBe(false)
+  })
+})
+
+describe('ReviewStore.list', () => {
+  it('lists only this repository conversations by last question time', () => {
+    const store = new ReviewStore(mkdtempSync(join(tmpdir(), 'diffx-reviews-')))
+    store.append('/repo', 'mr:1', appendInput(message('m1', { createdAt: 2 })))
+    store.append('/repo', 'branch:main...feature/x', appendInput(message('m2', { createdAt: 5 })))
+    store.append('/repo', 'branch:main...feature/x', appendInput(message('m3', { createdAt: 3 })))
+    store.append('/other', 'mr:2', appendInput(message('m4', { createdAt: 9 })))
+    expect(store.list('/repo')).toEqual([
+      { key: 'branch:main...feature/x', questionCount: 2, lastAt: 5 },
+      { key: 'mr:1', questionCount: 1, lastAt: 2 },
+    ])
+  })
+
+  it('skips conversations without messages', () => {
+    const store = new ReviewStore(mkdtempSync(join(tmpdir(), 'diffx-reviews-')))
+    store.append('/repo', 'mr:1', appendInput(message('m1')))
+    store.removeMessage('/repo', 'mr:1', 'm1')
+    expect(store.list('/repo')).toEqual([])
   })
 })

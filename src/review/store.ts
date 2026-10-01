@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { APP_DATA_DIR } from '../appData.js'
 import type { ProviderId, ReviewLocation, ReviewResult } from './types.js'
@@ -30,6 +30,19 @@ export interface AppendInput {
   providerLabel: string
   sessionId: string
   message: ReviewMessage
+}
+
+export interface ConversationSummary {
+  key: string
+  questionCount: number
+  lastAt: number
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function lastQuestionAt(conversation: ReviewConversation): number | null {
+  if (conversation.messages.length === 0) return null
+  return Math.max(...conversation.messages.map((m) => m.createdAt))
 }
 
 interface LegacyRecord {
@@ -85,16 +98,20 @@ export class ReviewStore {
     writeFileSync(path, JSON.stringify(conversation, null, 2))
   }
 
-  load(repoPath: string, key: string): ReviewConversation | null {
+  private read(path: string): ReviewConversation | null {
     let data: unknown
     try {
-      data = JSON.parse(readFileSync(this.file(repoPath, key), 'utf-8'))
+      data = JSON.parse(readFileSync(path, 'utf-8'))
     } catch {
       return null
     }
     if ((data as { version?: unknown } | null)?.version === 2) return data as ReviewConversation
     if (isLegacy(data)) return fromLegacy(data)
     return null
+  }
+
+  load(repoPath: string, key: string): ReviewConversation | null {
+    return this.read(this.file(repoPath, key))
   }
 
   append(repoPath: string, key: string, { provider, providerLabel, sessionId, message }: AppendInput): ReviewConversation {
@@ -115,5 +132,57 @@ export class ReviewStore {
 
   clear(repoPath: string, key: string): void {
     rmSync(this.file(repoPath, key), { force: true })
+  }
+
+  list(repoPath: string): ConversationSummary[] {
+    const dir = join(this.baseDir, sha1(repoPath))
+    let names: string[]
+    try {
+      names = readdirSync(dir)
+    } catch {
+      return []
+    }
+    const summaries: ConversationSummary[] = []
+    for (const name of names) {
+      if (!name.endsWith('.json')) continue
+      const conversation = this.read(join(dir, name))
+      const lastAt = conversation ? lastQuestionAt(conversation) : null
+      if (!conversation || lastAt === null) continue
+      summaries.push({ key: conversation.key, questionCount: conversation.messages.length, lastAt })
+    }
+    return summaries.sort((a, b) => b.lastAt - a.lastAt)
+  }
+
+  prune(retentionDays: number | null, now = Date.now()): number {
+    if (retentionDays === null) return 0
+    const cutoff = now - retentionDays * DAY_MS
+    let repoDirs: string[]
+    try {
+      repoDirs = readdirSync(this.baseDir)
+    } catch {
+      return 0
+    }
+    let removed = 0
+    for (const repoDir of repoDirs) {
+      const dir = join(this.baseDir, repoDir)
+      let names: string[]
+      try {
+        names = readdirSync(dir)
+      } catch {
+        continue
+      }
+      for (const name of names) {
+        if (!name.endsWith('.json')) continue
+        const path = join(dir, name)
+        const conversation = this.read(path)
+        const lastAt = (conversation ? lastQuestionAt(conversation) : null) ?? statSync(path).mtimeMs
+        if (lastAt < cutoff) {
+          rmSync(path, { force: true })
+          removed++
+        }
+      }
+      if (readdirSync(dir).length === 0) rmSync(dir, { recursive: true, force: true })
+    }
+    return removed
   }
 }
