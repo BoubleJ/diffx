@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, type ReactNode } from 'react'
 import {
   ChevronRight,
   Folder,
@@ -26,6 +26,7 @@ interface FileTreeProps {
   onExclude: (filePath: string) => void
   collapsed?: boolean
   onToggleCollapse?: () => void
+  searchAction?: ReactNode
 }
 
 interface TreeNode {
@@ -226,7 +227,7 @@ function TreeFile({
   )
 }
 
-export function FileTree({ files, activeFile, commentCounts, viewedFiles, onFileClick, onExclude, collapsed, onToggleCollapse }: FileTreeProps) {
+export function FileTree({ files, activeFile, commentCounts, viewedFiles, onFileClick, onExclude, collapsed, onToggleCollapse, searchAction }: FileTreeProps) {
   const [filter, setFilter] = useState('')
 
   const filteredFiles = useMemo(() => {
@@ -279,6 +280,7 @@ export function FileTree({ files, activeFile, commentCounts, viewedFiles, onFile
             className="ft-search-input"
           />
         </div>
+        {searchAction}
       </div>
       <ul className="ft-list ft-root">
         {tree.map((node) =>
