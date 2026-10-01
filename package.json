@@ -1,6 +1,6 @@
 {
   "name": "review-helper",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "productName": "reviewHelper",
   "description": "Local code review tool for git diffs with a GitHub PR-like web UI",
   "type": "module",
