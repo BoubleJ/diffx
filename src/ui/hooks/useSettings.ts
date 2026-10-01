@@ -16,6 +16,14 @@ const DEFAULTS: Settings = {
   reviewRetentionDays: 30,
 }
 
+export async function putSettings(patch: Partial<Settings>, fetchFn: typeof fetch = fetch): Promise<void> {
+  await fetchFn('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+}
+
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>(DEFAULTS)
   const [loaded, setLoaded] = useState(false)
@@ -38,11 +46,7 @@ export function useSettings() {
     settingsRef.current = next
     setSettings(next)
     try {
-      await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(next),
-      })
+      await putSettings(patch)
     } catch {}
   }, [])
 

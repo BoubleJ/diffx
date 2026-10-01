@@ -758,7 +758,11 @@ export function startServer(options: StartOptions): Promise<{ port: number; clos
   const reviewStore = options.reviewStore ?? new ReviewStore()
   const reviewJobs = options.reviewJobs ?? new ReviewJobs(reviewStore)
   const app = createApp({ ...options, reviewStore, reviewJobs })
-  reviewStore.prune(loadSettings().reviewRetentionDays)
+  try {
+    reviewStore.prune(loadSettings().reviewRetentionDays)
+  } catch (err) {
+    console.error('AI 대화 정리 실패', err)
+  }
 
   return new Promise((resolve, reject) => {
     const server = serve({

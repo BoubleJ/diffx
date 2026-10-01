@@ -105,7 +105,8 @@ export class ReviewStore {
     } catch {
       return null
     }
-    if ((data as { version?: unknown } | null)?.version === 2) return data as ReviewConversation
+    const candidate = data as { version?: unknown; messages?: unknown } | null
+    if (candidate?.version === 2) return Array.isArray(candidate.messages) ? (data as ReviewConversation) : null
     if (isLegacy(data)) return fromLegacy(data)
     return null
   }
@@ -174,14 +175,18 @@ export class ReviewStore {
       for (const name of names) {
         if (!name.endsWith('.json')) continue
         const path = join(dir, name)
-        const conversation = this.read(path)
-        const lastAt = (conversation ? lastQuestionAt(conversation) : null) ?? statSync(path).mtimeMs
-        if (lastAt < cutoff) {
-          rmSync(path, { force: true })
-          removed++
-        }
+        try {
+          const conversation = this.read(path)
+          const lastAt = (conversation ? lastQuestionAt(conversation) : null) ?? statSync(path).mtimeMs
+          if (lastAt < cutoff) {
+            rmSync(path, { force: true })
+            removed++
+          }
+        } catch {}
       }
-      if (readdirSync(dir).length === 0) rmSync(dir, { recursive: true, force: true })
+      try {
+        if (readdirSync(dir).length === 0) rmSync(dir, { recursive: true, force: true })
+      } catch {}
     }
     return removed
   }

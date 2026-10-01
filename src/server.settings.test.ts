@@ -44,4 +44,14 @@ describe('review retention', () => {
     expect(store.list(repo).map((s) => s.key)).toEqual(['mr:3', 'mr:2'])
     await server.close()
   })
+
+  it('still starts the server when pruning fails', async () => {
+    const { startServer, repo, clientDir, store } = await setup()
+    store.prune = () => {
+      throw new Error('EACCES')
+    }
+    const server = await startServer({ repoPath: repo, clientDir, reviewStore: store, port: 0, host: '127.0.0.1' })
+    expect(server.port).toBeGreaterThan(0)
+    await server.close()
+  })
 })
