@@ -194,3 +194,27 @@ describe('ReviewStore.list', () => {
     expect(store.list('/repo')).toEqual([])
   })
 })
+
+describe('ReviewStore robustness', () => {
+  it('skips a version 2 file without a message list in list and prune', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'diffx-reviews-'))
+    const store = new ReviewStore(dir)
+    mkdirSync(join(dir, sha1('/repo')), { recursive: true })
+    const path = join(dir, sha1('/repo'), `${sha1('mr:1')}.json`)
+    writeFileSync(path, JSON.stringify({ version: 2, key: 'mr:1', messages: 'broken' }))
+    expect(store.list('/repo')).toEqual([])
+    expect(() => store.prune(7, Date.now())).not.toThrow()
+  })
+
+  it('keeps pruning when an entry cannot be removed', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'diffx-reviews-'))
+    const store = new ReviewStore(dir)
+    const stuck = join(dir, sha1('/repo'), 'stuck.json')
+    mkdirSync(stuck, { recursive: true })
+    const old = (NOW - 10 * DAY) / 1000
+    utimesSync(stuck, old, old)
+    store.append('/repo', 'mr:2', appendInput(message('m2', { createdAt: NOW - 10 * DAY })))
+    expect(store.prune(7, NOW)).toBe(1)
+    expect(store.load('/repo', 'mr:2')).toBeNull()
+  })
+})

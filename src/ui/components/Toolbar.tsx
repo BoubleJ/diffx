@@ -91,6 +91,8 @@ export function Toolbar({
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        const focused = document.activeElement
+        if (focused instanceof HTMLElement && settingsRef.current.contains(focused)) focused.blur()
         setSettingsOpen(false)
       }
     }
