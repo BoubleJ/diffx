@@ -92,7 +92,7 @@ export function ReviewPanel(props: ReviewPanelProps) {
   }
 
   const confirmNewConversation = () => {
-    if (window.confirm('모든 질문과 답변을 지우고 새 대화를 시작할까요?')) onNewConversation()
+    if (window.confirm('이 비교의 모든 질문과 답변을 삭제할까요?')) onNewConversation()
   }
 
   const pending = state.status === 'idle' ? null : state.pending
@@ -101,7 +101,7 @@ export function ReviewPanel(props: ReviewPanelProps) {
     <div className="review-panel">
       <div className="review-panel-header">
         <span className="review-panel-title">AI 리뷰</span>
-        <button className="btn btn-sm" onClick={confirmNewConversation} disabled={running || messages.length === 0}>새 대화</button>
+        <button className="btn btn-sm" onClick={confirmNewConversation} disabled={running || messages.length === 0}>대화 삭제</button>
       </div>
 
       <div className="review-panel-list" ref={listRef}>

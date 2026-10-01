@@ -227,6 +227,17 @@ body {
     border-color: var(--accent);
 }
 
+.settings-days {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.settings-input-days {
+    width: 64px;
+    text-align: right;
+}
+
 .toolbar-toggle {
     display: flex;
     border: 1px solid var(--border);
@@ -1778,6 +1789,74 @@ body {
 }
 
 .review-panel-error {
+    color: var(--danger);
+}
+
+.conv-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.conv-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.conv-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.conv-item-current {
+    background: var(--bg-secondary);
+}
+
+.conv-open {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+}
+
+.conv-label {
+    font-size: 13px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.conv-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.conv-open:hover .conv-label {
+    color: var(--primary);
+}
+
+.conv-empty,
+.conv-error {
+    padding: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.conv-error {
     color: var(--danger);
 }
 

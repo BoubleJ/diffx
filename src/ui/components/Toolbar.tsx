@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { GitBranch, PanelRight, RefreshCw, Settings } from 'lucide-react'
 import { mrStateBadge } from '../gitlab'
+import { parseRetentionInput } from '../reviewConversations'
 
 interface ToolbarProps {
   branch: string
@@ -19,9 +20,46 @@ interface ToolbarProps {
   onSoftWrapChange: (softWrap: boolean) => void
   terminalApp: string
   onTerminalAppChange: (app: string) => void
+  reviewRetentionDays: number | null
+  onReviewRetentionDaysChange: (days: number | null) => void
   mrLink?: { iid: number; title: string; webUrl: string; state: string }
   mrCheckout?: ReactNode
   submitReview?: { count: number; submitting: boolean; error: string | null; onSubmit: () => void }
+}
+
+function RetentionInput({ value, onCommit }: { value: number | null; onCommit: (days: number | null) => void }) {
+  const shown = value === null ? '' : String(value)
+  const [text, setText] = useState(shown)
+  useEffect(() => setText(shown), [shown])
+  const commit = () => {
+    const days = parseRetentionInput(text)
+    if (days === undefined) {
+      setText(shown)
+      return
+    }
+    setText(days === null ? '' : String(days))
+    if (days !== value) onCommit(days)
+  }
+  return (
+    <label className="settings-item settings-item-spaced">
+      <span>AI 대화 보존 기간</span>
+      <span className="settings-days">
+        <input
+          className="settings-input settings-input-days"
+          type="text"
+          inputMode="numeric"
+          value={text}
+          placeholder="삭제 안 함"
+          onChange={(e) => setText(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+          }}
+        />
+        일
+      </span>
+    </label>
+  )
 }
 
 export function Toolbar({
@@ -41,6 +79,8 @@ export function Toolbar({
   onSoftWrapChange,
   terminalApp,
   onTerminalAppChange,
+  reviewRetentionDays,
+  onReviewRetentionDaysChange,
   mrLink,
   mrCheckout,
   submitReview,
@@ -137,6 +177,7 @@ export function Toolbar({
                   onChange={(e) => onTerminalAppChange(e.target.value)}
                 />
               </label>
+              <RetentionInput value={reviewRetentionDays} onCommit={onReviewRetentionDaysChange} />
             </div>
           )}
         </div>
