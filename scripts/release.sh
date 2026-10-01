@@ -50,5 +50,4 @@ if ! gh release create "$tag" "$zip" --repo BoubleJ/diffx --title "$tag" --notes
   exit 1
 fi
 
-cp "$zip" "$HOME/Desktop/"
 echo "$tag 릴리스를 올렸습니다"
