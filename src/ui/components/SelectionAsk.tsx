@@ -6,7 +6,7 @@ import { formatSelectionLocation, lineElementFrom, lineInfoFrom, selectedLines, 
 interface Picked {
   selection: CodeSelection
   top: number
-  right: number
+  left: number
 }
 
 type ShadowWithSelection = ShadowRoot & { getSelection?: () => Selection | null }
@@ -37,8 +37,7 @@ function pickSelection(event: MouseEvent): Picked | null {
   if (!start || !end) return null
   const lines = selectedLines(start, end, { endAtLineStart: endsAtLineStart(range) })
   if (!lines) return null
-  const rect = range.getBoundingClientRect()
-  return { selection: { path: card.id.slice('file-'.length), ...lines, code }, top: rect.bottom + 4, right: rect.right }
+  return { selection: { path: card.id.slice('file-'.length), ...lines, code }, top: event.clientY + 12, left: event.clientX + 8 }
 }
 
 export function SelectionAsk({ disabled, resetKey, onAsk }: { disabled: boolean; resetKey: string | null; onAsk: (question: string, selection: CodeSelection) => void }) {
@@ -92,7 +91,7 @@ export function SelectionAsk({ disabled, resetKey, onAsk }: { disabled: boolean;
   const tooLong = selection.code.length > MAX_SELECTION_CHARS
   const canSend = !disabled && !tooLong && text.trim().length > 0
   const width = open ? 420 : 140
-  const style = { top: picked.top, left: Math.max(8, Math.min(picked.right - width, window.innerWidth - width - 8)) }
+  const style = { top: Math.min(picked.top, window.innerHeight - 48), left: Math.max(8, Math.min(picked.left, window.innerWidth - width - 8)) }
 
   const send = () => {
     if (!canSend) return
