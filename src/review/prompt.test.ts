@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildSystemPrompt, buildReviewPrompt, MAX_PATCH_CHARS } from './prompt'
+import { buildSystemPrompt, buildReviewPrompt, buildQuestionPrompt, MAX_PATCH_CHARS } from './prompt'
 import type { ReviewContext } from './types'
 
 const base: ReviewContext = {
@@ -52,5 +52,30 @@ describe('buildReviewPrompt', () => {
     const p = buildReviewPrompt({ ...base, patch: 'x'.repeat(MAX_PATCH_CHARS + 1) })
     expect(p).not.toContain('x'.repeat(1000))
     expect(p).toContain('diff가 커서 본문을 싣지 않았습니다')
+  })
+})
+
+describe('buildQuestionPrompt', () => {
+  const selection = { path: 'src/cart.ts', side: 'additions' as const, startLine: 12, endLine: 13, code: 'const total = 1\nreturn total' }
+
+  it('returns the question as it is without a selection', () => {
+    expect(buildQuestionPrompt('왜 이렇게 했어?')).toBe('왜 이렇게 했어?')
+  })
+
+  it('puts the selected code and its location before the question', () => {
+    expect(buildQuestionPrompt('성능 괜찮아?', selection)).toBe(
+      '사용자가 diff에서 선택한 코드: src/cart.ts 12-13줄 (변경 후 코드)\n```\nconst total = 1\nreturn total\n```\n\n질문: 성능 괜찮아?',
+    )
+  })
+
+  it('writes a single line and the deletions side', () => {
+    expect(buildQuestionPrompt('왜 지웠어?', { ...selection, side: 'deletions', endLine: 12, code: 'old()' })).toBe(
+      '사용자가 diff에서 선택한 코드: src/cart.ts 12줄 (변경 전 코드)\n```\nold()\n```\n\n질문: 왜 지웠어?',
+    )
+  })
+
+  it('lengthens the fence when the code contains backticks', () => {
+    const prompt = buildQuestionPrompt('설명해줘', { ...selection, code: 'const md = "```ts"' })
+    expect(prompt).toContain('\n````\nconst md = "```ts"\n````\n')
   })
 })
