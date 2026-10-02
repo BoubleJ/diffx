@@ -84,7 +84,9 @@ function selectedLines(start: LineInfo, end: LineInfo): SelectedLines | null
 - 두 줄의 쪽이 다르면 결과는 다음과 같다.
   - unified 보기에서 삭제 줄과 추가 줄에 걸쳐 선택한 경우에는 추가 쪽으로 정한다. 삭제 줄 끝에 있으면 그 줄의 `data-alt-line`이 있을 때 그 값을 쓰고, 없으면 다른 쪽 끝 줄 번호를 쓴다.
   - split 보기에서 두 컬럼이 서로 다르면 `null`을 돌려준다.
-- 시작과 끝은 작은 번호가 `startLine`이 되도록 정렬한다(아래에서 위로 드래그한 경우).
+- unified 보기에서 한쪽 끝이 context 줄이면 다른 쪽 끝의 쪽을 따른다. context 줄은 양쪽 번호를 모두 갖기 때문이다.
+- 선택의 끝이 줄 맨 앞(그 줄에서 선택된 글자가 없음)이면 끝 줄을 하나 줄인다.
+- 시작과 끝은 선택 범위(`getRangeAt(0)`)의 시작과 끝 위치로 정하고, 작은 번호가 `startLine`이 되도록 정렬한다.
 - 선택 문자열은 `selection.toString()`을 쓰고 앞뒤 빈 줄만 지운다.
 - 선택 문자열에 줄 번호가 섞여 들어오는지 구현 첫 단계에서 앱으로 확인한다. 섞이면 `@pierre/diffs`의 `unsafeCSS` 옵션으로 줄 번호 요소에 `user-select: none`을 준다.
 
@@ -118,7 +120,7 @@ interface CodeSelection {
 
 - `kind`가 `question`일 때만 `selection`을 받는다. `review`이면 무시한다.
 - 검사 규칙. 하나라도 어긋나면 400 `{ error: 'invalid_selection', message: '선택한 코드 정보가 올바르지 않습니다' }`를 돌려준다.
-  - `path`가 문자열이고 `isSafePath(path, repo)`를 통과한다.
+  - `path`가 비어 있지 않은 상대 경로이고, `/`로 시작하지 않고, NUL 문자가 없고, `..`인 경로 조각이 없다. `isSafePath`는 `[...slug]`처럼 조각 안에 점이 들어간 경로도 거부해서 쓰지 않는다.
   - `side`가 `additions`나 `deletions`다.
   - `startLine`, `endLine`이 양의 정수이고 `startLine <= endLine`이다.
   - `code`가 공백이 아닌 문자열이다.

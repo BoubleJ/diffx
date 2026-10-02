@@ -68,3 +68,15 @@ describe('selection labels', () => {
     expect(trimSelectedCode('\n  \nconst a = 1\n  b()\n\n')).toBe('const a = 1\n  b()')
   })
 })
+
+describe('selectedLines review fixes', () => {
+  it('drops the end line when the drag ends at the start of a line', () => {
+    expect(selectedLines(info('change-addition', 12, 'unified'), info('change-addition', 14, 'unified'), { endAtLineStart: true })).toEqual({ side: 'additions', startLine: 12, endLine: 13 })
+    expect(selectedLines(info('change-addition', 12, 'unified'), info('change-addition', 12, 'unified'), { endAtLineStart: true })).toEqual({ side: 'additions', startLine: 12, endLine: 12 })
+  })
+
+  it('follows the other end when one end is a unified context line', () => {
+    expect(selectedLines(info('context', 38, 'unified', 36), info('change-deletion', 41, 'unified'))).toEqual({ side: 'deletions', startLine: 36, endLine: 41 })
+    expect(selectedLines(info('change-deletion', 41, 'unified'), info('context', 45, 'unified', 43))).toEqual({ side: 'deletions', startLine: 41, endLine: 43 })
+  })
+})

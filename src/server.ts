@@ -542,7 +542,7 @@ export function createApp(options: AppOptions) {
     if (question.length > 2000) {
       return c.json({ error: 'question_too_long', message: '질문은 2000자까지 입력할 수 있습니다' }, 400)
     }
-    const parsedSelection = kind === 'question' ? parseSelection(body.selection, repo) : { ok: true as const, selection: undefined }
+    const parsedSelection = kind === 'question' ? parseSelection(body.selection) : { ok: true as const, selection: undefined }
     if (!parsedSelection.ok) return c.json({ error: parsedSelection.error, message: parsedSelection.message }, 400)
     let resolved: ResolvedComparison
     try {
