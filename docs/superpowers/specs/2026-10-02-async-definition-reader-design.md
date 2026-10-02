@@ -43,9 +43,9 @@ export interface SourceReader {
 
 ### 파일 목록과 `exists`
 
-- 처음 `exists`가 호출될 때 `git ls-tree -r -z --name-only <sha>`를 비동기로 한 번 실행하고 결과를 `Set<string>`에 담는다. 같은 reader의 다음 `exists`는 이 `Set`을 쓴다.
+- 처음 `exists`가 호출될 때 `git ls-tree -r -z <sha>`를 비동기로 한 번 실행하고 결과를 `Set<string>`에 담는다. 같은 reader의 다음 `exists`는 이 `Set`을 쓴다.
 - 동시에 여러 `exists`가 호출되어도 `ls-tree`는 한 번만 실행한다. 실행 중인 Promise를 저장해 두고 함께 기다린다.
-- `ls-tree -r`은 파일(blob)만 나열하므로 폴더 경로는 `false`가 된다. 지금 동작(`cat-file -t`가 `tree`이면 `false`)과 같다.
+- `ls-tree -r`은 폴더를 나열하지 않지만 서브모듈(gitlink, `commit` 타입)은 나열한다. 그래서 `--name-only` 없이 실행하고 타입이 `blob`인 항목만 담는다. 폴더와 서브모듈 경로는 `false`가 되어 지금 동작(`cat-file -t`가 `blob`이 아니면 `false`)과 같다.
 - `isSafePath`를 통과하지 못한 경로는 목록을 보지 않고 `false`를 돌려준다.
 - `ls-tree`가 실패하면 `exists`는 모두 `false`를 돌려준다.
 

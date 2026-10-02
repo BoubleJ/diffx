@@ -3,7 +3,7 @@ import { writeFileSync, mkdirSync } from 'node:fs'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { once } from 'node:events'
 import { join } from 'node:path'
-import { makeRepo, commit } from '../test/gitRepo'
+import { makeRepo, commit, git } from '../test/gitRepo'
 import { worktreeReader, commitReader, runGit, type GitFn, type SpawnFn } from './reader'
 
 function setup() {
@@ -139,5 +139,20 @@ describe('commitReader with batched git', () => {
     await closed
     expect(await pending).toBeNull()
     expect(await reader.readFile('src/empty/index.ts')).toBeNull()
+  })
+})
+
+describe('commitReader with submodules', () => {
+  it('treats a submodule entry as missing', async () => {
+    const repo = makeRepo()
+    const base = commit(repo, { 'src/a.ts': 'export const a = 1\n' }, 'base')
+    git(repo, 'update-index', '--add', '--cacheinfo', `160000,${base},sub`)
+    git(repo, 'commit', '-q', '-m', 'add submodule')
+    const sha = git(repo, 'rev-parse', 'HEAD').trim()
+    const reader = commitReader(repo, sha)
+    expect(await reader.exists('sub')).toBe(false)
+    expect(await reader.exists('src/a.ts')).toBe(true)
+    expect(await reader.readFile('sub')).toBeNull()
+    reader.close()
   })
 })
