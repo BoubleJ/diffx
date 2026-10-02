@@ -402,4 +402,10 @@ describe('review API', () => {
     const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
     expect(saved.running).toMatchObject({ kind: 'question', question: '왜?', selection })
   })
+
+  it('accepts a selection path with dots inside a segment', async () => {
+    const { app } = setup(async () => ({ answer: 's', locations: [] }))
+    const res = await postReview(app, { kind: 'question', question: '왜?', selection: { ...selection, path: 'app/[...slug]/page.tsx' } })
+    expect(res.status).toBe(200)
+  })
 })

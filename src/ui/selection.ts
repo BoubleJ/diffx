@@ -19,20 +19,23 @@ function startElement(node: unknown): ElementLike | null {
   return (node as { parentElement?: ElementLike | null }).parentElement ?? null
 }
 
-export function lineInfoFrom(node: unknown): LineInfo | null {
-  let lineEl: ElementLike | null = null
-  let column: LineInfo['column'] = null
+export function lineElementFrom(node: unknown): ElementLike | null {
   for (let cur = startElement(node); cur; cur = cur.parentElement) {
-    if (!lineEl) {
-      if (cur.hasAttribute('data-line-type')) lineEl = cur
-      continue
-    }
+    if (cur.hasAttribute('data-line-type')) return cur
+  }
+  return null
+}
+
+export function lineInfoFrom(node: unknown): LineInfo | null {
+  const lineEl = lineElementFrom(node)
+  if (!lineEl) return null
+  let column: LineInfo['column'] = null
+  for (let cur = lineEl.parentElement; cur; cur = cur.parentElement) {
     if (cur.hasAttribute('data-deletions')) column = 'deletions'
     else if (cur.hasAttribute('data-additions')) column = 'additions'
     else if (cur.hasAttribute('data-unified')) column = 'unified'
     if (column) break
   }
-  if (!lineEl) return null
   const line = Number(lineEl.getAttribute('data-line'))
   if (!Number.isInteger(line) || line < 1) return null
   const alt = Number(lineEl.getAttribute('data-alt-line'))
@@ -52,15 +55,21 @@ function lineOn(info: LineInfo, side: LineSide): number | null {
 
 const isSplit = (column: LineInfo['column']) => column === 'additions' || column === 'deletions'
 
-export function selectedLines(start: LineInfo, end: LineInfo): { side: LineSide; startLine: number; endLine: number } | null {
+const isUnifiedContext = (info: LineInfo) => (info.type === 'context' || info.type === 'context-expanded') && !isSplit(info.column)
+
+export function selectedLines(start: LineInfo, end: LineInfo, options: { endAtLineStart?: boolean } = {}): { side: LineSide; startLine: number; endLine: number } | null {
   if (isSplit(start.column) && isSplit(end.column) && start.column !== end.column) return null
   const startSide = sideOf(start)
   const endSide = sideOf(end)
   if (!startSide || !endSide) return null
-  const side: LineSide = startSide === endSide ? startSide : 'additions'
+  let side: LineSide = 'additions'
+  if (startSide === endSide) side = startSide
+  else if (isUnifiedContext(start)) side = endSide
+  else if (isUnifiedContext(end)) side = startSide
   const first = lineOn(start, side) ?? lineOn(end, side)
-  const last = lineOn(end, side) ?? lineOn(start, side)
+  let last = lineOn(end, side) ?? lineOn(start, side)
   if (first === null || last === null) return null
+  if (options.endAtLineStart && last > first) last -= 1
   return { side, startLine: Math.min(first, last), endLine: Math.max(first, last) }
 }
 

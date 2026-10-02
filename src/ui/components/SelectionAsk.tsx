@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUp, Sparkles } from 'lucide-react'
 import { MAX_SELECTION_CHARS, type CodeSelection } from '../../review/types'
-import { formatSelectionLocation, lineInfoFrom, selectedLines, sideLabel, trimSelectedCode } from '../selection'
+import { formatSelectionLocation, lineElementFrom, lineInfoFrom, selectedLines, sideLabel, trimSelectedCode } from '../selection'
 
 interface Picked {
   selection: CodeSelection
@@ -10,6 +10,15 @@ interface Picked {
 }
 
 type ShadowWithSelection = ShadowRoot & { getSelection?: () => Selection | null }
+
+function endsAtLineStart(range: Range): boolean {
+  const lineEl = lineElementFrom(range.endContainer) as Element | null
+  if (!lineEl) return false
+  const before = document.createRange()
+  before.setStart(lineEl, 0)
+  before.setEnd(range.endContainer, range.endOffset)
+  return before.toString() === ''
+}
 
 function pickSelection(event: MouseEvent): Picked | null {
   const path = event.composedPath()
@@ -22,12 +31,13 @@ function pickSelection(event: MouseEvent): Picked | null {
   if (!sel.anchorNode || !sel.focusNode || !root.contains(sel.anchorNode) || !root.contains(sel.focusNode)) return null
   const code = trimSelectedCode(sel.toString())
   if (!code.trim()) return null
-  const start = lineInfoFrom(sel.anchorNode)
-  const end = lineInfoFrom(sel.focusNode)
+  const range = sel.getRangeAt(0)
+  const start = lineInfoFrom(range.startContainer)
+  const end = lineInfoFrom(range.endContainer)
   if (!start || !end) return null
-  const lines = selectedLines(start, end)
+  const lines = selectedLines(start, end, { endAtLineStart: endsAtLineStart(range) })
   if (!lines) return null
-  const rect = sel.getRangeAt(0).getBoundingClientRect()
+  const rect = range.getBoundingClientRect()
   return { selection: { path: card.id.slice('file-'.length), ...lines, code }, top: rect.bottom + 4, right: rect.right }
 }
 
@@ -47,11 +57,13 @@ export function SelectionAsk({ disabled, resetKey, onAsk }: { disabled: boolean;
 
   useEffect(() => {
     const inside = (target: EventTarget | null) => !!boxRef.current && target instanceof Node && boxRef.current.contains(target)
+    let downInside = false
     const handleMouseDown = (e: MouseEvent) => {
-      if (!inside(e.target)) close()
+      downInside = inside(e.target)
+      if (!downInside) close()
     }
     const handleMouseUp = (e: MouseEvent) => {
-      if (inside(e.target)) return
+      if (downInside || inside(e.target)) return
       const next = pickSelection(e)
       setPicked(next)
       setOpen(false)
