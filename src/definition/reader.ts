@@ -142,8 +142,8 @@ export function commitReader(repo: string, sha: string, options: { spawn?: Spawn
   const files = new Map<string, Promise<string | null>>()
   let tree: Promise<Set<string>> | null = null
   const listFiles = () => {
-    tree ??= git(repo, ['ls-tree', '-r', '-z', '--name-only', sha])
-      .then((out) => new Set(out.split('\0').filter(Boolean)))
+    tree ??= git(repo, ['ls-tree', '-r', '-z', sha])
+      .then((out) => new Set(out.split('\0').filter((entry) => entry.split(' ', 3)[1] === 'blob').map((entry) => entry.slice(entry.indexOf('\t') + 1))))
       .catch(() => new Set<string>())
     return tree
   }
