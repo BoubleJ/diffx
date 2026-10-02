@@ -3,6 +3,8 @@ import { X } from 'lucide-react'
 import { questionToRefill, type MessageKind, type ProviderInfo, type ReviewLocation, type ReviewMessage, type ReviewState } from '../hooks/useReview'
 import { AnswerMarkdown } from './AnswerMarkdown'
 import { LocationItem } from './LocationItem'
+import type { CodeSelection } from '../../review/types'
+import { formatSelectionLocation } from '../selection'
 
 interface ReviewPanelProps {
   provider: ProviderInfo | undefined
@@ -31,9 +33,15 @@ function errorText(state: Extract<ReviewState, { status: 'error' }>, provider: P
   return state.message
 }
 
-function QuestionCard({ kind, question, excluded, onRemove }: { kind: MessageKind; question: string | null; excluded?: string[]; onRemove?: () => void }) {
+export function QuestionCard({ kind, question, excluded, selection, onRemove }: { kind: MessageKind; question: string | null; excluded?: string[]; selection?: CodeSelection; onRemove?: () => void }) {
   return (
     <div className="review-question">
+      {selection && (
+        <details className="review-question-selection">
+          <summary>{formatSelectionLocation(selection)} · 선택한 코드</summary>
+          <pre className="answer-code"><code>{selection.code}</code></pre>
+        </details>
+      )}
       <div className="review-question-text">{kind === 'review' ? '전체 리뷰' : question}</div>
       {excluded && excluded.length > 0 && <div className="review-panel-meta">제외한 파일 {excluded.length}개를 빼고 리뷰</div>}
       {onRemove && (
@@ -107,11 +115,11 @@ export function ReviewPanel(props: ReviewPanelProps) {
       <div className="review-panel-list" ref={listRef}>
         {messages.map((m) => (
           <Fragment key={m.id}>
-            <QuestionCard kind={m.kind} question={m.question} excluded={m.excluded} onRemove={() => onRemove(m.id)} />
+            <QuestionCard kind={m.kind} question={m.question} excluded={m.excluded} selection={m.selection} onRemove={() => onRemove(m.id)} />
             <AnswerCard message={m} onOpenLocation={onOpenLocation} />
           </Fragment>
         ))}
-        {pending && <QuestionCard kind={pending.kind} question={pending.question} excluded={pending.excluded} />}
+        {pending && <QuestionCard kind={pending.kind} question={pending.question} excluded={pending.excluded} selection={pending.selection} />}
         {state.status === 'running' && (
           <div className="review-panel-status">
             <div>{state.progress ?? '답변을 준비하는 중'}</div>

@@ -1792,6 +1792,22 @@ body {
     color: var(--danger);
 }
 
+.review-question-selection {
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+.review-question-selection summary {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.review-question-selection .answer-code {
+    max-height: 240px;
+    overflow: auto;
+}
+
 .conv-panel {
     flex: 1;
     min-height: 0;

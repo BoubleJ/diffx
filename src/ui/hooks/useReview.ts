@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import type { CodeSelection } from '../../review/types'
 
 export type ProviderId = 'claude'
 export type MessageKind = 'question' | 'review'
@@ -29,6 +30,7 @@ export interface ReviewMessage {
   question: string | null
   fingerprint: string
   excluded?: string[]
+  selection?: CodeSelection
   result: { answer: string; locations: ReviewLocation[] }
   stale: boolean
 }
@@ -37,6 +39,7 @@ export interface PendingQuestion {
   kind: MessageKind
   question: string | null
   excluded?: string[]
+  selection?: CodeSelection
 }
 
 export type ReviewState =
@@ -48,7 +51,7 @@ export interface SavedConversation {
   key: string
   sessionId: string | null
   messages: ReviewMessage[]
-  running: { id: string; provider: ProviderId; startedAt: number; kind: MessageKind; question: string | null } | null
+  running: { id: string; provider: ProviderId; startedAt: number; kind: MessageKind; question: string | null; selection?: CodeSelection | null } | null
 }
 
 export async function fetchProviders(fetchFn: typeof fetch = fetch): Promise<ProviderInfo[]> {
@@ -136,8 +139,8 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
 
   useEffect(() => {
     if (!isFetching && saved?.running && saved.key === key && jobRef.current?.id !== saved.running.id) {
-      const { id, startedAt, kind, question } = saved.running
-      attach(id, startedAt, { kind, question }, true)
+      const { id, startedAt, kind, question, selection } = saved.running
+      attach(id, startedAt, { kind, question, ...(selection ? { selection } : {}) }, true)
     }
   }, [saved, key, isFetching, attach])
 
@@ -153,7 +156,7 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
       const res = await fetch('/api/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: 'claude', ...Object.fromEntries(params), kind: pending.kind, question: pending.question ?? '', exclude: pending.excluded ?? [] }),
+        body: JSON.stringify({ provider: 'claude', ...Object.fromEntries(params), kind: pending.kind, question: pending.question ?? '', exclude: pending.excluded ?? [], ...(pending.selection ? { selection: pending.selection } : {}) }),
       })
       const body = await res.json()
       if (keyRef.current !== startKey) return
@@ -171,7 +174,7 @@ export function useReview(params: URLSearchParams | null, key: string | null) {
     }
   }, [params, attach])
 
-  const ask = useCallback((question: string) => send({ kind: 'question', question }), [send])
+  const ask = useCallback((question: string, selection?: CodeSelection) => send({ kind: 'question', question, ...(selection ? { selection } : {}) }), [send])
   const review = useCallback((exclude: string[]) => send({ kind: 'review', question: null, excluded: exclude }), [send])
 
   const cancel = useCallback(async () => {
