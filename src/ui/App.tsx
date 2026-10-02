@@ -37,6 +37,8 @@ import { loadExcluded, saveExcluded } from './excludedStorage'
 import { excludeFilesFromPatch } from '../review/filterPatch'
 import { loadReviewPanel, saveReviewPanel, togglePanel, openExploreTab, REVIEW_PANEL_MIN } from './reviewPanelStorage'
 import { comparisonParams, loadComparison, saveComparison, reconcileComparison, comparisonForMode, comparisonFromKey, type Comparison } from './comparison'
+import { SelectionAsk } from './components/SelectionAsk'
+import type { CodeSelection } from '../review/types'
 
 function useWindowSize({ factor }: { factor: number }) {
   const compute = () => Math.round(window.innerWidth * factor)
@@ -175,6 +177,14 @@ export function App() {
     setReviewPanel(next)
     saveReviewPanel(next)
   }, [])
+  const handleAskSelection = useCallback((question: string, selection: CodeSelection) => {
+    setReviewPanel((prev) => {
+      const next = { ...prev, open: true, tab: 'review' as const }
+      saveReviewPanel(next)
+      return next
+    })
+    void review.ask(question, selection)
+  }, [review.ask])
   const claude = review.providers.find((p) => p.id === 'claude')
   const [highlight, setHighlight] = useState<{ file: string; side: 'additions' | 'deletions'; line: number } | null>(null)
   const isMr = comparison?.mode === 'mr'
@@ -587,6 +597,7 @@ export function App() {
               onHighlightMissing={handleHighlightMissing}
               onFileReferences={handleFileReferences}
             />
+            <SelectionAsk disabled={review.state.status === 'running'} resetKey={key} onAsk={handleAskSelection} />
           </Virtualizer>
           )}
         </main>
