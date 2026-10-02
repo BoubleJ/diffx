@@ -119,12 +119,13 @@ describe('repository search pattern', () => {
   it('anchors the git grep pattern at the start of a line so minified code is not returned', async () => {
     const patterns: string[] = []
     const reader = {
-      readFile: (path: string) => (path === 'src/x.ts' ? 'use(thing)\n' : null),
-      exists: () => false,
-      grep: (pattern: string) => {
+      readFile: async (path: string) => (path === 'src/x.ts' ? 'use(thing)\n' : null),
+      exists: async () => false,
+      grep: async (pattern: string) => {
         patterns.push(pattern)
         return []
       },
+      close: () => {},
     }
     expect(await resolveDefinition(reader, 'src/x.ts', 1, 4)).toEqual({ kind: 'not_found' })
     expect(patterns).toHaveLength(1)

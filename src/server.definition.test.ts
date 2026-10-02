@@ -83,4 +83,17 @@ describe('GET /api/references', () => {
       expect((await app.request(`/api/references?${q}`)).status).toBe(400)
     }
   })
+
+  it('keeps the event loop running while listing references', async () => {
+    const app = setup()
+    let ticks = 0
+    const timer = setInterval(() => ticks++, 1)
+    try {
+      const res = await app.request(`/api/references?${branch}&side=additions&path=src/a.ts&line=2&col=16`)
+      expect(res.status).toBe(200)
+    } finally {
+      clearInterval(timer)
+    }
+    expect(ticks).toBeGreaterThan(0)
+  })
 })
