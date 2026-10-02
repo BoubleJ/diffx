@@ -199,7 +199,7 @@ export function Toolbar({
               disabled={submitReview.count === 0 || submitReview.submitting}
             >
               {submitReview.submitting && <RefreshCw size={14} className="spin" />}
-              리뷰 제출 ({submitReview.count})
+              코멘트 등록 ({submitReview.count})
             </button>
             {submitReview.error && <div className="toolbar-submit-error">{submitReview.error}</div>}
           </div>
