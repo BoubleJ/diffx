@@ -30,7 +30,7 @@
  └────────────────────────────────────────┘
 ```
 
-1. diff 카드 안에서 코드를 드래그하고 마우스를 놓으면(`mouseup`) 선택 범위의 끝 위치 오른쪽 아래에 `AI에게 질문` 버튼이 뜬다.
+1. diff 카드 안에서 코드를 드래그하고 마우스를 놓으면(`mouseup`) 마우스를 놓은 위치 오른쪽 아래에 `AI에게 질문` 버튼이 뜬다.
 2. 버튼 클릭 시 같은 위치에 입력 팝업이 열린다.
    - 팝업 첫 줄에 `<파일 경로>:<시작줄>-<끝줄>`과 `(변경 후 코드)` 또는 `(변경 전 코드)`를 표시한다. 시작줄과 끝줄이 같으면 `<파일 경로>:<줄>`로 표시한다.
    - textarea placeholder는 `선택한 코드에 대해 질문하기`이고 열리면 포커스가 들어간다.
@@ -93,7 +93,7 @@ function selectedLines(start: LineInfo, end: LineInfo): SelectedLines | null
 ## 3. 버튼과 팝업 (`src/ui/components/SelectionAsk.tsx`)
 
 - `DiffViewer`의 `.diff-viewer` 요소에 `mouseup` 리스너를 단다. 위 규칙으로 선택을 읽고 `{ path, side, startLine, endLine, code, rect }`를 상태로 둔다. `rect`는 선택 범위의 `getBoundingClientRect()`다.
-- 버튼과 팝업은 `position: fixed`로 `rect.bottom + 4`, `rect.right` 기준으로 그린다. 화면 오른쪽 끝을 넘으면 오른쪽에 맞춘다.
+- 버튼과 팝업은 `position: fixed`로 마우스를 놓은 위치(`clientX + 8`, `clientY + 12`)에 그린다. diff 줄 요소가 화면 폭 전체를 차지해서 선택 범위의 `getBoundingClientRect()` 오른쪽 끝은 화면 오른쪽 끝이 되기 때문이다. 화면 오른쪽이나 아래쪽을 넘으면 화면 안으로 맞춘다.
 - 버튼을 클릭할 때 `mousedown`에서 `preventDefault()`를 호출해서 diff 선택이 풀리지 않게 한다.
 - 팝업 textarea는 최대 6줄까지 높이가 늘어난다.
 - `path`는 그 카드의 파일 경로다. `DiffViewer`가 카드 요소(`.file-diff-card`)에 `id={`file-${filePath}`}`를 붙이므로, `composedPath()`에서 `file-diff-card` 클래스를 가진 요소를 찾아 `id`의 `file-` 뒤를 경로로 쓴다. 이 요소를 찾지 못하면 버튼을 띄우지 않는다.
