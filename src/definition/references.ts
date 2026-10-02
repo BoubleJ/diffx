@@ -47,34 +47,37 @@ interface Importer {
 }
 
 function createResolver(reader: SourceReader) {
-  const cache = new Map<string, string | null>()
-  return (from: string, specifier: string): string | null => {
+  const cache = new Map<string, Promise<string | null>>()
+  return (from: string, specifier: string): Promise<string | null> => {
     const key = `${from}\n${specifier}`
-    if (!cache.has(key)) {
-      const r = resolveModule(reader, from, specifier)
-      cache.set(key, r.kind === 'file' ? r.path : null)
+    let cached = cache.get(key)
+    if (!cached) {
+      cached = resolveModule(reader, from, specifier).then((r) => (r.kind === 'file' ? r.path : null))
+      cache.set(key, cached)
     }
-    return cache.get(key)!
+    return cached
   }
 }
 
-function findImporters(reader: SourceReader, target: string, resolve: ReturnType<typeof createResolver>): Importer[] {
+async function findImporters(reader: SourceReader, target: string, resolve: ReturnType<typeof createResolver>): Promise<Importer[]> {
   const name = moduleName(target).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const hits = reader.grep(`['"/]${name}(/index)?(\\.[A-Za-z]+)?['"]`)
+  const hits = await reader.grep(`['"/]${name}(/index)?(\\.[A-Za-z]+)?['"]`)
   const paths = [...new Set(hits.map((h) => h.path))].filter((p) => p !== target)
   const importers: Importer[] = []
   for (const path of paths) {
-    const text = reader.readFile(path)
+    const text = await reader.readFile(path)
     if (text === null) continue
     const specifierLines: Reference[] = []
     const specifiers = new Set<string>()
-    text.split('\n').forEach((lineText, i) => {
+    const lines = text.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const lineText = lines[i]
       for (const m of lineText.matchAll(SPECIFIER_RE)) {
-        if (resolve(path, m[1]) !== target) continue
+        if ((await resolve(path, m[1])) !== target) continue
         specifiers.add(m[1])
         if (!specifierLines.some((r) => r.line === i + 1)) specifierLines.push({ path, line: i + 1, text: lineText })
       }
-    })
+    }
     if (specifierLines.length > 0) importers.push({ path, text, specifierLines, specifiers })
   }
   return importers
@@ -109,8 +112,8 @@ function finish(name: string, list: Reference[]): ReferencesResult {
   return { kind: 'found', name, references: unique.slice(0, MAX_REFERENCES), truncated: unique.length > MAX_REFERENCES }
 }
 
-export function findSymbolReferences(reader: SourceReader, filePath: string, line: number, col: number): ReferencesResult {
-  const text = reader.readFile(filePath)
+export async function findSymbolReferences(reader: SourceReader, filePath: string, line: number, col: number): Promise<ReferencesResult> {
+  const text = await reader.readFile(filePath)
   const lineText = text?.split('\n')[line - 1]
   if (text === null || lineText === undefined) return { kind: 'not_declaration' }
   const token = classifyToken(lineText, col, { vue: filePath.endsWith('.vue') })
@@ -132,7 +135,7 @@ export function findSymbolReferences(reader: SourceReader, filePath: string, lin
     const key = `${current.file}#${current.exported}`
     if (visited.has(key)) continue
     visited.add(key)
-    for (const importer of findImporters(reader, current.file, resolve)) {
+    for (const importer of await findImporters(reader, current.file, resolve)) {
       for (const [local, binding] of parseImports(importer.text)) {
         if (!importer.specifiers.has(binding.specifier)) continue
         if (binding.imported === '*') {
@@ -152,7 +155,7 @@ export function findSymbolReferences(reader: SourceReader, filePath: string, lin
   return finish(name, found)
 }
 
-export function findFileReferences(reader: SourceReader, filePath: string): ReferencesResult {
-  const importers = findImporters(reader, filePath, createResolver(reader))
+export async function findFileReferences(reader: SourceReader, filePath: string): Promise<ReferencesResult> {
+  const importers = await findImporters(reader, filePath, createResolver(reader))
   return finish(posix.basename(filePath).replace(/\.[^.]+$/, ''), importers.flatMap((i) => i.specifierLines))
 }
