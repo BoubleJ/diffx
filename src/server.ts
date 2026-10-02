@@ -17,6 +17,7 @@ import { PROVIDERS } from './review/providers/index.js'
 import { detectProvider } from './review/runner.js'
 import { fingerprint } from './review/fingerprint.js'
 import { excludeFilesFromPatch } from './review/filterPatch.js'
+import { parseSelection } from './review/selection.js'
 import type { ReviewProvider } from './review/types.js'
 import { createGlabClient, GlabError, type GlabClient } from './gitlab/glab.js'
 import { getGitlabStatus, listMrs, parseMrListQuery, MrFetchError, MrNotFoundError, type GitlabStatus } from './gitlab/mr.js'
@@ -524,7 +525,7 @@ export function createApp(options: AppOptions) {
   })
 
   app.post('/api/review', async (c) => {
-    let body: { provider: string; mode?: string; source?: string; target?: string; iid?: unknown; exclude?: unknown; kind?: unknown; question?: unknown }
+    let body: { provider: string; mode?: string; source?: string; target?: string; iid?: unknown; exclude?: unknown; kind?: unknown; question?: unknown; selection?: unknown }
     try {
       body = await c.req.json()
     } catch {
@@ -541,6 +542,8 @@ export function createApp(options: AppOptions) {
     if (question.length > 2000) {
       return c.json({ error: 'question_too_long', message: '질문은 2000자까지 입력할 수 있습니다' }, 400)
     }
+    const parsedSelection = kind === 'question' ? parseSelection(body.selection, repo) : { ok: true as const, selection: undefined }
+    if (!parsedSelection.ok) return c.json({ error: parsedSelection.error, message: parsedSelection.message }, 400)
     let resolved: ResolvedComparison
     try {
       resolved = body.mode === 'mr'
@@ -560,6 +563,7 @@ export function createApp(options: AppOptions) {
       kind,
       question: kind === 'question' ? question : null,
       excluded: exclude,
+      selection: parsedSelection.selection,
       fingerprint: fingerprint(resolved),
       ctx: {
         repoPath: repo,

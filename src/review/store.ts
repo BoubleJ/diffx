@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { APP_DATA_DIR } from '../appData.js'
-import type { ProviderId, ReviewLocation, ReviewResult } from './types.js'
+import type { ProviderId, ReviewLocation, ReviewResult, CodeSelection } from './types.js'
 
 export type MessageKind = 'question' | 'review'
 
@@ -13,6 +13,7 @@ export interface ReviewMessage {
   question: string | null
   fingerprint: string
   excluded?: string[]
+  selection?: CodeSelection
   result: ReviewResult
 }
 

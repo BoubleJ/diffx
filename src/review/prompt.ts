@@ -1,4 +1,4 @@
-import type { ReviewContext } from './types.js'
+import type { CodeSelection, ReviewContext } from './types.js'
 
 export const MAX_PATCH_CHARS = 200_000
 
@@ -52,4 +52,17 @@ export function buildReviewPrompt(ctx: ReviewContext): string {
     '## diff',
     patchSection,
   ].join('\n')
+}
+
+function codeFence(code: string): string {
+  const longest = Math.max(0, ...[...code.matchAll(/`+/g)].map((m) => m[0].length))
+  return '`'.repeat(Math.max(3, longest + 1))
+}
+
+export function buildQuestionPrompt(question: string, selection?: CodeSelection): string {
+  if (!selection) return question
+  const lines = selection.startLine === selection.endLine ? `${selection.startLine}줄` : `${selection.startLine}-${selection.endLine}줄`
+  const side = selection.side === 'additions' ? '변경 후 코드' : '변경 전 코드'
+  const fence = codeFence(selection.code)
+  return `사용자가 diff에서 선택한 코드: ${selection.path} ${lines} (${side})\n${fence}\n${selection.code}\n${fence}\n\n질문: ${question}`
 }

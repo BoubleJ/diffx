@@ -345,4 +345,61 @@ describe('review API', () => {
     expect(res.status).toBe(409)
     expect(await res.json()).toEqual({ error: 'running' })
   })
+
+  const selection = { path: 'a.txt', side: 'additions', startLine: 2, endLine: 2, code: 'feature' }
+
+  it('sends the selected code with the question and stores it', async () => {
+    let prompt = ''
+    const { app } = setup(async (_p, _c, request) => {
+      prompt = request.prompt
+      return { answer: 's', locations: [] }
+    })
+    const { id } = await (await postReview(app, { kind: 'question', question: '왜?', selection })).json()
+    await readSse(await app.request(`/api/review/${id}/events`))
+    expect(prompt).toBe('사용자가 diff에서 선택한 코드: a.txt 2줄 (변경 후 코드)\n```\nfeature\n```\n\n질문: 왜?')
+    const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
+    expect(saved.messages[0]).toMatchObject({ kind: 'question', question: '왜?', selection })
+  })
+
+  it('rejects an invalid selection', async () => {
+    const { app } = setup(async () => ({ answer: 's', locations: [] }))
+    for (const bad of [
+      { ...selection, path: '../outside.txt' },
+      { ...selection, side: 'both' },
+      { ...selection, startLine: 0 },
+      { ...selection, startLine: 3, endLine: 2 },
+      { ...selection, code: '   ' },
+    ]) {
+      const res = await postReview(app, { kind: 'question', question: '왜?', selection: bad })
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'invalid_selection', message: '선택한 코드 정보가 올바르지 않습니다' })
+    }
+  })
+
+  it('rejects a selection longer than 4000 characters', async () => {
+    const { app } = setup(async () => ({ answer: 's', locations: [] }))
+    const res = await postReview(app, { kind: 'question', question: '왜?', selection: { ...selection, code: 'x'.repeat(4001) } })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'selection_too_long', message: '선택한 코드는 4000자까지 보낼 수 있습니다' })
+  })
+
+  it('ignores a selection on a full review', async () => {
+    let prompt = ''
+    const { app } = setup(async (_p, _c, request) => {
+      prompt = request.prompt
+      return { answer: 's', locations: [] }
+    })
+    const { id } = await (await postReview(app, { kind: 'review', selection })).json()
+    await readSse(await app.request(`/api/review/${id}/events`))
+    expect(prompt).not.toContain('사용자가 diff에서 선택한 코드')
+    const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
+    expect(saved.messages[0]).not.toHaveProperty('selection')
+  })
+
+  it('reports the selection of a running question', async () => {
+    const { app } = setup(() => new Promise(() => {}))
+    await postReview(app, { kind: 'question', question: '왜?', selection })
+    const saved = await (await app.request(`/api/review?${branchQuery}`)).json()
+    expect(saved.running).toMatchObject({ kind: 'question', question: '왜?', selection })
+  })
 })

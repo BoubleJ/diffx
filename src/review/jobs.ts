@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { buildReviewPrompt, buildSystemPrompt } from './prompt.js'
+import { buildQuestionPrompt, buildReviewPrompt, buildSystemPrompt } from './prompt.js'
 import { runReview, STOP_IMMEDIATELY, type RunOptions } from './runner.js'
 import type { MessageKind, ReviewMessage, ReviewStore } from './store.js'
-import { ReviewFailure, type FailureKind, type ProviderId, type ReviewContext, type ReviewProvider, type ReviewRequest, type ReviewResult, type ReviewSession } from './types.js'
+import { ReviewFailure, type CodeSelection, type FailureKind, type ProviderId, type ReviewContext, type ReviewProvider, type ReviewRequest, type ReviewResult, type ReviewSession } from './types.js'
 
 export type JobEvent =
   | { type: 'progress'; text: string }
@@ -17,6 +17,7 @@ export interface StartInput {
   kind: MessageKind
   question: string | null
   excluded?: string[]
+  selection?: CodeSelection
 }
 
 export type RunFn = (provider: ReviewProvider, ctx: ReviewContext, request: ReviewRequest, options: RunOptions) => Promise<ReviewResult>
@@ -28,6 +29,7 @@ interface Job {
   provider: ProviderId
   kind: MessageKind
   question: string | null
+  selection: CodeSelection | null
   startedAt: number
   events: JobEvent[]
   listeners: Set<(e: JobEvent) => void>
@@ -41,7 +43,7 @@ export class ReviewJobs {
 
   constructor(private store: ReviewStore, private run: RunFn = runReview) {}
 
-  start({ provider, ctx, key, fingerprint, kind, question, excluded }: StartInput): string {
+  start({ provider, ctx, key, fingerprint, kind, question, excluded, selection }: StartInput): string {
     const existing = [...this.jobs.values()].find((j) => this.isActive(j) && j.repoPath === ctx.repoPath && j.key === key && j.provider === provider.id)
     if (existing) return existing.id
 
@@ -52,6 +54,7 @@ export class ReviewJobs {
       provider: provider.id,
       kind,
       question: kind === 'question' ? question : null,
+      selection: kind === 'question' ? selection ?? null : null,
       startedAt: Date.now(),
       events: [],
       listeners: new Set(),
@@ -80,7 +83,7 @@ export class ReviewJobs {
       else finish({ type: 'error', kind: 'process', message: String((err as Error)?.message ?? err) })
     }
 
-    const prompt = kind === 'review' ? buildReviewPrompt(ctx) : job.question ?? ''
+    const prompt = kind === 'review' ? buildReviewPrompt(ctx) : buildQuestionPrompt(job.question ?? '', job.selection ?? undefined)
     const systemPrompt = buildSystemPrompt(ctx)
     const runWith = (session: ReviewSession) =>
       this.run(provider, ctx, { prompt, systemPrompt, session }, { signal: job.controller.signal, onProgress: (text) => emit({ type: 'progress', text }) })
@@ -106,6 +109,7 @@ export class ReviewJobs {
           question: job.question,
           fingerprint,
           ...(kind === 'review' && excluded && excluded.length > 0 ? { excluded } : {}),
+          ...(job.selection ? { selection: job.selection } : {}),
           result,
         }
         try {
@@ -123,9 +127,9 @@ export class ReviewJobs {
     return !job.finished && !job.aborted
   }
 
-  runningFor(repoPath: string, key: string): { id: string; provider: ProviderId; startedAt: number; kind: MessageKind; question: string | null } | null {
+  runningFor(repoPath: string, key: string): { id: string; provider: ProviderId; startedAt: number; kind: MessageKind; question: string | null; selection: CodeSelection | null } | null {
     const job = [...this.jobs.values()].find((j) => this.isActive(j) && j.repoPath === repoPath && j.key === key)
-    return job ? { id: job.id, provider: job.provider, startedAt: job.startedAt, kind: job.kind, question: job.question } : null
+    return job ? { id: job.id, provider: job.provider, startedAt: job.startedAt, kind: job.kind, question: job.question, selection: job.selection } : null
   }
 
   subscribe(id: string, listener: (e: JobEvent) => void): (() => void) | null {
