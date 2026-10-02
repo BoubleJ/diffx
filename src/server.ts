@@ -290,10 +290,14 @@ export function createApp(options: AppOptions) {
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
-    const result = resolveDefinition(reader, path, Number(line), Number(col))
-    if (result.kind !== 'found') return c.json(result)
-    const targets = result.targets.map((t) => ({ ...t, text: reader.readFile(t.path)?.split('\n')[t.line - 1] ?? '' }))
-    return c.json({ kind: 'found', version: side === 'additions' ? 'new' : 'old', targets })
+    try {
+      const result = await resolveDefinition(reader, path, Number(line), Number(col))
+      if (result.kind !== 'found') return c.json(result)
+      const targets = await Promise.all(result.targets.map(async (t) => ({ ...t, text: (await reader.readFile(t.path))?.split('\n')[t.line - 1] ?? '' })))
+      return c.json({ kind: 'found', version: side === 'additions' ? 'new' : 'old', targets })
+    } finally {
+      reader.close()
+    }
   })
 
   app.get('/api/references', async (c) => {
@@ -314,8 +318,12 @@ export function createApp(options: AppOptions) {
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
-    const result = fileTarget ? findFileReferences(reader, path) : findSymbolReferences(reader, path, Number(line), Number(col))
-    return c.json(result.kind === 'found' ? { ...result, version: side === 'additions' ? 'new' : 'old' } : result)
+    try {
+      const result = fileTarget ? await findFileReferences(reader, path) : await findSymbolReferences(reader, path, Number(line), Number(col))
+      return c.json(result.kind === 'found' ? { ...result, version: side === 'additions' ? 'new' : 'old' } : result)
+    } finally {
+      reader.close()
+    }
   })
 
   // Full old/new file contents for a diffed file, so the client can build a
