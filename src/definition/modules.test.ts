@@ -22,41 +22,41 @@ function setup() {
 }
 
 describe('parseJsonc', () => {
-  it('allows comments and trailing commas but keeps strings intact', () => {
+  it('allows comments and trailing commas but keeps strings intact', async () => {
     expect(parseJsonc('{ /* a */ "url": "http://x//y", "list": [1, 2,], }')).toEqual({ url: 'http://x//y', list: [1, 2] })
   })
 })
 
 describe('resolveModule', () => {
-  it('resolves relative paths with extensions, index files, vue files and .js written for .ts', () => {
+  it('resolves relative paths with extensions, index files, vue files and .js written for .ts', async () => {
     const reader = setup()
-    expect(resolveModule(reader, 'src/page.ts', './utils/date')).toEqual({ kind: 'file', path: 'src/utils/date.ts' })
-    expect(resolveModule(reader, 'src/page.ts', './utils')).toEqual({ kind: 'file', path: 'src/utils/index.ts' })
-    expect(resolveModule(reader, 'src/page.ts', './components/Comp.vue')).toEqual({ kind: 'file', path: 'src/components/Comp.vue' })
-    expect(resolveModule(reader, 'src/page.ts', './esm.js')).toEqual({ kind: 'file', path: 'src/esm.ts' })
-    expect(resolveModule(reader, 'src/page.ts', './nope')).toEqual({ kind: 'missing' })
+    expect(await resolveModule(reader, 'src/page.ts', './utils/date')).toEqual({ kind: 'file', path: 'src/utils/date.ts' })
+    expect(await resolveModule(reader, 'src/page.ts', './utils')).toEqual({ kind: 'file', path: 'src/utils/index.ts' })
+    expect(await resolveModule(reader, 'src/page.ts', './components/Comp.vue')).toEqual({ kind: 'file', path: 'src/components/Comp.vue' })
+    expect(await resolveModule(reader, 'src/page.ts', './esm.js')).toEqual({ kind: 'file', path: 'src/esm.ts' })
+    expect(await resolveModule(reader, 'src/page.ts', './nope')).toEqual({ kind: 'missing' })
   })
 
-  it('uses tsconfig paths and baseUrl from extends', () => {
+  it('uses tsconfig paths and baseUrl from extends', async () => {
     const reader = setup()
-    expect(resolveModule(reader, 'src/page.ts', '#lib/helper')).toEqual({ kind: 'file', path: 'lib/helper.ts' })
-    expect(resolveModule(reader, 'src/page.ts', 'src/utils/date')).toEqual({ kind: 'file', path: 'src/utils/date.ts' })
+    expect(await resolveModule(reader, 'src/page.ts', '#lib/helper')).toEqual({ kind: 'file', path: 'lib/helper.ts' })
+    expect(await resolveModule(reader, 'src/page.ts', 'src/utils/date')).toEqual({ kind: 'file', path: 'src/utils/date.ts' })
   })
 
-  it('falls back to src/ for @/ and ~/', () => {
+  it('falls back to src/ for @/ and ~/', async () => {
     const reader = setup()
-    expect(resolveModule(reader, 'src/page.ts', '@/utils/date')).toEqual({ kind: 'file', path: 'src/utils/date.ts' })
-    expect(resolveModule(reader, 'src/page.ts', '~/components/Comp.vue')).toEqual({ kind: 'file', path: 'src/components/Comp.vue' })
+    expect(await resolveModule(reader, 'src/page.ts', '@/utils/date')).toEqual({ kind: 'file', path: 'src/utils/date.ts' })
+    expect(await resolveModule(reader, 'src/page.ts', '~/components/Comp.vue')).toEqual({ kind: 'file', path: 'src/components/Comp.vue' })
   })
 
-  it('resolves @/ against the nearest config folder in a monorepo', () => {
+  it('resolves @/ against the nearest config folder in a monorepo', async () => {
     const reader = setup()
-    expect(resolveModule(reader, 'apps/web/pages/index.ts', '@/store')).toEqual({ kind: 'file', path: 'apps/web/src/store.ts' })
+    expect(await resolveModule(reader, 'apps/web/pages/index.ts', '@/store')).toEqual({ kind: 'file', path: 'apps/web/src/store.ts' })
   })
 
-  it('treats bare package names as external', () => {
+  it('treats bare package names as external', async () => {
     const reader = setup()
-    expect(resolveModule(reader, 'src/page.ts', 'react')).toEqual({ kind: 'external' })
-    expect(resolveModule(reader, 'src/page.ts', '@tanstack/react-query')).toEqual({ kind: 'external' })
+    expect(await resolveModule(reader, 'src/page.ts', 'react')).toEqual({ kind: 'external' })
+    expect(await resolveModule(reader, 'src/page.ts', '@tanstack/react-query')).toEqual({ kind: 'external' })
   })
 })

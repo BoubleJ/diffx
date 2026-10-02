@@ -51,72 +51,72 @@ function click(reader: ReturnType<typeof worktreeReader>, path: string, lineText
 }
 
 describe('resolveDefinition', () => {
-  it('opens import paths', () => {
+  it('opens import paths', async () => {
     const reader = worktreeReader(setup().repo)
-    expect(click(reader, 'src/page.ts', PAGE[0], 1, "'./utils/date'")).toEqual({ kind: 'found', targets: [{ path: 'src/utils/date.ts', line: 1 }] })
-    expect(click(reader, 'src/page.ts', PAGE[4], 5, "'@/components")).toEqual({ kind: 'found', targets: [{ path: 'src/components/Comp.vue', line: 1 }] })
-    expect(click(reader, 'src/page.ts', PAGE[3], 4, "'react'")).toEqual({ kind: 'external', module: 'react' })
+    expect(await click(reader, 'src/page.ts', PAGE[0], 1, "'./utils/date'")).toEqual({ kind: 'found', targets: [{ path: 'src/utils/date.ts', line: 1 }] })
+    expect(await click(reader, 'src/page.ts', PAGE[4], 5, "'@/components")).toEqual({ kind: 'found', targets: [{ path: 'src/components/Comp.vue', line: 1 }] })
+    expect(await click(reader, 'src/page.ts', PAGE[3], 4, "'react'")).toEqual({ kind: 'external', module: 'react' })
   })
 
-  it('follows imported names to their export', () => {
+  it('follows imported names to their export', async () => {
     const reader = worktreeReader(setup().repo)
-    expect(click(reader, 'src/page.ts', PAGE[8], 9, 'fmt')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/date.ts', line: 1 }] })
-    expect(click(reader, 'src/page.ts', PAGE[8], 9, 'sum')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/math.ts', line: 1 }] })
-    expect(click(reader, 'src/page.ts', PAGE[8], 9, 'main')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/date.ts', line: 4 }] })
-    expect(click(reader, 'src/page.ts', PAGE[8], 9, 'helper')).toEqual({ kind: 'found', targets: [{ path: 'lib/helper.ts', line: 1 }] })
-    expect(click(reader, 'src/page.ts', PAGE[2], 3, 'utils')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/index.ts', line: 1 }] })
-    expect(click(reader, 'src/page.ts', PAGE[3], 4, 'React')).toEqual({ kind: 'external', module: 'react' })
+    expect(await click(reader, 'src/page.ts', PAGE[8], 9, 'fmt')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/date.ts', line: 1 }] })
+    expect(await click(reader, 'src/page.ts', PAGE[8], 9, 'sum')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/math.ts', line: 1 }] })
+    expect(await click(reader, 'src/page.ts', PAGE[8], 9, 'main')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/date.ts', line: 4 }] })
+    expect(await click(reader, 'src/page.ts', PAGE[8], 9, 'helper')).toEqual({ kind: 'found', targets: [{ path: 'lib/helper.ts', line: 1 }] })
+    expect(await click(reader, 'src/page.ts', PAGE[2], 3, 'utils')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/index.ts', line: 1 }] })
+    expect(await click(reader, 'src/page.ts', PAGE[3], 4, 'React')).toEqual({ kind: 'external', module: 'react' })
   })
 
-  it('follows up to five re-exports and falls back to the imported file', () => {
+  it('follows up to five re-exports and falls back to the imported file', async () => {
     const reader = worktreeReader(setup().repo)
     const use = ['', '', 'aDeep + bDeep']
-    expect(click(reader, 'src/chain/use.ts', use[2], 3, 'aDeep')).toEqual({ kind: 'found', targets: [{ path: 'src/chain/a5.ts', line: 1 }] })
-    expect(click(reader, 'src/chain/use.ts', use[2], 3, 'bDeep')).toEqual({ kind: 'found', targets: [{ path: 'src/chain/b0.ts', line: 1 }] })
+    expect(await click(reader, 'src/chain/use.ts', use[2], 3, 'aDeep')).toEqual({ kind: 'found', targets: [{ path: 'src/chain/a5.ts', line: 1 }] })
+    expect(await click(reader, 'src/chain/use.ts', use[2], 3, 'bDeep')).toEqual({ kind: 'found', targets: [{ path: 'src/chain/b0.ts', line: 1 }] })
   })
 
-  it('finds local declarations and reports the declaration line itself', () => {
+  it('finds local declarations and reports the declaration line itself', async () => {
     const reader = worktreeReader(setup().repo)
-    expect(click(reader, 'src/page.ts', PAGE[8], 9, 'local')).toEqual({ kind: 'found', targets: [{ path: 'src/page.ts', line: 7 }] })
-    expect(click(reader, 'src/page.ts', PAGE[7], 8, 'run')).toEqual({ kind: 'self' })
+    expect(await click(reader, 'src/page.ts', PAGE[8], 9, 'local')).toEqual({ kind: 'found', targets: [{ path: 'src/page.ts', line: 7 }] })
+    expect(await click(reader, 'src/page.ts', PAGE[7], 8, 'run')).toEqual({ kind: 'self' })
   })
 
-  it('searches the repository for other names', () => {
+  it('searches the repository for other names', async () => {
     const reader = worktreeReader(setup().repo)
-    expect(click(reader, 'src/page.ts', PAGE[8], 9, 'globalThing')).toEqual({
+    expect(await click(reader, 'src/page.ts', PAGE[8], 9, 'globalThing')).toEqual({
       kind: 'found',
       targets: [{ path: 'src/global.ts', line: 1 }, { path: 'src/other.ts', line: 1 }],
     })
-    expect(click(reader, 'src/page.ts', PAGE[8], 9, 'missing')).toEqual({ kind: 'not_found' })
+    expect(await click(reader, 'src/page.ts', PAGE[8], 9, 'missing')).toEqual({ kind: 'not_found' })
   })
 
-  it('searches names containing $', () => {
+  it('searches names containing $', async () => {
     const reader = worktreeReader(setup().repo)
-    expect(click(reader, 'src/page.ts', PAGE[8], 9, '$store')).toEqual({ kind: 'found', targets: [{ path: 'src/store.ts', line: 1 }] })
+    expect(await click(reader, 'src/page.ts', PAGE[8], 9, '$store')).toEqual({ kind: 'found', targets: [{ path: 'src/store.ts', line: 1 }] })
   })
 
-  it('handles names inside a vue file', () => {
+  it('handles names inside a vue file', async () => {
     const reader = worktreeReader(setup().repo)
-    expect(resolveDefinition(reader, 'src/components/Comp.vue', 2, '  <p>{{ count }}</p>'.indexOf('count'))).toEqual({ kind: 'found', targets: [{ path: 'src/components/Comp.vue', line: 6 }] })
-    expect(resolveDefinition(reader, 'src/components/Comp.vue', 6, 'const count = sum(1, 2)'.indexOf('sum'))).toEqual({ kind: 'found', targets: [{ path: 'src/utils/math.ts', line: 1 }] })
+    expect(await resolveDefinition(reader, 'src/components/Comp.vue', 2, '  <p>{{ count }}</p>'.indexOf('count'))).toEqual({ kind: 'found', targets: [{ path: 'src/components/Comp.vue', line: 6 }] })
+    expect(await resolveDefinition(reader, 'src/components/Comp.vue', 6, 'const count = sum(1, 2)'.indexOf('sum'))).toEqual({ kind: 'found', targets: [{ path: 'src/utils/math.ts', line: 1 }] })
   })
 
-  it('returns not_found for non-source files and positions outside the file', () => {
+  it('returns not_found for non-source files and positions outside the file', async () => {
     const reader = worktreeReader(setup().repo)
-    expect(resolveDefinition(reader, 'README.md', 1, 6)).toEqual({ kind: 'not_found' })
-    expect(resolveDefinition(reader, 'src/page.ts', 999, 0)).toEqual({ kind: 'not_found' })
+    expect(await resolveDefinition(reader, 'README.md', 1, 6)).toEqual({ kind: 'not_found' })
+    expect(await resolveDefinition(reader, 'src/page.ts', 999, 0)).toEqual({ kind: 'not_found' })
   })
 
-  it('reads the requested version', () => {
+  it('reads the requested version', async () => {
     const { repo, sha } = setup()
     writeFileSync(join(repo, 'src/utils/date.ts'), '// moved\n\nexport function formatDate(d: Date) {\n  return d\n}\n')
-    expect(click(commitReader(repo, sha), 'src/page.ts', PAGE[8], 9, 'fmt')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/date.ts', line: 1 }] })
-    expect(click(worktreeReader(repo), 'src/page.ts', PAGE[8], 9, 'fmt')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/date.ts', line: 3 }] })
+    expect(await click(commitReader(repo, sha), 'src/page.ts', PAGE[8], 9, 'fmt')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/date.ts', line: 1 }] })
+    expect(await click(worktreeReader(repo), 'src/page.ts', PAGE[8], 9, 'fmt')).toEqual({ kind: 'found', targets: [{ path: 'src/utils/date.ts', line: 3 }] })
   })
 })
 
 describe('repository search pattern', () => {
-  it('anchors the git grep pattern at the start of a line so minified code is not returned', () => {
+  it('anchors the git grep pattern at the start of a line so minified code is not returned', async () => {
     const patterns: string[] = []
     const reader = {
       readFile: (path: string) => (path === 'src/x.ts' ? 'use(thing)\n' : null),
@@ -126,7 +126,7 @@ describe('repository search pattern', () => {
         return []
       },
     }
-    expect(resolveDefinition(reader, 'src/x.ts', 1, 4)).toEqual({ kind: 'not_found' })
+    expect(await resolveDefinition(reader, 'src/x.ts', 1, 4)).toEqual({ kind: 'not_found' })
     expect(patterns).toHaveLength(1)
     expect(patterns[0].startsWith('^[[:space:]]*')).toBe(true)
   })
