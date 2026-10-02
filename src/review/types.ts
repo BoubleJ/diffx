@@ -75,3 +75,13 @@ export class ReviewFailure extends Error {
     super(message)
   }
 }
+
+export const MAX_SELECTION_CHARS = 4000
+
+export interface CodeSelection {
+  path: string
+  side: 'additions' | 'deletions'
+  startLine: number
+  endLine: number
+  code: string
+}
