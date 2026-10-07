@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowUp, Sparkles } from 'lucide-react'
 import { MAX_SELECTION_CHARS, type CodeSelection } from '../../review/types'
 import { formatSelectionLocation, lineElementFrom, lineInfoFrom, selectedLines, sideLabel, trimSelectedCode } from '../selection'
+import { pointVisible, scrolledPoint, type ClipRect, type Point, type ScrollOffset } from '../selectionAnchor'
 
 interface Picked {
   selection: CodeSelection
-  top: number
-  left: number
+  anchor: Point
+  scrollers: Element[]
+  origin: ScrollOffset[]
 }
 
 type ShadowWithSelection = ShadowRoot & { getSelection?: () => Selection | null }
@@ -18,6 +20,26 @@ function endsAtLineStart(range: Range): boolean {
   before.setStart(lineEl, 0)
   before.setEnd(range.endContainer, range.endOffset)
   return before.toString() === ''
+}
+
+function scrollersOf(node: Node): Element[] {
+  const found = new Set<Element>()
+  let el: Element | null = node instanceof Element ? node : node.parentElement
+  while (el) {
+    const { overflowX, overflowY } = getComputedStyle(el)
+    if (/auto|scroll/.test(`${overflowX} ${overflowY}`)) found.add(el)
+    el = el.parentElement ?? ((el.getRootNode() as ShadowRoot).host ?? null)
+  }
+  if (document.scrollingElement) found.add(document.scrollingElement)
+  return [...found]
+}
+
+const offsetOf = (el: Element): ScrollOffset => ({ top: el.scrollTop, left: el.scrollLeft })
+
+function clipOf(el: Element): ClipRect {
+  if (el === document.scrollingElement) return { top: 0, bottom: window.innerHeight, left: 0, right: window.innerWidth }
+  const r = el.getBoundingClientRect()
+  return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }
 }
 
 function pickSelection(event: MouseEvent): Picked | null {
@@ -37,13 +59,20 @@ function pickSelection(event: MouseEvent): Picked | null {
   if (!start || !end) return null
   const lines = selectedLines(start, end, { endAtLineStart: endsAtLineStart(range) })
   if (!lines) return null
-  return { selection: { path: card.id.slice('file-'.length), ...lines, code }, top: event.clientY + 12, left: event.clientX + 8 }
+  const scrollers = scrollersOf(range.startContainer)
+  return {
+    selection: { path: card.id.slice('file-'.length), ...lines, code },
+    anchor: { x: event.clientX, y: event.clientY },
+    scrollers,
+    origin: scrollers.map(offsetOf),
+  }
 }
 
 export function SelectionAsk({ disabled, resetKey, onAsk }: { disabled: boolean; resetKey: string | null; onAsk: (question: string, selection: CodeSelection) => void }) {
   const [picked, setPicked] = useState<Picked | null>(null)
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
+  const [, setScrollTick] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
 
   const close = () => {
@@ -72,7 +101,7 @@ export function SelectionAsk({ disabled, resetKey, onAsk }: { disabled: boolean;
       if (e.key === 'Escape') close()
     }
     const handleScroll = (e: Event) => {
-      if (!inside(e.target)) close()
+      if (!inside(e.target)) setScrollTick((t) => t + 1)
     }
     document.addEventListener('mousedown', handleMouseDown)
     document.addEventListener('mouseup', handleMouseUp)
@@ -88,10 +117,12 @@ export function SelectionAsk({ disabled, resetKey, onAsk }: { disabled: boolean;
 
   if (!picked) return null
   const { selection } = picked
+  const point = scrolledPoint(picked.anchor, picked.origin, picked.scrollers.map(offsetOf))
+  if (!pointVisible(point, picked.scrollers.map(clipOf))) return null
   const tooLong = selection.code.length > MAX_SELECTION_CHARS
   const canSend = !disabled && !tooLong && text.trim().length > 0
   const width = open ? 420 : 140
-  const style = { top: Math.min(picked.top, window.innerHeight - 48), left: Math.max(8, Math.min(picked.left, window.innerWidth - width - 8)) }
+  const style = { top: Math.min(point.y + 12, window.innerHeight - 48), left: Math.max(8, Math.min(point.x + 8, window.innerWidth - width - 8)) }
 
   const send = () => {
     if (!canSend) return
