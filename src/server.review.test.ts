@@ -7,6 +7,7 @@ import { createApp, startServer } from './server'
 import { ReviewJobs, type RunFn } from './review/jobs'
 import { ReviewStore } from './review/store'
 import { STOP_IMMEDIATELY } from './review/runner'
+import { NO_LOCATIONS } from './review/prompt'
 import type { ReviewProvider } from './review/types'
 
 const fakeProvider: ReviewProvider = {
@@ -187,6 +188,21 @@ describe('review API', () => {
     expect(saved.messages[0]).toMatchObject({ kind: 'question', question: '이 변경 설명해줘' })
     expect(saved.messages[0]).not.toHaveProperty('excluded')
     expect(store.load(repo, saved.key)?.messages).toHaveLength(1)
+  })
+
+  it('asks for no locations only when a question turns them off', async () => {
+    const prompts: string[] = []
+    const { app } = setup(async (_p, _c, request) => {
+      prompts.push(request.prompt)
+      return { answer: 's', locations: [] }
+    })
+    for (const body of [{ kind: 'question', question: 'q', withLocations: false }, { kind: 'question', question: 'q' }, { withLocations: false }]) {
+      const { id } = await (await postReview(app, body)).json()
+      await readSse(await app.request(`/api/review/${id}/events`))
+    }
+    expect(prompts[0]).toBe(`q\n\n${NO_LOCATIONS}`)
+    expect(prompts[1]).toBe('q')
+    expect(prompts[2]).not.toContain(NO_LOCATIONS)
   })
 
   it('resumes the session for the next question', async () => {

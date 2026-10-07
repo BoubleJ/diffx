@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildSystemPrompt, buildReviewPrompt, buildQuestionPrompt, MAX_PATCH_CHARS } from './prompt'
+import { buildSystemPrompt, buildReviewPrompt, buildQuestionPrompt, MAX_PATCH_CHARS, NO_LOCATIONS } from './prompt'
 import type { ReviewContext } from './types'
 
 const base: ReviewContext = {
@@ -76,6 +76,11 @@ describe('buildQuestionPrompt', () => {
     expect(buildQuestionPrompt('왜 지웠어?', { ...selection, side: 'deletions', endLine: 12, code: 'old()' })).toBe(
       '사용자가 diff에서 선택한 코드: src/cart.ts 12줄 (변경 전 코드)\n```\nold()\n```\n\n질문: 왜 지웠어?',
     )
+  })
+
+  it('asks for no locations when they are turned off', () => {
+    expect(buildQuestionPrompt('왜 이렇게 했어?', undefined, false)).toBe(`왜 이렇게 했어?\n\n${NO_LOCATIONS}`)
+    expect(buildQuestionPrompt('성능 괜찮아?', selection, false).endsWith(`질문: 성능 괜찮아?\n\n${NO_LOCATIONS}`)).toBe(true)
   })
 
   it('lengthens the fence when the code contains backticks', () => {

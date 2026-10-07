@@ -40,6 +40,7 @@ import { excludeFilesFromPatch } from '../review/filterPatch'
 import { loadReviewPanel, saveReviewPanel, togglePanel, openExploreTab, REVIEW_PANEL_MIN } from './reviewPanelStorage'
 import { comparisonParams, loadComparison, saveComparison, reconcileComparison, comparisonForMode, comparisonFromKey, type Comparison } from './comparison'
 import { SelectionAsk } from './components/SelectionAsk'
+import { loadWithLocations, saveWithLocations } from './locationsStorage'
 import type { CodeSelection } from '../review/types'
 
 function useWindowSize({ factor }: { factor: number }) {
@@ -179,14 +180,22 @@ export function App() {
     setReviewPanel(next)
     saveReviewPanel(next)
   }, [])
+  const [withLocations, setWithLocations] = useState(loadWithLocations)
+  const handleWithLocationsChange = useCallback((value: boolean) => {
+    setWithLocations(value)
+    saveWithLocations(value)
+  }, [])
+  const handleAsk = useCallback((question: string) => {
+    void review.ask(question, undefined, withLocations)
+  }, [review.ask, withLocations])
   const handleAskSelection = useCallback((question: string, selection: CodeSelection) => {
     setReviewPanel((prev) => {
       const next = { ...prev, open: true, tab: 'review' as const }
       saveReviewPanel(next)
       return next
     })
-    void review.ask(question, selection)
-  }, [review.ask])
+    void review.ask(question, selection, withLocations)
+  }, [review.ask, withLocations])
   const claude = review.providers.find((p) => p.id === 'claude')
   const [highlight, setHighlight] = useState<{ file: string; side: 'additions' | 'deletions'; line: number } | null>(null)
   const isMr = comparison?.mode === 'mr'
@@ -671,7 +680,9 @@ export function App() {
                       provider={claude}
                       messages={review.messages}
                       state={review.state}
-                      onAsk={review.ask}
+                      onAsk={handleAsk}
+                      withLocations={withLocations}
+                      onWithLocationsChange={handleWithLocationsChange}
                       onReview={() => review.review(excludedInDiff)}
                       onCancel={review.cancel}
                       onRemove={review.removeMessage}

@@ -11,6 +11,8 @@ interface ReviewPanelProps {
   messages: ReviewMessage[]
   state: ReviewState
   onAsk: (question: string) => void
+  withLocations: boolean
+  onWithLocationsChange: (value: boolean) => void
   onReview: () => void
   onCancel: () => void
   onRemove: (id: string) => void
@@ -73,7 +75,7 @@ const AnswerCard = memo(function AnswerCard({ message, onOpenLocation }: { messa
 })
 
 export function ReviewPanel(props: ReviewPanelProps) {
-  const { provider, messages, state, onAsk, onReview, onCancel, onRemove, onNewConversation, onOpenLocation } = props
+  const { provider, messages, state, onAsk, withLocations, onWithLocationsChange, onReview, onCancel, onRemove, onNewConversation, onOpenLocation } = props
   const [input, setInput] = useState('')
   const inputRef = useRef(input)
   inputRef.current = input
@@ -160,6 +162,10 @@ export function ReviewPanel(props: ReviewPanelProps) {
           <span className="review-panel-meta">
             {provider ? `${provider.label}${provider.installed ? '' : ' (설치 안 됨)'}` : 'Claude Code 확인 중'}
           </span>
+          <label className="review-panel-option" title="끄면 다음 질문부터 답변에 관련 위치 목록을 받지 않습니다. 전체 리뷰에는 적용되지 않습니다">
+            <input type="checkbox" checked={withLocations} onChange={(e) => onWithLocationsChange(e.target.checked)} />
+            관련 위치 포함
+          </label>
           {running ? (
             <button className="btn btn-sm" onClick={onCancel}>취소</button>
           ) : (

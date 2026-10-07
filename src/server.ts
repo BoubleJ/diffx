@@ -544,7 +544,7 @@ export function createApp(options: AppOptions) {
   })
 
   app.post('/api/review', async (c) => {
-    let body: { provider: string; mode?: string; source?: string; target?: string; iid?: unknown; exclude?: unknown; kind?: unknown; question?: unknown; selection?: unknown }
+    let body: { provider: string; mode?: string; source?: string; target?: string; iid?: unknown; exclude?: unknown; kind?: unknown; question?: unknown; selection?: unknown; withLocations?: unknown }
     try {
       body = await c.req.json()
     } catch {
@@ -583,6 +583,7 @@ export function createApp(options: AppOptions) {
       question: kind === 'question' ? question : null,
       excluded: exclude,
       selection: parsedSelection.selection,
+      withLocations: body.withLocations !== false,
       fingerprint: fingerprint(resolved),
       ctx: {
         repoPath: repo,

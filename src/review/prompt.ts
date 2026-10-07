@@ -60,8 +60,14 @@ function codeFence(code: string): string {
   return '`'.repeat(Math.max(3, longest + 1))
 }
 
-export function buildQuestionPrompt(question: string, selection?: CodeSelection): string {
-  if (!selection) return question
+export const NO_LOCATIONS = '이번 답변에서는 코드 위치를 찾지 말고 locations를 빈 배열로 두세요.'
+
+export function buildQuestionPrompt(question: string, selection?: CodeSelection, withLocations = true): string {
+  const prompt = selection ? withSelection(question, selection) : question
+  return withLocations ? prompt : `${prompt}\n\n${NO_LOCATIONS}`
+}
+
+function withSelection(question: string, selection: CodeSelection): string {
   const lines = selection.startLine === selection.endLine ? `${selection.startLine}줄` : `${selection.startLine}-${selection.endLine}줄`
   const side = selection.side === 'additions' ? '변경 후 코드' : '변경 전 코드'
   const fence = codeFence(selection.code)

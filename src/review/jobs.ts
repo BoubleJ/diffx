@@ -18,6 +18,7 @@ export interface StartInput {
   question: string | null
   excluded?: string[]
   selection?: CodeSelection
+  withLocations?: boolean
 }
 
 export type RunFn = (provider: ReviewProvider, ctx: ReviewContext, request: ReviewRequest, options: RunOptions) => Promise<ReviewResult>
@@ -43,7 +44,7 @@ export class ReviewJobs {
 
   constructor(private store: ReviewStore, private run: RunFn = runReview) {}
 
-  start({ provider, ctx, key, fingerprint, kind, question, excluded, selection }: StartInput): string {
+  start({ provider, ctx, key, fingerprint, kind, question, excluded, selection, withLocations = true }: StartInput): string {
     const existing = [...this.jobs.values()].find((j) => this.isActive(j) && j.repoPath === ctx.repoPath && j.key === key && j.provider === provider.id)
     if (existing) return existing.id
 
@@ -83,7 +84,7 @@ export class ReviewJobs {
       else finish({ type: 'error', kind: 'process', message: String((err as Error)?.message ?? err) })
     }
 
-    const prompt = kind === 'review' ? buildReviewPrompt(ctx) : buildQuestionPrompt(job.question ?? '', job.selection ?? undefined)
+    const prompt = kind === 'review' ? buildReviewPrompt(ctx) : buildQuestionPrompt(job.question ?? '', job.selection ?? undefined, withLocations)
     const systemPrompt = buildSystemPrompt(ctx)
     const runWith = (session: ReviewSession) =>
       this.run(provider, ctx, { prompt, systemPrompt, session }, { signal: job.controller.signal, onProgress: (text) => emit({ type: 'progress', text }) })

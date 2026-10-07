@@ -1812,6 +1812,17 @@ body {
     gap: 8px;
 }
 
+.review-panel-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
 .review-panel-title {
     font-weight: 600;
 }
