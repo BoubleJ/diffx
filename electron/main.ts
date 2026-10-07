@@ -6,7 +6,7 @@ import { fixPath } from './shellPath.js'
 import { RecentStore } from './recent.js'
 import { RepoWindows, type OpenResult } from './repoWindows.js'
 import { buildMenu } from './menu.js'
-import { checkForUpdates } from './updater/index.js'
+import { checkForUpdates, PERIODIC_CHECK_MS } from './updater/index.js'
 
 const pendingOpen: string[] = []
 let initialized = false
@@ -130,10 +130,12 @@ app.whenReady().then(async () => {
   if (initialPaths.length === 0) showLauncher()
   for (const path of initialPaths) await openAndReport(path)
   void checkForUpdates({ manual: false })
+  setInterval(() => void checkForUpdates({ manual: false }), PERIODIC_CHECK_MS)
 })
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) showLauncher()
+  if (initialized) void checkForUpdates({ manual: false })
 })
 
 app.on('window-all-closed', () => {

@@ -2,8 +2,14 @@ import { app, BrowserWindow, dialog } from 'electron'
 import { fetchLatestRelease, releaseDetail } from './github.js'
 import { appBundlePath, checkInstallable, prepareUpdate, startSwap } from './install.js'
 import { isNewer } from './version.js'
+import { AutoCheckPolicy } from './autoCheck.js'
+
+const HOUR = 60 * 60 * 1000
+export const PERIODIC_CHECK_MS = 6 * HOUR
 
 let installing = false
+let prompting = false
+const autoCheck = new AutoCheckPolicy(HOUR)
 
 function setProgress(ratio: number | null) {
   // macOS는 창의 진행률을 Dock 아이콘에 표시한다. 1보다 큰 값은 진행률 없는 막대로, 음수는 막대 제거로 처리한다.
@@ -40,6 +46,10 @@ export async function checkForUpdates({ manual }: { manual: boolean }): Promise<
     if (manual) await dialog.showMessageBox({ type: 'info', message: '업데이트를 내려받는 중입니다' })
     return
   }
+  if (!manual) {
+    if (!autoCheck.shouldCheck(Date.now())) return
+    autoCheck.markChecked(Date.now())
+  }
   const current = app.getVersion()
   const latest = await fetchLatestRelease()
   if (latest.kind === 'error') {
@@ -50,18 +60,31 @@ export async function checkForUpdates({ manual }: { manual: boolean }): Promise<
     if (manual) await dialog.showMessageBox({ type: 'info', message: `최신 버전을 사용 중입니다 (${current})` })
     return
   }
-  if (!latest.zipUrl) {
-    await dialog.showMessageBox({ type: 'warning', message: '이 Release에는 설치 파일이 없습니다', detail: `새 버전: ${latest.version}` })
+  if (!manual && autoCheck.isDismissed(latest.version)) return
+  if (prompting) return
+  prompting = true
+  let response: number
+  try {
+    if (!latest.zipUrl) {
+      autoCheck.dismiss(latest.version)
+      await dialog.showMessageBox({ type: 'warning', message: '이 Release에는 설치 파일이 없습니다', detail: `새 버전: ${latest.version}` })
+      return
+    }
+    response = (await dialog.showMessageBox({
+      type: 'info',
+      message: `새 버전(${latest.version})을 설치할 수 있습니다`,
+      detail: releaseDetail(current, latest.notes),
+      buttons: ['지금 업데이트', '나중에'],
+      defaultId: 0,
+      cancelId: 1,
+    })).response
+  } finally {
+    prompting = false
+  }
+  if (response !== 0) {
+    autoCheck.dismiss(latest.version)
     return
   }
-  const { response } = await dialog.showMessageBox({
-    type: 'info',
-    message: `새 버전(${latest.version})을 설치할 수 있습니다`,
-    detail: releaseDetail(current, latest.notes),
-    buttons: ['지금 업데이트', '나중에'],
-    defaultId: 0,
-    cancelId: 1,
-  })
-  if (response !== 0 || installing) return
+  if (installing) return
   await install(latest.version, latest.zipUrl)
 }
