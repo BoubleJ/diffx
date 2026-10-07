@@ -51,7 +51,8 @@ export function comparisonForMode(
   const last = readComparison(`${STORAGE_PREFIX}${repoRoot}:${mode}`, storage)
   if (mode === 'mr') return { comparison: last?.mode === 'mr' ? last : { mode: 'mr', iid: null }, missing: [] }
   if (!branches) return null
-  return reconcileComparison(last?.mode === 'branch' ? last : null, branches)
+  if (last?.mode !== 'branch') return { comparison: defaultBranchComparison(branches), missing: [] }
+  return reconcileComparison(last, branches)
 }
 
 export function defaultBranchComparison(branches: BranchInfo): Extract<Comparison, { mode: 'branch' }> {
@@ -61,7 +62,7 @@ export function defaultBranchComparison(branches: BranchInfo): Extract<Compariso
 }
 
 export function reconcileComparison(saved: Comparison | null, branches: BranchInfo): { comparison: Comparison; missing: string[] } {
-  if (!saved) return { comparison: defaultBranchComparison(branches), missing: [] }
+  if (!saved) return { comparison: { mode: 'mr', iid: null }, missing: [] }
   if (saved.mode === 'mr') return { comparison: saved, missing: [] }
   const all = new Set([...branches.local, ...branches.remote])
   const missing = [saved.source, saved.target].filter((b) => !all.has(b))

@@ -41,19 +41,19 @@ export function BranchPicker({ comparison, branches, fetching, fetchError, notic
     <div className="branch-picker">
       <div className="toolbar-toggle">
         <button
-          className={`btn btn-sm ${comparison.mode === 'branch' ? 'btn-active' : ''}`}
-          onClick={switchToBranch}
-          disabled={!branches}
-        >
-          브랜치 비교
-        </button>
-        <button
           className={`btn btn-sm ${comparison.mode === 'mr' ? 'btn-active' : ''} ${mrUnavailable ? 'btn-unavailable' : ''}`}
           onClick={handleMrTab}
           disabled={!gitlab}
           title={mrUnavailable ?? undefined}
         >
           MR
+        </button>
+        <button
+          className={`btn btn-sm ${comparison.mode === 'branch' ? 'btn-active' : ''}`}
+          onClick={switchToBranch}
+          disabled={!branches}
+        >
+          브랜치 비교
         </button>
       </div>
       {comparison.mode === 'branch' && branches && (

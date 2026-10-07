@@ -37,8 +37,8 @@ describe('load/saveComparison', () => {
 })
 
 describe('reconcileComparison', () => {
-  it('defaults to the branch comparison when nothing is saved', () => {
-    expect(reconcileComparison(null, branches)).toEqual({ comparison: { mode: 'branch', source: 'feature/x', target: 'origin/main' }, missing: [] })
+  it('defaults to the MR comparison when nothing is saved', () => {
+    expect(reconcileComparison(null, branches)).toEqual({ comparison: { mode: 'mr', iid: null }, missing: [] })
   })
 
   it('keeps saved branches that still exist', () => {
