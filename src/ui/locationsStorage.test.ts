@@ -7,8 +7,8 @@ function memoryStorage() {
 }
 
 describe('locationsStorage', () => {
-  it('includes locations by default', () => {
-    expect(loadWithLocations(memoryStorage())).toBe(true)
+  it('leaves locations out by default', () => {
+    expect(loadWithLocations(memoryStorage())).toBe(false)
   })
 
   it('remembers the last choice', () => {

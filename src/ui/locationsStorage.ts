@@ -2,9 +2,9 @@ const STORAGE_KEY = 'diffx-review-with-locations'
 
 export function loadWithLocations(storage: Pick<Storage, 'getItem'> = localStorage): boolean {
   try {
-    return storage.getItem(STORAGE_KEY) !== 'false'
+    return storage.getItem(STORAGE_KEY) === 'true'
   } catch {
-    return true
+    return false
   }
 }
 
