@@ -19,9 +19,9 @@ describe('claudeProvider.buildCommand', () => {
     expect(cmd.args).not.toContain('--resume')
     expect(cmd.args.slice(cmd.args.indexOf('--tools') + 1, cmd.args.indexOf('--json-schema'))).toEqual(['Read', 'Grep', 'Glob', 'Bash'])
     const allowed = cmd.args.slice(cmd.args.indexOf('--allowedTools') + 1, cmd.args.indexOf('--disallowedTools'))
-    expect(allowed).toEqual(['Read', 'Grep', 'Glob', 'Bash(git show:*)', 'Bash(git log:*)', 'Bash(git diff:*)'])
+    expect(allowed).toEqual(['Read', 'Grep', 'Glob', 'Bash(git show:*)', 'Bash(git log:*)', 'Bash(git diff:*)', 'Bash(git grep:*)', 'Bash(git ls-tree:*)'])
     const denied = cmd.args.slice(cmd.args.indexOf('--disallowedTools') + 1)
-    expect(denied).toEqual(['Edit', 'Write', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Bash(git * --output*)', 'Bash(git * --no-index*)'])
+    expect(denied).toEqual(['Edit', 'Write', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Bash(git * --output*)', 'Bash(git * --no-index*)', 'Bash(git grep*-O*)', 'Bash(git grep*--open-files-in-pager*)'])
     expect(JSON.parse(cmd.args[cmd.args.indexOf('--json-schema') + 1]).required).toEqual(['answer', 'locations'])
   })
 

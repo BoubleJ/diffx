@@ -45,8 +45,8 @@ export const claudeProvider: ReviewProvider = {
         '--permission-mode', 'dontAsk',
         '--tools', 'Read', 'Grep', 'Glob', 'Bash',
         '--json-schema', JSON.stringify(REVIEW_JSON_SCHEMA),
-        '--allowedTools', 'Read', 'Grep', 'Glob', 'Bash(git show:*)', 'Bash(git log:*)', 'Bash(git diff:*)',
-        '--disallowedTools', 'Edit', 'Write', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Bash(git * --output*)', 'Bash(git * --no-index*)',
+        '--allowedTools', 'Read', 'Grep', 'Glob', 'Bash(git show:*)', 'Bash(git log:*)', 'Bash(git diff:*)', 'Bash(git grep:*)', 'Bash(git ls-tree:*)',
+        '--disallowedTools', 'Edit', 'Write', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Bash(git * --output*)', 'Bash(git * --no-index*)', 'Bash(git grep*-O*)', 'Bash(git grep*--open-files-in-pager*)',
       ],
       stdin: request.prompt,
     }

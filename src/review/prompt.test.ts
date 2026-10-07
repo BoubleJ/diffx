@@ -21,7 +21,8 @@ describe('buildSystemPrompt', () => {
     expect(p).toContain('타겟 브랜치: origin/main')
     expect(p).toContain('merge-base 커밋: abc123')
     expect(p).toContain('파일을 수정하지 마세요')
-    expect(p).toContain('git show, git log, git diff')
+    expect(p).toContain('git show, git log, git diff, git grep, git ls-tree')
+    expect(p).toContain('cd, git -C, 변수 대입')
     expect(p).toContain('한국어')
     expect(p).toContain('locations')
     expect(p).toContain('리뷰를 요청하지 않았으면 리뷰하지 마세요')
@@ -31,7 +32,10 @@ describe('buildSystemPrompt', () => {
   })
 
   it('tells Claude to use git show when the source is not checked out', () => {
-    expect(buildSystemPrompt({ ...base, sourceCheckedOut: false })).toContain('git show feature/x:<경로>')
+    const notCheckedOut = buildSystemPrompt({ ...base, sourceCheckedOut: false })
+    expect(notCheckedOut).toContain('git show feature/x:<경로>')
+    expect(notCheckedOut).toContain('git ls-tree -r --name-only feature/x')
+    expect(notCheckedOut).toContain('git grep -n <패턴> feature/x')
     expect(buildSystemPrompt(base)).toContain('작업 트리의 파일이 리뷰 대상 코드와 같습니다')
   })
 })

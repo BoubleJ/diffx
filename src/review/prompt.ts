@@ -4,7 +4,7 @@ export const MAX_PATCH_CHARS = 200_000
 
 function fileReadingGuide(ctx: ReviewContext): string {
   if (!ctx.sourceCheckedOut) {
-    return `소스 브랜치가 체크아웃되어 있지 않아서 작업 트리의 파일은 비교 대상과 다를 수 있습니다. 파일 전체 내용은 \`git show ${ctx.source}:<경로>\`로 읽으세요.`
+    return `소스 브랜치가 체크아웃되어 있지 않아서 작업 트리의 파일은 비교 대상과 다를 수 있습니다. 파일 전체 내용은 \`git show ${ctx.source}:<경로>\`, 파일 목록은 \`git ls-tree -r --name-only ${ctx.source} -- <경로>\`, 코드 검색은 \`git grep -n <패턴> ${ctx.source} -- <경로>\`로 하세요.`
   }
   return '작업 트리의 파일이 리뷰 대상 코드와 같습니다. 파일을 직접 읽어도 됩니다.'
 }
@@ -24,7 +24,8 @@ export function buildSystemPrompt(ctx: ReviewContext): string {
     '',
     '## 지켜야 할 것',
     '- 파일을 수정하지 마세요.',
-    '- 읽기와 git 조회 명령(git show, git log, git diff)만 사용하세요.',
+    '- 읽기와 git 조회 명령(git show, git log, git diff, git grep, git ls-tree)만 사용하세요.',
+    '- 명령은 작업 디렉토리(저장소 루트)에서 하나씩 실행하세요. cd, git -C, 변수 대입을 쓰지 말고 ;나 &&로 여러 명령을 묶지 마세요. 이런 명령은 권한 확인에서 거부됩니다.',
     '- 모든 문장은 한국어로 쓰세요.',
     '- 답변에서 코드 위치를 언급하면 그 위치를 locations에 넣으세요. file은 저장소 루트 기준 경로, line은 줄 번호(파일 전체면 null), side는 새 코드면 new, 삭제된 코드면 old입니다.',
     '- 질문에 맞는 형식으로 답하세요. 사용자가 리뷰를 요청하지 않았으면 리뷰하지 마세요.',
