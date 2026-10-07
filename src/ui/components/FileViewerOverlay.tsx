@@ -15,6 +15,7 @@ interface OverlayEntry {
 interface FileViewerOverlayProps {
   entries: OverlayEntry[]
   contentQuery: string
+  leftInset: number
   rightInset: number
   onBack: () => void
   onClose: () => void
@@ -24,7 +25,7 @@ interface FileViewerOverlayProps {
 
 type LoadState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; contents: string }
 
-export function FileViewerOverlay({ entries, contentQuery, rightInset, onBack, onClose, onDefinition, onFileReferences }: FileViewerOverlayProps) {
+export function FileViewerOverlay({ entries, contentQuery, leftInset, rightInset, onBack, onClose, onDefinition, onFileReferences }: FileViewerOverlayProps) {
   const current = entries[entries.length - 1]
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -46,7 +47,7 @@ export function FileViewerOverlay({ entries, contentQuery, rightInset, onBack, o
   }, [current.path, current.version, contentQuery])
 
   useEffect(() => {
-    if (state.status !== 'ready') return
+    if (state.status !== 'ready' || current.line < 1) return
     let frames = 0
     let handle = 0
     const tryScroll = () => {
@@ -73,7 +74,7 @@ export function FileViewerOverlay({ entries, contentQuery, rightInset, onBack, o
   const linkable = isSourceFile(current.path)
 
   return (
-    <div className="file-overlay-backdrop" style={{ right: rightInset }} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="file-overlay-backdrop" style={{ left: leftInset, right: rightInset }} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="file-overlay">
         <div className="file-overlay-header">
           <span
@@ -98,7 +99,7 @@ export function FileViewerOverlay({ entries, contentQuery, rightInset, onBack, o
           {state.status === 'ready' && (
             <CodeFile
               file={{ name: current.path, contents: state.contents }}
-              selectedLines={{ start: current.line, end: current.line }}
+              selectedLines={current.line > 0 ? { start: current.line, end: current.line } : null}
               options={{
                 disableFileHeader: true,
                 theme: { dark: 'github-dark', light: 'github-light' },

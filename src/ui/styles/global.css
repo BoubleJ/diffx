@@ -1048,6 +1048,48 @@ body {
 }
 
 /* Comment count */
+.sidebar-tabs {
+    flex-shrink: 0;
+    margin: 8px 12px 0;
+}
+
+.sidebar-tabs .btn {
+    flex: 1;
+    justify-content: center;
+}
+
+.rft-mark {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.rft-mark-added {
+    color: #1a7f37;
+}
+
+.rft-mark-modified {
+    color: #9a6700;
+}
+
+@media (prefers-color-scheme: dark) {
+    .rft-mark-added {
+        color: #3fb950;
+    }
+
+    .rft-mark-modified {
+        color: #d29922;
+    }
+}
+
+.rft-message {
+    margin: 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
 .ft-comment-count {
     display: flex;
     align-items: center;
@@ -2060,7 +2102,7 @@ body.definition-loading * {
 .file-overlay {
     display: flex;
     flex-direction: column;
-    width: min(1100px, calc(100vw - 80px));
+    width: min(1100px, calc(100% - 80px));
     height: calc(100vh - 80px);
     background: var(--bg);
     border: 1px solid var(--border);

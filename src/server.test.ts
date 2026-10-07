@@ -76,6 +76,21 @@ describe('GET /api/file-content in branch mode', () => {
   })
 })
 
+describe('GET /api/tree', () => {
+  it('lists files at the source commit, not the worktree', async () => {
+    const { app, repo } = setupApp()
+    writeFileSync(join(repo, 'untracked.txt'), 'x')
+    const res = await app.request('/api/tree?mode=branch&source=feature/x&target=origin/main')
+    expect(await res.json()).toEqual({ files: ['a.txt', 'img.png'] })
+  })
+
+  it('requires a comparison mode and known refs', async () => {
+    const { app } = setupApp()
+    expect(await (await app.request('/api/tree')).json()).toMatchObject({ error: 'missing_mode' })
+    expect((await app.request('/api/tree?mode=branch&source=nope&target=main')).status).toBe(400)
+  })
+})
+
 describe('GET /api/file-versions in branch mode', () => {
   it('serves full contents for oids in the branch diff', async () => {
     const { app } = setupApp()

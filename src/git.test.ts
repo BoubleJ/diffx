@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { makeRepo, commit, git } from './test/gitRepo'
 import {
   getRepoRoot, getRepoName, getBranchName, isGitRepo,
-  listBranches, resolveCommit, getMergeBase, getRangeDiff, getFileAtCommit, fetchAll, getHeadSha,
+  listBranches, resolveCommit, getMergeBase, getRangeDiff, getFileAtCommit, fetchAll, getHeadSha, listFilesAtCommit,
 } from './git'
 
 describe('git functions take a repo path', () => {
@@ -105,6 +105,22 @@ describe('getFileAtCommit', () => {
     expect(getFileAtCommit(repo, feature, 'missing.txt')).toBeNull()
     expect(getFileAtCommit(repo, '--output=/tmp/x', 'img.png')).toBeNull()
     expect(getFileAtCommit(repo, feature, '')).toBeNull()
+  })
+})
+
+describe('listFilesAtCommit', () => {
+  it('lists every blob at the commit, skipping submodules', async () => {
+    const repo = makeRepo()
+    commit(repo, { 'src/a.ts': 'a', 'README.md': 'r', '한글 파일.txt': 'k' }, 'base')
+    const sub = git(repo, 'rev-parse', 'HEAD').trim()
+    git(repo, 'update-index', '--add', '--cacheinfo', `160000,${sub},vendor/lib`)
+    git(repo, 'commit', '-q', '-m', 'submodule')
+    const sha = git(repo, 'rev-parse', 'HEAD').trim()
+    expect(await listFilesAtCommit(repo, sha)).toEqual(['README.md', 'src/a.ts', '한글 파일.txt'])
+  })
+
+  it('rejects option-looking shas', async () => {
+    await expect(listFilesAtCommit(makeRepo(), '--output=/tmp/x')).rejects.toThrow('invalid commit sha')
   })
 })
 

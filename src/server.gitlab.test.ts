@@ -147,6 +147,11 @@ describe('other APIs in mr mode', () => {
     expect(detailCalls(calls)).toBe(1)
   })
 
+  it('lists files at the MR head commit', async () => {
+    const { app } = setupMr()
+    expect(await (await app.request('/api/tree?mode=mr&iid=7')).json()).toEqual({ files: ['a.txt', 'b.png'] })
+  })
+
   it('looks up saved reviews by the MR key', async () => {
     const { app } = setupMr()
     const body = await (await app.request('/api/review?mode=mr&iid=7')).json()

@@ -177,6 +177,22 @@ export function getFileAtCommit(repo: string, sha: string, filePath: string): Bu
   }
 }
 
+export function listFilesAtCommit(repo: string, sha: string): Promise<string[]> {
+  if (!SHA_REGEX.test(sha)) return Promise.reject(new Error('invalid commit sha'))
+  return new Promise((done, fail) => {
+    execFile('git', [...QUOTEPATH_OFF, 'ls-tree', '-r', '-z', sha], { cwd: repo, encoding: 'utf-8', maxBuffer: MAX_BUFFER }, (err, stdout) => {
+      if (err) return fail(err)
+      const files: string[] = []
+      for (const entry of stdout.split('\0')) {
+        const tab = entry.indexOf('\t')
+        if (tab === -1 || entry.split(' ')[1] !== 'blob') continue
+        files.push(entry.slice(tab + 1))
+      }
+      done(files)
+    })
+  })
+}
+
 export function getHeadSha(repo: string): string | null {
   return resolveCommit(repo, 'HEAD')
 }

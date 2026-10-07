@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Resizable } from 'react-resizable'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { parsePatchFiles } from '@pierre/diffs'
 import { Virtualizer } from '@pierre/diffs/react'
 import type { FileDiffMetadata } from '@pierre/diffs'
@@ -27,6 +27,8 @@ import { MrCheckout } from './components/MrCheckout'
 import { BranchPicker } from './components/BranchPicker'
 import { DiffViewer } from './components/DiffViewer'
 import { FileTree } from './components/FileTree'
+import { RepoFileTree, type RepoTreeState } from './components/RepoFileTree'
+import { changeMarks } from './repoTree'
 import { CommentTracker } from './components/CommentTracker'
 import { ExcludedFiles } from './components/ExcludedFiles'
 import { ConversationList } from './components/ConversationList'
@@ -441,35 +443,77 @@ export function App() {
 
   const allPaths = useMemo(() => files.map((f) => f.name), [files])
 
+  const [sidebarTab, setSidebarTab] = useState<'changed' | 'all'>('changed')
+  const repoTreeQuery = useQuery({
+    queryKey: ['repo-tree', contentQuery, diffMr?.headSha ?? null, diffReloadToken],
+    queryFn: async () => {
+      const res = await fetch(`/api/tree?${contentQuery}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return (await res.json() as { files: string[] }).files
+    },
+    enabled: sidebarTab === 'all' && !!params && !(comparison?.mode === 'mr' && comparison.iid === null) && !loading && !error,
+  })
+  const repoTreeState: RepoTreeState = repoTreeQuery.data ? { status: 'ready', files: repoTreeQuery.data } : repoTreeQuery.isError ? { status: 'error' } : { status: 'loading' }
+  const marks = useMemo(() => changeMarks(files), [files])
+  const overlayPath = overlayEntries.length > 0 ? overlayEntries[overlayEntries.length - 1].path : null
+
+  const handleRepoFileOpen = useCallback((path: string) => {
+    if (visibleFileNames.has(path)) {
+      closeOverlay()
+      handleFileClick(path)
+      return
+    }
+    setOverlayEntries([{ path, line: 0, version: 'new' }])
+  }, [visibleFileNames, closeOverlay, handleFileClick])
+
   const sidebarContent = (
     <div className="sidebar-content">
-      <FileTree
-        files={visibleFiles}
-        activeFile={activeFile}
-        commentCounts={commentCounts}
-        viewedFiles={viewedFiles}
-        onFileClick={handleFileClick}
-        onExclude={handleExclude}
-        collapsed={sidebar.collapsed}
-        onToggleCollapse={handleToggleCollapse}
-        searchAction={
-          <FileKindPopover
-            paths={allPaths}
-            excluded={excludedSet}
-            viewed={viewedFiles}
-            onExcludeMany={handleExcludeMany}
-            onIncludeMany={handleIncludeMany}
-            onViewedMany={handleViewedMany}
-          />
-        }
-      />
-      {!sidebar.collapsed && <ExcludedFiles paths={excludedInDiff} onInclude={handleInclude} />}
-      {!sidebar.collapsed && isMr && diffMr && mrComments.outdatedCount > 0 && (
-        <div className="mr-outdated-notice">
-          이전 버전에 남은 코멘트 {mrComments.outdatedCount}개는 <a href={diffMr.webUrl} target="_blank" rel="noreferrer">GitLab</a>에서 확인해 주세요
+      {!sidebar.collapsed && (
+        <div className="toolbar-toggle sidebar-tabs">
+          <button className={`btn btn-sm ${sidebarTab === 'changed' ? 'btn-active' : ''}`} onClick={() => setSidebarTab('changed')}>변경 파일 {files.length}</button>
+          <button className={`btn btn-sm ${sidebarTab === 'all' ? 'btn-active' : ''}`} onClick={() => setSidebarTab('all')}>전체 파일</button>
         </div>
       )}
-      {!sidebar.collapsed && <CommentTracker comments={comments} />}
+      {!sidebar.collapsed && sidebarTab === 'all' ? (
+        <RepoFileTree
+          key={contentQuery}
+          state={repoTreeState}
+          marks={marks}
+          activePath={overlayPath ?? activeFile}
+          onOpen={handleRepoFileOpen}
+          onToggleCollapse={handleToggleCollapse}
+        />
+      ) : (
+        <>
+          <FileTree
+            files={visibleFiles}
+            activeFile={activeFile}
+            commentCounts={commentCounts}
+            viewedFiles={viewedFiles}
+            onFileClick={handleFileClick}
+            onExclude={handleExclude}
+            collapsed={sidebar.collapsed}
+            onToggleCollapse={handleToggleCollapse}
+            searchAction={
+              <FileKindPopover
+                paths={allPaths}
+                excluded={excludedSet}
+                viewed={viewedFiles}
+                onExcludeMany={handleExcludeMany}
+                onIncludeMany={handleIncludeMany}
+                onViewedMany={handleViewedMany}
+              />
+            }
+          />
+          {!sidebar.collapsed && <ExcludedFiles paths={excludedInDiff} onInclude={handleInclude} />}
+          {!sidebar.collapsed && isMr && diffMr && mrComments.outdatedCount > 0 && (
+            <div className="mr-outdated-notice">
+              이전 버전에 남은 코멘트 {mrComments.outdatedCount}개는 <a href={diffMr.webUrl} target="_blank" rel="noreferrer">GitLab</a>에서 확인해 주세요
+            </div>
+          )}
+          {!sidebar.collapsed && <CommentTracker comments={comments} />}
+        </>
+      )}
     </div>
   )
 
@@ -653,6 +697,7 @@ export function App() {
         <FileViewerOverlay
           entries={overlayEntries}
           contentQuery={contentQuery}
+          leftInset={sidebar.collapsed ? sidebar.visibleSize() : sidebar.visibleSize(maxSidebarWidth)}
           rightInset={reviewPanel.open ? Math.min(reviewPanel.size, maxSidebarWidth) : 0}
           onBack={backOverlay}
           onClose={closeOverlay}

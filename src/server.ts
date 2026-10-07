@@ -4,7 +4,7 @@ import { join, extname, resolve } from 'node:path'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { serve } from '@hono/node-server'
-import { getRepoName, getBranchName, getBlobContent, getTabSizeForFiles, listBranches, fetchAll, getFileAtCommit, getHeadSha, listRemotes } from './git.js'
+import { getRepoName, getBranchName, getBlobContent, getTabSizeForFiles, listBranches, fetchAll, getFileAtCommit, getHeadSha, listRemotes, listFilesAtCommit } from './git.js'
 import { resolveComparison, resolveBranchRefs, createRangeDiffCache, queryFromSearch, ComparisonError, type ResolvedComparison, type BranchRefs } from './comparison.js'
 import type { Context } from 'hono'
 import { loadSettings, saveSettings } from './settings.js'
@@ -231,24 +231,25 @@ export function createApp(options: AppOptions) {
     })
   })
 
+  const requestRefs = async (c: Context): Promise<{ mergeBase: string; sourceSha: string }> => {
+    const mode = c.req.query('mode')
+    if (mode === 'mr') {
+      const resolved = await mrComparisons.resolve(parseIid(c.req.query('iid')), { refresh: false })
+      return { mergeBase: resolved.mergeBase!, sourceSha: resolved.sourceSha! }
+    }
+    if (mode === 'branch') return resolveBranchRefs(repo, { source: c.req.query('source'), target: c.req.query('target') })
+    throw new ComparisonError('missing_mode', '비교 방식을 선택해 주세요')
+  }
+
   app.get('/api/file-content', async (c) => {
     const path = c.req.query('path')
     const version = c.req.query('version') as 'old' | 'new'
     if (!path || !version) {
       return c.json({ error: 'Missing path or version' }, 400)
     }
-    const mode = c.req.query('mode')
-    if (mode !== 'branch' && mode !== 'mr') {
-      return comparisonErrorResponse(c, new ComparisonError('missing_mode', '비교 방식을 선택해 주세요'))
-    }
     let refs: { mergeBase: string; sourceSha: string }
     try {
-      if (mode === 'mr') {
-        const resolved = await mrComparisons.resolve(parseIid(c.req.query('iid')), { refresh: false })
-        refs = { mergeBase: resolved.mergeBase!, sourceSha: resolved.sourceSha! }
-      } else {
-        refs = resolveBranchRefs(repo, { source: c.req.query('source'), target: c.req.query('target') })
-      }
+      refs = await requestRefs(c)
     } catch (err) {
       return comparisonErrorResponse(c, err)
     }
@@ -261,6 +262,16 @@ export function createApp(options: AppOptions) {
     return new Response(new Uint8Array(content), {
       headers: { 'Content-Type': contentType },
     })
+  })
+
+  app.get('/api/tree', async (c) => {
+    let sourceSha: string
+    try {
+      sourceSha = (await requestRefs(c)).sourceSha
+    } catch (err) {
+      return comparisonErrorResponse(c, err)
+    }
+    return c.json({ files: await listFilesAtCommit(repo, sourceSha) })
   })
 
   const readerFor = async (c: Context, side: 'additions' | 'deletions'): Promise<SourceReader> => {
