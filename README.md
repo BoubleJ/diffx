@@ -1,138 +1,205 @@
-# diffx
+# reviewHelper
 
-A local code review tool designed for the coding agent workflow. Review AI-generated changes in a GitHub PR-like web UI, leave inline comments, then hand them back to your coding agent to fix.
+**최신 버전**: 1.5.3
 
-![screenshot](https://raw.githubusercontent.com/wong2/diffx/main/screenshot.png)
+> **reviewHelper 1.5.3 (맥 Apple Silicon용, 2026-10-07)**
+>
+> AI가 만든 변경을 GitHub PR 같은 화면에서 리뷰하고, 남긴 코멘트를 Claude Code에 넘겨 고치게 하는 데스크톱 앱이에요.
+>
+> - 브랜치 비교와 GitLab MR의 diff를 보고 줄마다 코멘트를 남겨요
+> - Claude Code와 대화하며 AI 리뷰를 받고, 선택한 코드로 바로 질문해요
+> - MR 코드를 리뷰용 worktree에 체크아웃해서 로컬에서 실행해요
+>
+> **[📦 reviewHelper 내려받기 (GitHub Releases)](https://github.com/BoubleJ/diffx/releases/latest)**
 
-## macOS 데스크톱 앱
+## 🚀 시작하기
 
-터미널 없이 diffx를 실행하는 앱(reviewHelper)이다. Apple Silicon(arm64) 맥에서 동작한다.
+### 1️⃣ 설치하기
 
-### 설치
+위 **📦 내려받기**에서 `reviewHelper-<버전>.zip`을 받아 풀고, `reviewHelper.app`을 `/Applications`로 옮겨요.
 
-1. `reviewHelper-<버전>.zip`을 풀고 `reviewHelper.app`을 `/Applications`로 옮긴다.
-2. Apple 공증을 받지 않은 앱이라 처음 실행 시 Gatekeeper가 막는다. 아래 중 하나를 한 번만 하면 된다.
-   - Finder에서 `reviewHelper.app`을 우클릭하고 `열기`를 누른 뒤 경고 창에서 다시 `열기`를 누른다.
-   - 터미널에서 `xattr -dr com.apple.quarantine /Applications/reviewHelper.app`을 실행한다.
+<details>
+<summary>처음 열기가 막힐 때 (「악성 코드가 없음을 확인할 수 없습니다」)</summary>
 
-### 사용
+Apple 공증을 받지 않은 앱이라 처음 실행할 때 Gatekeeper가 막아요. 아래 중 하나를 한 번만 하면 돼요.
 
-- 앱 실행 시 저장소 선택 창이 열린다. `폴더 열기`로 git 저장소를 고르거나 최근 저장소를 누른다.
-- 저장소마다 창이 따로 열린다. `파일 > 저장소 열기`(`Cmd+O`)로 다른 저장소를 연다.
-- Finder에서 저장소 폴더를 Dock의 reviewHelper 아이콘으로 끌어다 놓아도 열린다.
-- AI 리뷰는 Claude Code(`claude`)로 실행된다. `claude`가 설치돼 있고 로그인돼 있어야 한다.
-- AI 리뷰 패널은 비교 단위로 질문과 답변을 저장하고 같은 Claude Code 세션을 이어서 사용한다. 그래서 저장소 경로에서 `claude --resume`을 실행하면 이 세션이 목록에 나타난다.
-- 취소하거나 실패한 질문은 패널에 표시되지 않지만 Claude 세션의 맥락에는 남아 있다.
-- AI 리뷰 패널의 `대화 삭제` 클릭 후 확인하면 그 비교의 질문과 답변이 모두 삭제되고 다음 질문부터 새 Claude 세션을 쓴다.
-- 오른쪽 패널의 `대화 목록` 탭에서 이 저장소의 AI 대화를 마지막 질문 시각 순서로 본다. 줄을 클릭하면 그 브랜치 비교나 MR로 이동하고 `AI 리뷰` 탭이 열린다. `삭제` 클릭 후 확인하면 그 대화가 삭제된다.
-- 툴바 톱니바퀴 설정의 `AI 대화 보존 기간`(기본 30일)이 지난 대화는 저장소 창을 열 때와 설정을 바꿀 때 삭제된다. 기간은 대화의 마지막 질문 시각부터 센다. 비워 두면 삭제하지 않는다.
-
-### GitLab MR 리뷰
-
-`MR` 탭에서 현재 저장소의 GitLab MR을 골라 diff를 보고 코멘트를 남긴다.
-
-1. glab을 설치하고 사내 GitLab에 로그인한다.
-   ```bash
-   brew install glab
-   glab auth login --hostname gitlab.example.com
-   ```
-2. 앱에서 저장소를 열고 툴바의 `MR` 탭을 클릭한다. 원격 저장소가 GitLab이 아니거나 glab 로그인이 안 되어 있으면 `MR` 버튼이 비활성으로 보이고 마우스를 올리면 이유가 나온다.
-3. MR 선택 드롭다운에서 MR을 고르면 그 MR의 diff가 열린다. 드롭다운의 `전체 / 열린 MR / 머지된 MR` 버튼과 `내가 올린 MR` 체크박스로 목록을 좁힌다.
-4. diff 줄에 남긴 코멘트와 기존 코멘트의 답글은 GitLab에 초안으로 저장된다. 툴바의 `코멘트 등록` 클릭 시 초안이 모두 공개된다.
-
-`브랜치 비교` 탭에서 남긴 코멘트는 GitLab에 보내지 않고 앱 안에서만 보인다.
-
-#### MR 코드 로컬에서 실행하기
-
-MR 모드 툴바의 MR 제목 옆 버튼으로 MR 코드를 리뷰용 worktree에 체크아웃하고 터미널을 연다.
-
-1. `체크아웃` 클릭 시 MR 소스 브랜치의 최신 커밋이 `~/Library/Application Support/reviewHelper/worktrees/<저장소명>-<해시>` 폴더에 detached HEAD로 체크아웃된다. 원본 저장소의 브랜치와 작업 중인 파일은 바뀌지 않는다.
-2. 원본 저장소의 gitignore된 `.env*` 파일 중 worktree에 없는 파일이 복사된다. worktree에서 수정한 env 파일은 덮어쓰지 않는다.
-3. `터미널에서 열기` 클릭 시 설정한 터미널 앱이 worktree 폴더에서 열린다. 터미널에서 `pnpm install`, `pnpm dev`를 직접 실행한다.
-4. 다른 MR에서 `체크아웃`을 누르면 같은 폴더에서 커밋만 바뀐다. `node_modules`는 그대로 남고 실행 중인 개발서버에 변경이 반영된다.
-5. worktree에서 git에 등록된 파일을 수정한 상태로 체크아웃하면 변경된 파일 목록이 나온다. `변경사항을 버리고 체크아웃` 클릭 시 수정 내용을 버리고 체크아웃한다.
-6. `worktree 삭제` 클릭 후 `삭제`를 누르면 worktree 폴더가 삭제된다. 이 폴더에서 실행 중인 개발서버를 먼저 종료한다.
-
-터미널 앱은 툴바 설정 팝오버의 `Terminal` input에 `/Applications`의 앱 이름(`iTerm`, `Warp`, `Ghostty`)으로 입력한다. 비워 두면 `Terminal`을 쓴다.
-
-### 코드 하이퍼링크
-
-diff 코드에서 Cmd를 누른 채 import 경로나 이름을 클릭하면 정의 위치로 이동한다. `.ts .tsx .js .jsx .mjs .cjs .vue` 파일이 대상이다.
-
-- 정의 파일이 diff에 있으면 그 파일 카드의 해당 줄로 스크롤한다. 없으면 가운데 창에서 파일 내용을 연다. 창 안에서도 Cmd+클릭으로 계속 이동하고 `뒤로`로 돌아간다.
-- 같은 이름의 선언이 여러 곳이면 오른쪽 패널의 `코드 탐색` 탭에 후보 목록이 나온다.
-- 정의 자리(선언한 이름)를 Cmd+클릭하면 `코드 탐색` 탭에 사용처 목록이 나온다. 다른 파일은 이 정의 파일을 import한 경우만 사용처로 본다. 정의 파일과 import한 파일 안에서는 이름이 같은 지역 변수, 주석과 문자열 안의 같은 단어도 사용처로 나온다.
-- diff 카드나 가운데 창 헤더의 파일 경로를 Cmd+클릭하면 그 파일을 import하는 곳이 나온다.
-- 목록 항목을 클릭하면 그 줄로 이동하고 목록은 그대로 남는다. 최대 200곳까지 보여준다.
-- 브랜치 비교와 MR에서는 소스 커밋(삭제 줄은 기준 커밋)의 코드에서 찾는다.
-- `obj.method`의 `method`처럼 `.` 뒤의 이름은 이동하지 않는다.
-
-### 직접 빌드
+- Finder에서 `reviewHelper.app`을 우클릭하고 `열기`를 누른 뒤 경고 창에서 다시 `열기`를 눌러요.
+- 터미널에 아래 한 줄을 붙여 넣어요.
 
 ```bash
-pnpm install
-pnpm run build:app
+xattr -dr com.apple.quarantine /Applications/reviewHelper.app
 ```
 
-`release/reviewHelper-<버전>.zip`이 만들어진다. 버전은 `package.json`의 `version` 값이다.
+</details>
 
-### 자동 업데이트
+### 2️⃣ Claude Code 준비하기
 
-앱 실행 시 GitHub Release(`BoubleJ/diffx`)의 최신 버전을 확인한다. 앱 메뉴의 `업데이트 확인...` 클릭 시에도 확인한다.
+AI 리뷰는 Claude Code(`claude`)로 실행돼요. `claude`를 설치하고 로그인해 두세요.
 
-1. 새 버전이 있으면 현재 버전과 Release 노트가 담긴 대화상자가 열린다.
-2. `지금 업데이트` 클릭 시 zip을 내려받는다. 내려받는 동안 Dock 아이콘에 진행률 막대가 표시된다.
-3. 다 받으면 앱이 종료되고 기존 `reviewHelper.app`이 새 버전으로 교체된 뒤 다시 실행된다.
+### 3️⃣ GitLab 연결하기 (선택)
 
-`나중에`를 누르면 다음 실행 때 다시 확인한다. 설정과 AI 리뷰 기록은 `~/Library/Application Support/reviewHelper`에 있어서 업데이트 후에도 남는다.
+MR 리뷰를 하려면 glab을 설치하고 사내 GitLab에 로그인해요. 브랜치 비교만 쓴다면 건너뛰어도 돼요.
 
-브라우저로 받은 zip을 풀고 앱을 옮기지 않은 채 실행하면 macOS가 앱을 읽기 전용 임시 경로에서 실행해서 교체할 수 없다. 이때는 앱을 `/Applications`나 다른 폴더로 옮긴 뒤 다시 실행한다.
+```bash
+brew install glab
+glab auth login --hostname gitlab.example.com
+```
 
-1.0.0에는 업데이트 기능이 없다. 업데이트 기능이 들어간 첫 버전은 zip으로 한 번 직접 설치한다.
+### 4️⃣ 저장소 열기
 
-### 릴리스
+앱을 실행하면 저장소 선택 창이 열려요. `폴더 열기`로 git 저장소를 고르거나 최근 저장소를 눌러요.
 
-1. gh를 설치하고 GitHub에 로그인한다. 처음 한 번만 한다.
+- 저장소마다 창이 따로 열려요. `파일 > 저장소 열기`(`Cmd+O`)로 다른 저장소를 열어요.
+- Finder에서 저장소 폴더를 Dock의 reviewHelper 아이콘으로 끌어다 놓아도 열려요.
+
+## 🧭 화면 한눈에 보기
+
+| 위치 | 이름 | 이런 걸 봐요 |
+|---|---|---|
+| 툴바 | MR | 현재 저장소의 GitLab MR을 골라 diff를 보고 코멘트를 남겨요. 저장된 비교가 없으면 MR 탭으로 시작해요 |
+| 툴바 | 브랜치 비교 | 두 브랜치를 골라 diff를 봐요. 여기서 남긴 코멘트는 앱 안에서만 보여요 |
+| 툴바 | Split, Unified | 양쪽 비교 화면과 한 줄 비교 화면을 바꿔요 |
+| 왼쪽 사이드바 | 변경 파일 | 바뀐 파일 트리, 검색, 파일 종류별 리뷰 제외와 Viewed 일괄 처리 |
+| 왼쪽 사이드바 | 전체 파일 | 저장소의 전체 파일을 탐색해요 |
+| 오른쪽 패널 | AI 리뷰 | 지금 보는 비교에 대해 Claude Code와 질문하고 답변을 받아요 |
+| 오른쪽 패널 | 대화 목록 | 이 저장소의 AI 대화를 마지막 질문 시각 순서로 보여줘요 |
+| 오른쪽 패널 | 코드 탐색 | Cmd+클릭으로 찾은 정의 후보와 사용처 목록을 보여줘요 |
+
+그 밖의 단축키: `Cmd+O` 저장소 열기, `Cmd+R` 새로고침, `Cmd+클릭` 정의로 이동
+
+## ✨ 자주 쓰는 기능
+
+### 💬 인라인 코멘트
+
+- **코멘트 달기**: diff 줄의 `+` 버튼을 눌러 리뷰 코멘트를 남겨요
+- **답글**: AI 에이전트가 API로 남긴 답글은 봇 아바타와 함께 보여요
+- **코멘트 상태**: 사이드바에서 열림, 답글 달림, 해결됨 개수를 보고 눌러서 그 코멘트로 이동해요
+- **Viewed**: 리뷰한 파일에 체크해서 진행 상황을 봐요
+
+### 🤖 AI 리뷰
+
+- **대화 이어가기**: 비교 단위로 질문과 답변을 저장하고 같은 Claude Code 세션을 이어서 써요. 저장소 경로에서 `claude --resume`을 실행하면 이 세션이 목록에 나와요
+- **관련 위치**: 질문할 때 `관련 위치 포함` 체크박스를 켜면 답변에 관련 코드 위치 목록이 함께 와요. 기본으로 꺼져 있어요
+- **대화 삭제**: AI 리뷰 패널의 `대화 삭제` 클릭 후 확인하면 그 비교의 질문과 답변이 모두 삭제되고 다음 질문부터 새 Claude 세션을 써요
+- **대화 목록**: 줄을 클릭하면 그 브랜치 비교나 MR로 이동하고 `AI 리뷰` 탭이 열려요. `삭제` 클릭 후 확인하면 그 대화가 삭제돼요
+- **보존 기간**: 툴바 톱니바퀴 설정의 `AI 대화 보존 기간`(기본 30일)이 지난 대화는 저장소 창을 열 때와 설정을 바꿀 때 삭제돼요. 기간은 마지막 질문 시각부터 세고, 비워 두면 삭제하지 않아요
+
+취소하거나 실패한 질문은 패널에 보이지 않지만 Claude 세션의 맥락에는 남아 있어요.
+
+### ✂️ 선택한 코드로 AI에게 질문
+
+diff에서 코드를 드래그해 선택하면 `AI에게 질문` 버튼이 나와요. 버튼을 누르고 질문을 입력하면 선택한 코드와 줄 위치가 함께 전달되고, 질문 카드에 그 위치와 코드가 표시돼요.
+
+### 🔀 GitLab MR 리뷰
+
+1. 툴바의 `MR` 탭을 클릭해요. 원격 저장소가 GitLab이 아니거나 glab 로그인이 안 되어 있으면 `MR` 버튼이 비활성으로 보이고 마우스를 올리면 이유가 나와요.
+2. MR 선택 드롭다운에서 MR을 고르면 그 MR의 diff가 열려요. `전체 / 열린 MR / 머지된 MR` 버튼과 `내가 올린 MR` 체크박스로 목록을 좁혀요.
+3. diff 줄에 남긴 코멘트와 기존 코멘트의 답글은 GitLab에 초안으로 저장돼요. 툴바의 `코멘트 등록` 클릭 시 초안이 모두 공개돼요.
+
+### 🖥 MR 코드 로컬에서 실행하기
+
+MR 모드 툴바의 MR 제목 옆 버튼으로 MR 코드를 리뷰용 worktree에 체크아웃하고 터미널을 열어요.
+
+1. `체크아웃` 클릭 시 MR 소스 브랜치의 최신 커밋이 `~/Library/Application Support/reviewHelper/worktrees/<저장소명>-<해시>` 폴더에 detached HEAD로 체크아웃돼요. 원본 저장소의 브랜치와 작업 중인 파일은 바뀌지 않아요.
+2. 원본 저장소의 gitignore된 `.env*` 파일 중 worktree에 없는 파일이 복사돼요. worktree에서 수정한 env 파일은 덮어쓰지 않아요.
+3. `터미널에서 열기` 클릭 시 설정한 터미널 앱이 worktree 폴더에서 열려요. 터미널에서 `pnpm install`, `pnpm dev`를 직접 실행해요.
+4. 다른 MR에서 `체크아웃`을 누르면 같은 폴더에서 커밋만 바뀌어요. `node_modules`는 그대로 남고 실행 중인 개발서버에 변경이 반영돼요.
+5. worktree에서 git에 등록된 파일을 수정한 상태로 체크아웃하면 변경된 파일 목록이 나와요. `변경사항을 버리고 체크아웃` 클릭 시 수정 내용을 버리고 체크아웃해요.
+6. `worktree 삭제` 클릭 후 `삭제`를 누르면 worktree 폴더가 삭제돼요. 이 폴더에서 실행 중인 개발서버를 먼저 종료해 주세요.
+
+### 🔗 코드 하이퍼링크
+
+diff 코드에서 Cmd를 누른 채 import 경로나 이름을 클릭하면 정의 위치로 이동해요. `.ts .tsx .js .jsx .mjs .cjs .vue` 파일이 대상이에요.
+
+- **정의로 이동**: 정의 파일이 diff에 있으면 그 파일 카드의 해당 줄로 스크롤해요. 없으면 가운데 창에서 파일 내용을 열어요. 창 안에서도 Cmd+클릭으로 계속 이동하고 `뒤로`로 돌아가요
+- **정의 후보**: 같은 이름의 선언이 여러 곳이면 `코드 탐색` 탭에 후보 목록이 나와요
+- **사용처**: 선언한 이름을 Cmd+클릭하면 `코드 탐색` 탭에 사용처 목록이 나와요. 다른 파일은 이 정의 파일을 import한 경우만 사용처로 봐요. 정의 파일과 import한 파일 안에서는 이름이 같은 지역 변수, 주석과 문자열 안의 같은 단어도 사용처로 나와요
+- **import 하는 곳**: diff 카드나 가운데 창 헤더의 파일 경로를 Cmd+클릭하면 그 파일을 import하는 곳이 나와요
+- 목록 항목을 클릭하면 그 줄로 이동하고 목록은 그대로 남아요. 최대 200곳까지 보여줘요
+- 브랜치 비교와 MR에서는 소스 커밋(삭제 줄은 기준 커밋)의 코드에서 찾아요
+- `obj.method`의 `method`처럼 `.` 뒤의 이름은 이동하지 않아요
+
+### ⚙️ 설정과 기타
+
+- **설정**: 툴바 톱니바퀴에서 줄 바꿈, `Default tab size`, `Terminal`, `AI 대화 보존 기간`을 바꿔요. `Terminal` input에는 `/Applications`의 앱 이름(`iTerm`, `Warp`, `Ghostty`)을 입력하고, 비워 두면 `Terminal`을 써요
+- **EditorConfig**: 저장소의 `.editorconfig`에 맞춰 파일마다 탭 크기를 정해요
+- **이미지 비교**: 추가, 수정, 삭제된 이미지를 나란히 비교해요
+- **자동 업데이트**: 앱 실행 시, 창을 다시 열 때, 6시간마다 GitHub Release의 최신 버전을 확인해요. 앱 메뉴의 `업데이트 확인...`으로 바로 확인할 수도 있어요
+  1. 새 버전이 있으면 현재 버전과 Release 노트가 담긴 대화상자가 열려요.
+  2. `지금 업데이트` 클릭 시 zip을 내려받고, 내려받는 동안 Dock 아이콘에 진행률 막대가 표시돼요.
+  3. 다 받으면 앱이 종료되고 기존 `reviewHelper.app`이 새 버전으로 교체된 뒤 다시 실행돼요. `나중에`를 누르면 다음 확인 때 다시 물어봐요.
+
+## 💬 자주 묻는 질문
+
+| 궁금한 점 | 답 |
+|---|---|
+| `MR` 버튼이 비활성으로 보여요 | 원격 저장소가 GitLab인지, `glab auth login`으로 로그인했는지 확인해 주세요. 버튼에 마우스를 올리면 이유가 나와요. |
+| 브랜치 비교에서 남긴 코멘트도 GitLab에 올라가나요? | 올라가지 않아요. GitLab에는 `MR` 탭에서 남긴 코멘트만 초안으로 저장되고 `코멘트 등록`을 눌러야 공개돼요. |
+| 체크아웃하면 지금 작업 중인 브랜치가 바뀌나요? | 바뀌지 않아요. MR 코드는 앱 데이터 폴더의 별도 worktree에 체크아웃돼요. |
+| 업데이트하면 설정과 AI 대화가 사라지나요? | 사라지지 않아요. 설정과 AI 리뷰 기록은 `~/Library/Application Support/reviewHelper`에 있어서 업데이트 후에도 남아요. |
+| 업데이트가 설치되지 않아요 | 브라우저로 받은 zip을 풀고 앱을 옮기지 않은 채 실행하면 macOS가 읽기 전용 임시 경로에서 실행해서 교체할 수 없어요. 앱을 `/Applications`로 옮긴 뒤 다시 실행해 주세요. |
+| 1.0.0에서는 업데이트 알림이 안 와요 | 1.0.0에는 업데이트 기능이 없어요. 최신 버전 zip으로 한 번 직접 설치해 주세요. |
+
+## 🛠 개발자용
+
+직접 고쳐 보고 싶다면 소스를 받아서 실행할 수 있어요.
+
+| 명령 | 용도 |
+|---|---|
+| `pnpm run dev:app` | UI와 Electron 코드를 빌드하고 데스크톱 앱을 띄워요. 코드를 고치면 앱을 다시 실행해야 반영돼요 |
+| `pnpm run dev:server` | 현재 폴더의 저장소로 3433 포트에 개발용 서버를 띄워요. 브라우저는 열지 않아요 |
+| `pnpm run dev:client` | vite 개발 서버를 띄워요. `/api` 요청을 `dev:server`로 넘기고, UI 코드를 저장하면 브라우저에 바로 반영돼요 |
+| `pnpm run build:app` | 배포용 `.app`과 zip을 만들어요 |
+| `pnpm test` | 테스트를 실행해요 |
+
+UI를 고칠 때는 터미널 두 개에서 `dev:server`와 `dev:client`를 함께 띄우고 vite가 출력한 주소를 브라우저로 열어요.
+
+`pnpm run build:app`을 실행하면 `release/reviewHelper-<버전>.zip`이 만들어져요. 버전은 `package.json`의 `version` 값을 써요.
+
+<details>
+<summary>릴리스하기</summary>
+
+1. gh를 설치하고 GitHub에 로그인해요. 처음 한 번만 하면 돼요.
    ```bash
    brew install gh
    gh auth login
    ```
-2. `main` 브랜치에서 커밋하지 않은 변경이 없는 상태로 실행한다.
+2. `main` 브랜치에서 커밋하지 않은 변경이 없는 상태로 실행해요.
    ```bash
    pnpm run release patch   # 또는 minor, major
    ```
-3. 스크립트가 아래 순서로 실행한다.
-   - `package.json` 버전을 올리고 `chore: v1.0.1 버전업` 커밋과 `v1.0.1` 태그를 만든다.
-   - 테스트와 `build:app`을 실행한다. 실패하면 버전업 커밋과 태그를 되돌린다.
-   - 커밋과 태그를 push한다.
-   - 이전 태그 이후의 커밋 제목으로 Release 노트를 만들고 `v1.0.1` Release에 `reviewHelper-1.0.1.zip`을 올린다.
-   - Release를 올리고 나면 빌드 결과물이 있는 `release/` 폴더를 지운다. Release를 올리지 못하면 다시 올릴 수 있게 남겨 둔다.
+3. 스크립트가 아래 순서로 실행돼요.
+   - `package.json` 버전을 올리고 `chore: v1.0.1 버전업` 커밋과 `v1.0.1` 태그를 만들어요.
+   - 테스트와 `build:app`을 실행해요. 실패하면 버전업 커밋과 태그를 되돌려요.
+   - 커밋과 태그를 push해요.
+   - 이전 태그 이후의 커밋 제목으로 Release 노트를 만들고 `v1.0.1` Release에 `reviewHelper-1.0.1.zip`을 올려요.
+   - Release를 올리고 나면 빌드 결과물이 있는 `release/` 폴더를 지워요. Release를 올리지 못하면 다시 올릴 수 있게 남겨 둬요.
 
-## 개발
+</details>
 
-| 명령 | 용도 |
-|---|---|
-| `pnpm run dev:app` | UI와 Electron 코드를 빌드하고 데스크톱 앱을 띄운다. 코드를 고치면 앱을 다시 실행해야 반영된다 |
-| `pnpm run dev:server` | 현재 폴더의 저장소로 3433 포트에 개발용 서버를 띄운다. 브라우저는 열지 않는다 |
-| `pnpm run dev:client` | vite 개발 서버를 띄운다. `/api` 요청을 `dev:server`로 넘기며, UI 코드를 저장하면 브라우저에 바로 반영된다 |
-| `pnpm run build:app` | 배포용 `.app`과 zip을 만든다 |
-| `pnpm test` | 테스트를 실행한다 |
+## 📝 변경 이력
 
-UI를 고칠 때는 터미널 두 개에서 `dev:server`와 `dev:client`를 함께 띄우고 vite가 출력한 주소를 브라우저로 연다.
+| 버전 | 날짜 | 바뀐 점 |
+|---|---|---|
+| 1.5.3 | 2026-10-07 | AI 질문의 `관련 위치 포함` 체크박스를 기본으로 꺼요 |
+| 1.5.2 | 2026-10-07 | 코드 선택 후 스크롤해도 `AI에게 질문` 버튼이 사라지지 않고 선택한 코드를 따라 움직여요 |
 
-## Features
+<details>
+<summary>이전 버전 보기 (1.5.1, 1.5.0, 1.4.1, 1.4.0, 1.3.0, 1.2.0, 1.1.1, 1.1.0)</summary>
 
-- **Split / Unified view** — Toggle between side-by-side and inline diff
-- **Syntax highlighting** — Powered by Shiki with GitHub themes
-- **File tree** — Hierarchical file browser with search filter and file change-type icons
-- **Inline comments** — Click the `+` button on any line to add a review comment
-- **Comment replies** — AI agents can reply to comments via API, displayed with bot avatar in the UI
-- **Comment status tracker** — Sidebar widget showing open, replied, and resolved comment counts with click-to-navigate links
-- **Image preview** — Side-by-side comparison for added, modified, and deleted images
-- **Viewed tracking** — Mark files as reviewed to track progress
-- **EditorConfig support** — Respects `.editorconfig` for per-file tab size
-- **Persistent settings** — Your preferences are saved across sessions
+| 버전 | 날짜 | 바뀐 점 |
+|---|---|---|
+| 1.5.1 | 2026-10-07 | 창을 다시 열 때와 6시간마다 업데이트를 자동으로 확인 |
+| 1.5.0 | 2026-10-07 | <ul><li>사이드바에 저장소 전체 파일을 탐색하는 `전체 파일` 탭</li><li>AI 질문 답변에 관련 위치 목록을 받을지 고르는 체크박스</li><li>비교 방식 탭에서 MR을 앞에 두고 저장된 비교가 없으면 MR로 시작</li><li>버그 수정: AI 리뷰가 체크아웃되지 않은 코드를 읽을 때 권한이 거부되던 문제</li></ul> |
+| 1.4.1 | 2026-10-02 | MR 리뷰 제출 버튼 이름을 `코멘트 등록`으로 변경 |
+| 1.4.0 | 2026-10-02 | <ul><li>diff에서 코드를 선택해 AI에게 질문하고 질문 카드에 위치와 코드 표시</li><li>코드 하이퍼링크 처리를 비동기로 바꿔 처리 중 앱이 멈추지 않도록 개선</li><li>버그 수정: 서브모듈 경로를 존재하는 파일로 판정하던 문제</li></ul> |
+| 1.3.0 | 2026-10-01 | <ul><li>`대화 목록` 탭과 대화 삭제 버튼</li><li>`AI 대화 보존 기간` 설정</li><li>버그 수정: 대화 정리 실패가 저장소 창 열기를 막던 문제</li></ul> |
+| 1.2.0 | 2026-10-01 | 사이드바 검색줄에서 파일 종류별 리뷰 제외와 Viewed 일괄 처리 |
+| 1.1.1 | 2026-09-30 | 교체 스크립트를 실행하지 못하면 앱이 종료되지 않고 설치 실패를 안내 |
+| 1.1.0 | 2026-09-30 | <ul><li>실행 시와 앱 메뉴에서 업데이트를 확인하고 설치하는 자동 업데이트</li><li>AI 리뷰 패널을 질문과 답변 대화 화면으로 바꾸고 Claude 세션 이어가기, 답변을 markdown과 코드 하이라이팅으로 표시</li><li>오른쪽 패널을 `AI 리뷰`와 `코드 탐색` 탭으로 나누고 정의 후보와 사용처, 파일을 import하는 곳 보기</li><li>MR 코드를 리뷰용 worktree에 체크아웃, 터미널 열기, worktree 삭제</li><li>설정과 AI 리뷰 기록, worktree를 앱 데이터 폴더에 저장</li></ul> |
+
+</details>
 
 ## License
 
-MIT
+MIT. [wong2/diffx](https://github.com/wong2/diffx)를 포크해서 만들었어요.
