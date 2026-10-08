@@ -10,7 +10,7 @@
 > - Claude Code와 대화하며 AI 리뷰를 받고, 선택한 코드로 바로 질문해요
 > - MR 코드를 리뷰용 worktree에 체크아웃해서 로컬에서 실행해요
 >
-> **[📦 reviewHelper 내려받기 (GitHub Releases)](https://github.com/BoubleJ/diffx/releases/latest)**
+> **[📦 reviewHelper 내려받기 (GitHub Releases)](https://github.com/BoubleJ/reviewhelper/releases/latest)**
 
 ## 🚀 시작하기
 

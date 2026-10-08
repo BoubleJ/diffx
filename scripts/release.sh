@@ -44,9 +44,9 @@ fi
 git push origin main --follow-tags
 
 zip="release/reviewHelper-$version.zip"
-if ! gh release create "$tag" "$zip" --repo BoubleJ/diffx --title "$tag" --notes "$notes"; then
+if ! gh release create "$tag" "$zip" --repo BoubleJ/reviewhelper --title "$tag" --notes "$notes"; then
   echo "Release를 만들지 못했습니다. 아래 명령으로 다시 실행해 주세요" >&2
-  printf 'gh release create %q %q --repo BoubleJ/diffx --title %q --notes %q\n' "$tag" "$zip" "$tag" "$notes" >&2
+  printf 'gh release create %q %q --repo BoubleJ/reviewhelper --title %q --notes %q\n' "$tag" "$zip" "$tag" "$notes" >&2
   exit 1
 fi
 

@@ -6,7 +6,7 @@ const respond = (body: unknown, status = 200) =>
 
 const zipAsset = (version: string) => ({
   name: `reviewHelper-${version}.zip`,
-  browser_download_url: `https://github.com/BoubleJ/diffx/releases/download/v${version}/reviewHelper-${version}.zip`,
+  browser_download_url: `https://github.com/BoubleJ/reviewhelper/releases/download/v${version}/reviewHelper-${version}.zip`,
 })
 
 describe('fetchLatestRelease', () => {

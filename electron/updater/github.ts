@@ -1,6 +1,6 @@
 import { parseVersion } from './version.js'
 
-export const LATEST_RELEASE_URL = 'https://api.github.com/repos/BoubleJ/diffx/releases/latest'
+export const LATEST_RELEASE_URL = 'https://api.github.com/repos/BoubleJ/reviewhelper/releases/latest'
 const NOTES_LIMIT = 1500
 
 export type LatestRelease =
