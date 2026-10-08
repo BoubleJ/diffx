@@ -12,6 +12,8 @@
 >
 > **[📦 reviewHelper 내려받기 (GitHub Releases)](https://github.com/BoubleJ/reviewhelper/releases/latest)**
 
+![MR diff 리뷰 화면](docs/images/main.png)
+
 ## 🚀 시작하기
 
 ### 1️⃣ 설치하기
@@ -42,12 +44,14 @@ MR 리뷰를 하려면 glab을 설치하고 사내 GitLab에 로그인해요. �
 
 ```bash
 brew install glab
-glab auth login --hostname gitlab.example.com
+glab auth login --hostname <사내 GitLab 주소>
 ```
 
 ### 4️⃣ 저장소 열기
 
 앱을 실행하면 저장소 선택 창이 열려요. `폴더 열기`로 git 저장소를 고르거나 최근 저장소를 눌러요.
+
+<img src="docs/images/start.png" alt="저장소 선택 창" width="400">
 
 - 저장소마다 창이 따로 열려요. `파일 > 저장소 열기`(`Cmd+O`)로 다른 저장소를 열어요.
 - Finder에서 저장소 폴더를 Dock의 reviewHelper 아이콘으로 끌어다 놓아도 열려요.
